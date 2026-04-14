@@ -1,0 +1,150 @@
+import images from '@src/utils/images'
+
+export const newArrivalBigData = [
+  {
+    id: 0,
+    img: images.productImageOne,
+    title: 'transData.oneHeadset',
+    subtitle: 'transData.theBestProduct',
+    price: 250,
+    rating: 4.3,
+    underlinePrice: '450',
+  },
+  {
+    id: 1,
+    img: images.productImageTwo,
+    title: 'transData.smartWatch',
+    subtitle: 'transData.theUltimateWatch',
+    price: 320,
+    rating: 1.2,
+  },
+  {
+    id: 2,
+    img: images.productImageOne,
+    title: 'transData.oneHeadset',
+    subtitle: 'transData.theBestProduct',
+    price: 250,
+    rating: 1.2,
+    underlinePrice: '450',
+  },
+]
+export const justWatchedData = [
+  {
+    id: 0,
+    img: images.iphone,
+    title: 'transData.iphone',
+    subtitle: 'transData.theBestPhone',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 1,
+    img: images.macBook,
+    title: 'transData.macbook',
+    subtitle: 'transData.amazingSmartLaptop',
+    price: 320,
+    rating: 1.2,
+  },
+  {
+    id: 2,
+    img: images.iphone,
+    title: 'transData.oneHeadset',
+    subtitle: 'transData.theBestProduct',
+    price: 250,
+    rating: 1.2,
+  },
+]
+export const topRatingData = [
+  {
+    id: 0,
+    img: images.redmeBuds,
+    title: 'transData.sonyWF',
+    subtitle: 'transData.wirelessAirpods',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 1,
+    img: images.productImageThree,
+    title: 'transData.iphone',
+    subtitle: 'transData.theBestPhone',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 2,
+    img: images.macBook,
+    title: 'transData.macbook',
+    subtitle: 'transData.amazingSmartLaptop',
+    price: 320,
+    rating: 1.2,
+  },
+]
+export const categoryDetailData = [
+  {
+    id: 0,
+    img: images.redmeBuds,
+    title: 'transData.sonyWF',
+    subtitle: 'transData.wirelessAirpods',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 1,
+    img: images.productImageThree,
+    title: 'transData.iphone',
+    subtitle: 'transData.theBestPhone',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 2,
+    img: images.macBook,
+    title: 'transData.macbook',
+    subtitle: 'transData.amazingSmartLaptop',
+    price: 320,
+    rating: 1.2,
+  },
+  {
+    id: 3,
+    img: images.productImageOne,
+    title: 'transData.oneHeadset',
+    subtitle: 'transData.theBestProduct',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 1,
+    img: images.productImageTwo,
+    title: 'transData.smartWatch',
+    subtitle: 'transData.theUltimateWatch',
+    price: 320,
+    rating: 1.2,
+  },
+  {
+    id: 2,
+    img: images.productImageOne,
+    title: 'transData.oneHeadset',
+    subtitle: 'transData.theBestProduct',
+    price: 250,
+    rating: 1.2,
+  },
+]
+export const addtoCartTwoData = [
+  {
+    id: 0,
+    img: images.redmeBuds,
+    title: 'transData.sonyWF',
+    subtitle: 'transData.wirelessAirpods',
+    price: 250,
+    rating: 4.3,
+  },
+  {
+    id: 1,
+    img: images.productImageThree,
+    title: 'transData.iphone',
+    subtitle: 'transData.theBestPhone',
+    price: 250,
+    rating: 4.3,
+  },
+]

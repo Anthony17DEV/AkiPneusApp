@@ -1,0 +1,5 @@
+export * from '@src/data/homeScreen/carouselData'
+export * from '@src/data/homeScreen/dealData'
+export * from '@src/data/homeScreen/newArrivalData'
+export * from '@src/data/homeScreen/topBrandData'
+export * from '@src/data/homeScreen/whatsTrendingData'

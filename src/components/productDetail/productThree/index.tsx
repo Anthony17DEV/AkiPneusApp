@@ -1,0 +1,6 @@
+export * from './deliveryContaier'
+export * from './detailContainer'
+export * from './detailText'
+export * from './keyContainer'
+export * from './reviewScreen'
+export * from './sliderCarousel'
