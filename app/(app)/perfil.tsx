@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+﻿import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
@@ -21,7 +21,7 @@ import { apiService } from '../../src/services/apiService';
 
 export default function PerfilScreen() {
 	const { user, signOut, updateUser } = useAuth();
-	const URL_FOTOS = 'https://sistemascactus.com/apicactus/crm_distribuidora/fotos/';
+	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus_api/fotos/';
 
 	const [isUploading, setIsUploading] = useState(false);
 
@@ -63,18 +63,15 @@ export default function PerfilScreen() {
 	const enviarFotoParaServidor = async (base64Image: string) => {
 		setIsUploading(true);
 		try {
-			const response = await apiService.api.post('api_perfil_foto.php', {
-				user_id: user?.id,
-				foto_base64: base64Image
-			});
+			const res = await apiService.atualizarFoto(user?.id, base64Image);
 
-			if (response.data && response.data.success) {
+			if (res && res.success) {
 				if (updateUser) {
-					updateUser({ foto: response.data.foto_nome });
+					updateUser({ foto: res.foto_nome });
 				}
 				Alert.alert('Sucesso', 'Foto atualizada com sucesso!');
 			} else {
-				Alert.alert('Erro', response.data?.message || 'Falha ao salvar a foto.');
+				Alert.alert('Erro', res?.message || 'Falha ao salvar a foto.');
 			}
 		} catch (error) {
 			Alert.alert('Erro', 'Erro de conexão ao enviar a foto.');
@@ -91,17 +88,14 @@ export default function PerfilScreen() {
 
 		setIsSalvandoSenha(true);
 		try {
-			const response = await apiService.api.post('api_perfil_senha.php', {
-				user_id: user?.id,
-				nova_senha: novaSenha
-			});
+			const res = await apiService.alterarSenha(user?.id, novaSenha);
 
-			if (response.data && response.data.success) {
+			if (res && res.success) {
 				Alert.alert('Sucesso', 'Sua senha foi alterada com sucesso!');
 				setModalSenhaVisible(false);
 				setNovaSenha('');
 			} else {
-				Alert.alert('Erro', response.data?.message || 'Falha ao alterar a senha.');
+				Alert.alert('Erro', res?.message || 'Falha ao alterar a senha.');
 			}
 		} catch (error) {
 			Alert.alert('Erro', 'Erro de conexão ao alterar a senha.');

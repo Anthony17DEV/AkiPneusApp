@@ -9,7 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 function CustomDrawerContent(props: DrawerContentComponentProps) {
 	const { user, signOut } = useAuth();
 
-	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Usu�rio';
+	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Usuário';
 
 	const URL_FOTOS = 'https://sistemascactus.com/grupofan/crm_distribuidora/galeria/imagem/';
 
@@ -71,11 +71,11 @@ export default function AppLayout() {
 				}}
 			/>
 			<Drawer.Screen
-				name="agenda"
+				name="checklist"
 				options={{
-					drawerLabel: 'Agenda',
-					title: 'Agenda',
-					drawerIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} />,
+					drawerLabel: 'Checklist de Pneus',
+					title: 'Inspeção Veicular',
+					drawerIcon: ({ color, size }) => <Feather name="check-square" size={size} color={color} />,
 				}}
 			/>
 			<Drawer.Screen

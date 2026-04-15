@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+﻿import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
@@ -21,12 +21,6 @@ interface Cliente {
 	situacao: string;
 }
 
-interface Combustivel {
-	id: number;
-	tipo: string;
-	volume: string;
-}
-
 export default function ClientesScreen() {
 	const { user } = useAuth();
 
@@ -46,17 +40,11 @@ export default function ClientesScreen() {
 	const [idEditando, setIdEditando] = useState<number | null>(null);
 
 	const [fotos, setFotos] = useState<string[]>([]);
-	const [formLead, setFormLead] = useState({
+
+	const [formCliente, setFormCliente] = useState({
 		cnpj: '', identificacao: '', cidade: '', contato: '',
 		fone1: '', fone2: '', email: '', tipoCliente: '', situacao: ''
 	});
-	const [listaCombustiveis, setListaCombustiveis] = useState<Combustivel[]>([
-		{ id: Date.now(), tipo: '', volume: '' }
-	]);
-
-	const [modalAtendimentoVisible, setModalAtendimentoVisible] = useState(false);
-	const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
-	const [formAtendimento, setFormAtendimento] = useState({ tipoVisita: '', descricao: '' });
 
 	const carregarClientes = async (pageToLoad = 1) => {
 		if (pageToLoad === 1) setIsLoading(true);
@@ -96,9 +84,8 @@ export default function ClientesScreen() {
 	};
 
 	const resetForm = () => {
-		setFormLead({ cnpj: '', identificacao: '', cidade: '', contato: '', fone1: '', fone2: '', email: '', tipoCliente: '', situacao: '' });
+		setFormCliente({ cnpj: '', identificacao: '', cidade: '', contato: '', fone1: '', fone2: '', email: '', tipoCliente: '', situacao: '' });
 		setFotos([]);
-		setListaCombustiveis([{ id: Date.now(), tipo: '', volume: '' }]);
 		setIsEditing(false);
 		setIdEditando(null);
 	};
@@ -115,7 +102,7 @@ export default function ClientesScreen() {
 
 		if (res && res.success) {
 			const dados = res.data;
-			setFormLead({
+			setFormCliente({
 				cnpj: dados.cnpj || '',
 				identificacao: dados.identificacao || '',
 				cidade: dados.cidade || '',
@@ -127,12 +114,6 @@ export default function ClientesScreen() {
 				situacao: dados.situacao || ''
 			});
 
-			if (dados.combustiveis && dados.combustiveis.length > 0) {
-				setListaCombustiveis(dados.combustiveis);
-			} else {
-				setListaCombustiveis([{ id: Date.now(), tipo: '', volume: '' }]);
-			}
-
 			setFotos([]);
 			setIsEditing(true);
 			setIdEditando(cliente.id);
@@ -140,16 +121,6 @@ export default function ClientesScreen() {
 		} else {
 			Alert.alert('Erro', res?.message || 'Não foi possível carregar os detalhes do cliente.');
 		}
-	};
-
-	const adicionarLinhaCombustivel = () => setListaCombustiveis([...listaCombustiveis, { id: Date.now(), tipo: '', volume: '' }]);
-
-	const removerLinhaCombustivel = (id: number) => {
-		if (listaCombustiveis.length > 1) setListaCombustiveis(listaCombustiveis.filter(item => item.id !== id));
-	};
-
-	const atualizarCombustivel = (id: number, campo: keyof Combustivel, valor: string) => {
-		setListaCombustiveis(listaCombustiveis.map(item => item.id === id ? { ...item, [campo]: valor } : item));
 	};
 
 	const abrirCamera = async () => {
@@ -173,13 +144,13 @@ export default function ClientesScreen() {
 
 	const removerFoto = (uriRemover: string) => setFotos(fotos.filter(uri => uri !== uriRemover));
 
-	const handleSalvarLead = async () => {
-		if (!formLead.cnpj || !formLead.identificacao) {
+	const handleSalvarCliente = async () => {
+		if (!formCliente.cnpj || !formCliente.identificacao) {
 			Alert.alert('Atenção', 'Preencha pelo menos o CNPJ e a Identificação.');
 			return;
 		}
 
-		const dadosFinais: any = { ...formLead, combustiveis: listaCombustiveis, fotos };
+		const dadosFinais: any = { ...formCliente, fotos };
 
 		try {
 			let response;
@@ -191,7 +162,7 @@ export default function ClientesScreen() {
 			}
 
 			if (response && response.success) {
-				Alert.alert('Sucesso', isEditing ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado como LEAD no funil.');
+				Alert.alert('Sucesso', isEditing ? 'Cliente atualizado com sucesso!' : 'Novo cliente cadastrado com sucesso.');
 				setModalInserirVisible(false);
 				resetForm();
 				carregarClientes(1);
@@ -204,44 +175,10 @@ export default function ClientesScreen() {
 		}
 	};
 
-	const handleAbrirAtendimento = (cliente: Cliente) => {
-		setClienteSelecionado(cliente);
-		setFormAtendimento({ tipoVisita: '', descricao: '' });
-		setModalAtendimentoVisible(true);
-	};
-
-	const handleSalvarAtendimento = async () => {
-		if (!formAtendimento.descricao) {
-			Alert.alert('Atenção', 'Por favor, digite a descrição do atendimento.');
-			return;
-		}
-
-		const payload = {
-			cliente_id: clienteSelecionado?.id,
-			user_id: user?.id,
-			tipoVisita: formAtendimento.tipoVisita,
-			descricao: formAtendimento.descricao
-		};
-
-		const response = await apiService.cadastrarAtendimento(payload);
-		if (response && response.success) {
-			Alert.alert('Sucesso', 'Atendimento registado com sucesso no histórico do cliente!');
-			setModalAtendimentoVisible(false);
-		} else {
-			Alert.alert('Atenção', response?.message || 'Erro ao gravar atendimento.');
-		}
-	};
-
 	const getBadgeStyle = (situacao: string) => {
-		switch (situacao) {
-			case 'LEAD': return { bg: '#0d6efd', text: '#ffffff' };
-			case 'DOCUMENTAÇÃO': return { bg: '#f3e5f5', text: '#4a148c' };
-			case 'CADASTRO': return { bg: '#fff3e0', text: '#e65100' };
-			case 'FINANCEIRO/JURÍDICO': return { bg: '#ffebee', text: '#b71c1c' };
-			case 'VALIDAÇÃO': return { bg: '#e0f2f1', text: '#004d40' };
-			case 'APROVAÇÃO': return { bg: '#fffde7', text: '#f57f17' };
-			case 'CONTRATO': return { bg: '#e8eaf6', text: '#1a237e' };
-			case 'RELACIONAMENTO': return { bg: '#e6f4ea', text: '#28a745' };
+		switch (situacao?.toUpperCase()) {
+			case 'ATIVO': return { bg: '#e6f4ea', text: '#28a745' };
+			case 'INATIVO': return { bg: '#ffebee', text: '#b71c1c' };
 			default: return { bg: '#f4f6f8', text: '#666' };
 		}
 	};
@@ -251,9 +188,9 @@ export default function ClientesScreen() {
 		return (
 			<View style={styles.card}>
 				<View style={styles.cardHeader}>
-					<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo} - {item.nome}</Text>
+					<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo || item.id} - {item.nome}</Text>
 					<View style={[styles.statusBadge, { backgroundColor: badgeInfo.bg }]}>
-						<Text style={[styles.statusText, { color: badgeInfo.text }]}>{item.situacao}</Text>
+						<Text style={[styles.statusText, { color: badgeInfo.text }]}>{item.situacao || 'N/A'}</Text>
 					</View>
 				</View>
 
@@ -264,19 +201,14 @@ export default function ClientesScreen() {
 					</View>
 					<View style={styles.cardInfoRow}>
 						<Feather name="briefcase" size={14} color="#666" />
-						<Text style={styles.cardInfoText}>{item.assessor}</Text>
+						<Text style={styles.cardInfoText}>{item.assessor || 'Sem Assessor'}</Text>
 					</View>
 				</View>
 
 				<View style={styles.cardActions}>
 					<TouchableOpacity style={styles.actionBtn} onPress={() => handleActionModificar(item)}>
 						<Feather name="edit" size={18} color="#555" />
-						<Text style={styles.actionBtnText}>Modificar</Text>
-					</TouchableOpacity>
-					<View style={styles.dividerVertical} />
-					<TouchableOpacity style={styles.actionBtn} onPress={() => handleAbrirAtendimento(item)}>
-						<Feather name="check-square" size={18} color="#ED1C24" />
-						<Text style={[styles.actionBtnText, { color: '#ED1C24' }]}>Atendimento</Text>
+						<Text style={styles.actionBtnText}>Modificar Dados do Cliente</Text>
 					</TouchableOpacity>
 				</View>
 			</View>
@@ -373,7 +305,7 @@ export default function ClientesScreen() {
 						<TouchableOpacity onPress={() => setModalInserirVisible(false)} style={{ padding: 5 }}>
 							<Feather name="arrow-left" size={24} color="#333" />
 						</TouchableOpacity>
-						<Text style={styles.modalTitle}>{isEditing ? 'Editar Cliente' : 'Cadastro de Lead'}</Text>
+						<Text style={styles.modalTitle}>{isEditing ? 'Editar Cliente' : 'Novo Cliente'}</Text>
 						<View style={{ width: 24 }} />
 					</View>
 
@@ -384,21 +316,21 @@ export default function ClientesScreen() {
 							<Text style={styles.label}>CNPJ</Text>
 							<MaskedTextInput
 								mask="99.999.999/9999-99" style={styles.input} placeholder="00.000.000/0000-00" keyboardType="numeric"
-								value={formLead.cnpj} onChangeText={(t, raw) => setFormLead({ ...formLead, cnpj: raw })}
+								value={formCliente.cnpj} onChangeText={(t, raw) => setFormCliente({ ...formCliente, cnpj: raw })}
 							/>
 						</View>
 						<View style={styles.inputGroup}>
-							<Text style={styles.label}>Identificação (Razão/Fantasia)</Text>
+							<Text style={styles.label}>Razão Social / Nome Fantasia</Text>
 							<TextInput
-								style={styles.input} placeholder="Nome do posto ou empresa"
-								value={formLead.identificacao} onChangeText={(t) => setFormLead({ ...formLead, identificacao: t })}
+								style={styles.input} placeholder="Nome da Transportadora ou Cliente"
+								value={formCliente.identificacao} onChangeText={(t) => setFormCliente({ ...formCliente, identificacao: t })}
 							/>
 						</View>
 						<View style={styles.inputGroup}>
 							<Text style={styles.label}>Cidade</Text>
 							<TextInput
 								style={styles.input} placeholder="Ex: Mossoró - RN"
-								value={formLead.cidade} onChangeText={(t) => setFormLead({ ...formLead, cidade: t })}
+								value={formCliente.cidade} onChangeText={(t) => setFormCliente({ ...formCliente, cidade: t })}
 							/>
 						</View>
 
@@ -407,7 +339,7 @@ export default function ClientesScreen() {
 							<Text style={styles.label}>Pessoa de Contato</Text>
 							<TextInput
 								style={styles.input} placeholder="Nome do gerente/dono"
-								value={formLead.contato} onChangeText={(t) => setFormLead({ ...formLead, contato: t })}
+								value={formCliente.contato} onChangeText={(t) => setFormCliente({ ...formCliente, contato: t })}
 							/>
 						</View>
 						<View style={styles.row}>
@@ -415,14 +347,14 @@ export default function ClientesScreen() {
 								<Text style={styles.label}>Telefone 1</Text>
 								<MaskedTextInput
 									mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad"
-									value={formLead.fone1} onChangeText={(text, raw) => setFormLead({ ...formLead, fone1: raw })}
+									value={formCliente.fone1} onChangeText={(text, raw) => setFormCliente({ ...formCliente, fone1: raw })}
 								/>
 							</View>
 							<View style={styles.inputGroupH}>
 								<Text style={styles.label}>Telefone 2</Text>
 								<MaskedTextInput
 									mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad"
-									value={formLead.fone2} onChangeText={(text, raw) => setFormLead({ ...formLead, fone2: raw })}
+									value={formCliente.fone2} onChangeText={(text, raw) => setFormCliente({ ...formCliente, fone2: raw })}
 								/>
 							</View>
 						</View>
@@ -430,7 +362,7 @@ export default function ClientesScreen() {
 							<Text style={styles.label}>E-mail</Text>
 							<TextInput
 								style={styles.input} placeholder="contato@empresa.com" keyboardType="email-address" autoCapitalize="none"
-								value={formLead.email} onChangeText={(t) => setFormLead({ ...formLead, email: t })}
+								value={formCliente.email} onChangeText={(t) => setFormCliente({ ...formCliente, email: t })}
 							/>
 						</View>
 
@@ -439,12 +371,13 @@ export default function ClientesScreen() {
 							<Text style={styles.label}>Tipo de Cliente</Text>
 							<RNPickerSelect
 								placeholder={{ label: 'Selecione o tipo...', value: '', color: '#999' }}
-								onValueChange={(value) => setFormLead({ ...formLead, tipoCliente: value })}
-								value={formLead.tipoCliente}
+								onValueChange={(value) => setFormCliente({ ...formCliente, tipoCliente: value })}
+								value={formCliente.tipoCliente}
 								items={[
-									{ label: 'REVENDEDOR', value: 'REVENDEDOR' },
-									{ label: 'CONSUMIDOR FINAL', value: 'CONSUMIDOR FINAL' },
-									{ label: 'BANDEIRAMENTO', value: 'BANDEIRAMENTO' },
+									{ label: 'TRANSPORTADORA', value: 'TRANSPORTADORA' },
+									{ label: 'FROTA PRÓPRIA', value: 'FROTA PRÓPRIA' },
+									{ label: 'AUTÔNOMO', value: 'AUTÔNOMO' },
+									{ label: 'BORRACHARIA', value: 'BORRACHARIA' },
 								]}
 								style={pickerSelectStyles}
 								useNativeAndroidPickerStyle={false}
@@ -455,11 +388,11 @@ export default function ClientesScreen() {
 							<Text style={styles.label}>Situação</Text>
 							<RNPickerSelect
 								placeholder={{ label: 'Selecione a situação...', value: '', color: '#999' }}
-								onValueChange={(value) => setFormLead({ ...formLead, situacao: value })}
-								value={formLead.situacao}
+								onValueChange={(value) => setFormCliente({ ...formCliente, situacao: value })}
+								value={formCliente.situacao}
 								items={[
-									{ label: 'POSTO PRÓPRIO', value: 'POSTO PRÓPRIO' },
-									{ label: 'POSTO ARRENDADO', value: 'POSTO ARRENDADO' },
+									{ label: 'ATIVO', value: 'ATIVO' },
+									{ label: 'INATIVO', value: 'INATIVO' },
 								]}
 								style={pickerSelectStyles}
 								useNativeAndroidPickerStyle={false}
@@ -467,51 +400,7 @@ export default function ClientesScreen() {
 							/>
 						</View>
 
-						<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 10 }}>
-							<Text style={[styles.groupTitle, { marginTop: 0, marginBottom: 0 }]}>4. Combustíveis</Text>
-							<TouchableOpacity onPress={adicionarLinhaCombustivel} style={styles.btnAddMini}>
-								<Feather name="plus" size={16} color="#fff" />
-								<Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold', marginLeft: 4 }}>Adicionar</Text>
-							</TouchableOpacity>
-						</View>
-
-						{listaCombustiveis.map((item) => (
-							<View key={item.id} style={styles.rowCombustivel}>
-								<View style={{ flex: 2, marginRight: 10 }}>
-									<Text style={styles.label}>Produto</Text>
-									<RNPickerSelect
-										placeholder={{ label: 'Selecione...', value: '', color: '#999' }}
-										onValueChange={(value) => atualizarCombustivel(item.id, 'tipo', value)}
-										value={item.tipo}
-										items={[
-											{ label: 'Gasolina Comum', value: 'Gasolina Comum' },
-											{ label: 'Gasolina Aditivada', value: 'Gasolina Aditivada' },
-											{ label: 'Óleo Diesel S500', value: 'Óleo Diesel S500' },
-											{ label: 'Óleo Diesel S10', value: 'Óleo Diesel S10' },
-											{ label: 'Etanol Hidratado', value: 'Etanol Hidratado' },
-										]}
-										style={pickerSelectMiniStyles}
-										useNativeAndroidPickerStyle={false}
-										Icon={() => <Feather name="chevron-down" size={16} color="#000" style={{ marginTop: 12, marginRight: 10 }} />}
-									/>
-								</View>
-								<View style={{ flex: 1, marginRight: 10 }}>
-									<Text style={styles.label}>Volume (L)</Text>
-									<TextInput
-										style={[styles.input, { paddingVertical: 10, fontSize: 13, marginBottom: 0 }]}
-										placeholder="0" keyboardType="numeric"
-										value={item.volume} onChangeText={(t) => atualizarCombustivel(item.id, 'volume', t)}
-									/>
-								</View>
-								{listaCombustiveis.length > 1 && (
-									<TouchableOpacity onPress={() => removerLinhaCombustivel(item.id)} style={styles.btnRemoveMini}>
-										<Feather name="trash-2" size={18} color="#ED1C24" />
-									</TouchableOpacity>
-								)}
-							</View>
-						))}
-
-						<Text style={styles.groupTitle}>5. Anexos / Fotos</Text>
+						<Text style={styles.groupTitle}>4. Anexos / Fotos</Text>
 						{isEditing && <Text style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>As fotos antigas já estão salvas no sistema. Tire fotos novas apenas se quiser adicionar mais anexos a este cliente.</Text>}
 
 						{fotos.length > 0 && (
@@ -538,72 +427,14 @@ export default function ClientesScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<TouchableOpacity style={styles.btnSalvar} onPress={handleSalvarLead}>
+						<TouchableOpacity style={styles.btnSalvar} onPress={handleSalvarCliente}>
 							<Feather name="save" size={20} color="#fff" style={{ marginRight: 10 }} />
-							<Text style={styles.btnText}>{isEditing ? 'Salvar Alterações' : 'Cadastrar Cliente (Lead)'}</Text>
+							<Text style={styles.btnText}>{isEditing ? 'Salvar Alterações' : 'Cadastrar Cliente'}</Text>
 						</TouchableOpacity>
 
 						<View style={{ height: 40 }} />
 					</ScrollView>
 				</KeyboardAvoidingView>
-			</Modal>
-
-			<Modal visible={modalAtendimentoVisible} animationType="slide" transparent={true}>
-				<View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' }}>
-
-						<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-							<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Novo Atendimento</Text>
-							<TouchableOpacity onPress={() => setModalAtendimentoVisible(false)}>
-								<Feather name="x" size={24} color="#333" />
-							</TouchableOpacity>
-						</View>
-
-						<Text style={{ color: '#666', marginBottom: 15 }}>
-							Cliente: <Text style={{ fontWeight: 'bold', color: '#333' }}>{clienteSelecionado?.nome}</Text>
-						</Text>
-
-						<ScrollView showsVerticalScrollIndicator={false}>
-							<View style={styles.inputGroup}>
-								<Text style={styles.label}>Tipo de Contato/Visita</Text>
-								<RNPickerSelect
-									placeholder={{ label: 'Selecione o tipo...', value: '', color: '#999' }}
-									onValueChange={(value) => setFormAtendimento({ ...formAtendimento, tipoVisita: value })}
-									value={formAtendimento.tipoVisita}
-									items={[
-										{ label: 'VISITA LOJISTA', value: 'VISITA LOJISTA' },
-										{ label: 'DESLOCAMENTO', value: 'DESLOCAMENTO' },
-										{ label: 'LIGAÇÃO TELEFÔNICA', value: 'LIGAÇÃO TELEFÔNICA' },
-										{ label: 'WHATSAPP', value: 'WHATSAPP' },
-										{ label: 'E-MAIL', value: 'E-MAIL' },
-									]}
-									style={pickerSelectStyles}
-									useNativeAndroidPickerStyle={false}
-									Icon={() => <Feather name="chevron-down" size={20} color="#000" style={{ marginTop: 15, marginRight: 15 }} />}
-								/>
-							</View>
-
-							<View style={styles.inputGroup}>
-								<Text style={styles.label}>Resumo / Observação</Text>
-								<TextInput
-									style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-									placeholder="Digite como foi o atendimento..."
-									multiline={true}
-									numberOfLines={4}
-									value={formAtendimento.descricao}
-									onChangeText={(t) => setFormAtendimento({ ...formAtendimento, descricao: t })}
-								/>
-							</View>
-
-							<TouchableOpacity style={styles.btnSalvar} onPress={handleSalvarAtendimento}>
-								<Feather name="check" size={20} color="#fff" style={{ marginRight: 10 }} />
-								<Text style={styles.btnText}>Gravar Atendimento</Text>
-							</TouchableOpacity>
-							<View style={{ height: 40 }} />
-						</ScrollView>
-
-					</KeyboardAvoidingView>
-				</View>
 			</Modal>
 
 		</View>
@@ -613,11 +444,6 @@ export default function ClientesScreen() {
 const pickerSelectStyles = StyleSheet.create({
 	inputIOS: { fontSize: 14, paddingVertical: 14, paddingHorizontal: 15, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, color: '#000000', paddingRight: 30, backgroundColor: '#f9f9f9', marginBottom: 15 },
 	inputAndroid: { fontSize: 14, paddingHorizontal: 15, paddingVertical: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, color: '#000000', paddingRight: 30, backgroundColor: '#f9f9f9', marginBottom: 15 },
-});
-
-const pickerSelectMiniStyles = StyleSheet.create({
-	inputIOS: { fontSize: 13, paddingVertical: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, color: '#000000', paddingRight: 25, backgroundColor: '#fff' },
-	inputAndroid: { fontSize: 13, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, color: '#000000', paddingRight: 25, backgroundColor: '#fff' },
 });
 
 const styles = StyleSheet.create({
@@ -648,15 +474,10 @@ const styles = StyleSheet.create({
 	cardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa' },
 	actionBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12 },
 	actionBtnText: { fontSize: 13, fontWeight: '600', color: '#555', marginLeft: 6 },
-	dividerVertical: { width: 1, backgroundColor: '#f0f0f0' },
 
 	modalHeaderFull: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', elevation: 2 },
 	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#ED1C24', marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#ffe5e6', paddingBottom: 5 },
-
-	rowCombustivel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f4f6f8', padding: 10, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#eee' },
-	btnAddMini: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#28a745', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-	btnRemoveMini: { padding: 10, marginTop: 10 },
 
 	fotosGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 15 },
 	fotoThumbContainer: { position: 'relative', marginRight: 10, marginBottom: 10 },
@@ -666,7 +487,5 @@ const styles = StyleSheet.create({
 	fotoContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
 	btnFoto: { flex: 1, backgroundColor: '#f0f0f0', borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, marginHorizontal: 5 },
 	btnFotoText: { marginTop: 8, fontSize: 14, color: '#666', fontWeight: '500' },
-	avisoLead: { flexDirection: 'row', backgroundColor: '#e0f7fa', padding: 15, borderRadius: 8, marginBottom: 20, alignItems: 'center' },
-	avisoText: { color: '#006064', fontSize: 13, marginLeft: 10, flex: 1, lineHeight: 18 },
 	btnSalvar: { backgroundColor: '#ED1C24', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
 });
