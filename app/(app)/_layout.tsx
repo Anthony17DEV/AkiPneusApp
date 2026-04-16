@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
 import { Drawer } from 'expo-router/drawer';
 import React from 'react';
@@ -71,14 +71,6 @@ export default function AppLayout() {
 				}}
 			/>
 			<Drawer.Screen
-				name="checklist"
-				options={{
-					drawerLabel: 'Checklist de Pneus',
-					title: 'Inspeção Veicular',
-					drawerIcon: ({ color, size }) => <Feather name="check-square" size={size} color={color} />,
-				}}
-			/>
-			<Drawer.Screen
 				name="clientes"
 				options={{
 					drawerLabel: 'Clientes',
@@ -87,9 +79,25 @@ export default function AppLayout() {
 				}}
 			/>
 			<Drawer.Screen
+				name="veiculos"
+				options={{
+					drawerLabel: 'Veículos',
+					title: 'Gestão de Frotas',
+					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="truck-outline" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="checklist"
+				options={{
+					drawerLabel: 'Checklist',
+					title: 'Inspeção Veicular',
+					drawerIcon: ({ color, size }) => <Feather name="check-square" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
 				name="perfil"
 				options={{
-					drawerLabel: 'Meu Perfil',
+					drawerLabel: 'Perfil',
 					title: 'Perfil',
 					drawerIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
 				}}

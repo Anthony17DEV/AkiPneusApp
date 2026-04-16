@@ -115,5 +115,58 @@ export const apiService = {
 			console.error('Erro ao modificar cliente:', error);
 			return { success: false, message: 'Erro na edição.' };
 		}
+	},
+
+	buscarPneusVeiculo: async (checklistId) => {
+		try {
+			const response = await api.post('api_pneus_buscar.php', { checklist_id: checklistId });
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao buscar pneus:', error);
+			return { success: false, message: 'Erro de conexão.' };
+		}
+	},
+
+	salvarInspecaoPneu: async (dadosPneu) => {
+		try {
+			const response = await api.post('api_pneu_salvar.php', dadosPneu);
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao salvar pneu:', error);
+			return { success: false, message: 'Erro de conexão ao salvar.' };
+		}
+	},
+
+	salvarVeiculo: async (dadosVeiculo) => {
+		try {
+			const response = await api.post('api_veiculo_salvar.php', dadosVeiculo);
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao salvar veículo:', error);
+			return { success: false, message: 'Erro de conexão ao salvar veículo.' };
+		}
+	},
+
+	buscarDinamica: async (tipo, busca, marcaId = null) => {
+		try {
+			const response = await api.post('api_busca_dinamica.php', { tipo, busca, marca_id: marcaId });
+			return parseData(response.data);
+		} catch (error) {
+			return { success: false, data: [] };
+		}
+	},
+
+	listarChecklists: async (veiculoId) => {
+		try {
+			const response = await api.post('api_checklist.php', { acao: 'listar', veiculo_id: veiculoId });
+			return parseData(response.data);
+		} catch (error) { return { success: false, data: [] }; }
+	},
+
+	iniciarChecklist: async (dados) => {
+		try {
+			const response = await api.post('api_checklist.php', { acao: 'iniciar', ...dados });
+			return parseData(response.data);
+		} catch (error) { return { success: false, message: 'Erro de conexão.' }; }
 	}
 };
