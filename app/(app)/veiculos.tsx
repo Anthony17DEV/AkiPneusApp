@@ -2,7 +2,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { MaskedTextInput } from 'react-native-mask-text';
 import RNPickerSelect from 'react-native-picker-select';
 import { apiService } from '../../src/services/apiService';
 
@@ -17,7 +16,24 @@ interface Veiculo {
 	proprietario: string; proprietario_id: string;
 }
 
-const UFS = ['RN', 'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'];
+const UFS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'];
+
+const TIPOS_VEICULOS = [
+	{ label: 'Caminhão', value: 'Caminhão' },
+	{ label: 'Cavalo', value: 'Cavalo' },
+	{ label: 'Carreta', value: 'Carreta' },
+	{ label: 'Hatch', value: 'Hatch' },
+	{ label: 'Sedan', value: 'Sedan' },
+	{ label: 'Micro-Ônibus', value: 'Micro-Ônibus' },
+	{ label: 'Ônibus', value: 'Ônibus' },
+	{ label: 'Picape', value: 'Picape' },
+	{ label: 'Van', value: 'Van' },
+	{ label: 'Utilitario', value: 'Utilitario' },
+	{ label: 'Implemento', value: 'Implemento' },
+	{ label: 'Motocicleta', value: 'Motocicleta' },
+	{ label: 'Doblo', value: 'Doblo' },
+	{ label: 'SUV', value: 'SUV' }
+];
 
 export default function VeiculosScreen() {
 	const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
@@ -28,13 +44,16 @@ export default function VeiculosScreen() {
 	const [modalVisible, setModalVisible] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 
-	const [fotos, setFotos] = useState<string[]>([]);
-
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'marca' | 'modelo' | 'entidade'>('marca');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
+
+	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+
+	const [fotos, setFotos] = useState<string[]>([]);
+	const [fotoAntiga, setFotoAntiga] = useState<string | null>(null);
 
 	const [form, setForm] = useState({
 		id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '',
@@ -45,20 +64,29 @@ export default function VeiculosScreen() {
 		vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
 	});
 
-	const [eixosPermitidos, setEixosPermitidos] = useState<string[]>(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']);
+	const formatarPlaca = (text: string) => {
+		let p = text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+		if (p.length > 3) p = p.slice(0, 3) + '-' + p.slice(3, 7);
+		return p;
+	};
 
 	useEffect(() => {
-		const rodado = form.tipoRodado;
-		let permitidos = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
-		if (rodado === '3/4' || rodado === 'Toco') { permitidos = ['2']; }
-		else if (rodado === 'Truck') { permitidos = ['3']; }
-		else if (rodado === 'Bitruck') { permitidos = ['4']; }
-		else if (rodado === 'Carreta') { permitidos = ['2', '3', '4', '5', '6']; }
-		setEixosPermitidos(permitidos);
-		if (!permitidos.includes(form.eixos)) {
-			setForm(prev => ({ ...prev, eixos: permitidos.length === 1 ? permitidos[0] : '' }));
+		const r = form.tipoRodado;
+		if (['3/4', 'Toco', '2 Eixos'].includes(r)) {
+			setForm(f => ({ ...f, eixos: '2' }));
+		} else if (['Truck', '3 Eixos'].includes(r)) {
+			setForm(f => ({ ...f, eixos: '3' }));
+		} else if (['Bi-truck', '4 Eixos'].includes(r)) {
+			setForm(f => ({ ...f, eixos: '4' }));
 		}
 	}, [form.tipoRodado]);
+
+	const getRodadoOptions = () => {
+		if (form.tipo === 'Caminhão') return [{ label: '3/4 (2 Eixos)', value: '3/4' }, { label: 'Toco (2 Eixos)', value: 'Toco' }, { label: 'Truck (3 Eixos)', value: 'Truck' }, { label: 'Bi-truck (4 Eixos)', value: 'Bi-truck' }];
+		if (form.tipo === 'Cavalo') return [{ label: 'Toco (2 Eixos)', value: 'Toco' }, { label: 'Truck (3 Eixos)', value: 'Truck' }];
+		if (form.tipo === 'Carreta') return [{ label: '2 Eixos', value: '2 Eixos' }, { label: '3 Eixos', value: '3 Eixos' }, { label: '4 Eixos', value: '4 Eixos' }];
+		return [{ label: 'Selecione o Tipo de Veículo primeiro', value: '' }];
+	};
 
 	useEffect(() => { carregarVeiculos(); }, []);
 
@@ -74,6 +102,7 @@ export default function VeiculosScreen() {
 			id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '', marca: '', marca_id: '', modelo: '', modelo_id: '', ano: '', anoModelo: '', cor: '', combustivel: '', tanque: '', qtde_passageiros: '', estepe: '', calibragem_original: '', tipoCarroceria: '', tipoRodado: '', eixos: '', taraKg: '', capacidadeKg: '', capacidadeM3: '', proprietario: '', proprietario_id: '', tipoProprietario: '', rntrc: '', proprietarioUf: '', vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
 		});
 		setFotos([]);
+		setFotoAntiga(null);
 		setIsEditing(false);
 	};
 
@@ -84,7 +113,14 @@ export default function VeiculosScreen() {
 		return dataDb;
 	};
 
-	const handleEditar = (v: Veiculo) => {
+	const formatarDataInput = (text: string) => {
+		let t = text.replace(/\D/g, '');
+		if (t.length > 2) t = t.slice(0, 2) + '/' + t.slice(2);
+		if (t.length > 5) t = t.slice(0, 5) + '/' + t.slice(5, 9);
+		return t;
+	};
+
+	const handleEditar = (v: any) => {
 		resetForm();
 		setForm({
 			...form, id: v.id ? v.id.toString() : '', codigo: v.codigo || '', placa: v.placa || '',
@@ -100,6 +136,7 @@ export default function VeiculosScreen() {
 			tipoProprietario: v.tipoProprietario || '', rntrc: v.rntrc || '', proprietarioUf: v.proprietarioUf || '',
 			vencimento_crlv: formatarData(v.vencimento_crlv), vencimento_civ: formatarData(v.vencimento_civ), vencimento_cipp: formatarData(v.vencimento_cipp)
 		});
+		setFotoAntiga(v.foto ? `${URL_FOTOS}${v.foto}` : null);
 		setIsEditing(true); setModalVisible(true);
 	};
 
@@ -109,40 +146,56 @@ export default function VeiculosScreen() {
 			Alert.alert("Erro", "Você precisa permitir o acesso à câmera.");
 			return;
 		}
-
 		const result = await ImagePicker.launchCameraAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [4, 3],
-			quality: 0.7,
-			base64: true,
+			allowsEditing: true, aspect: [4, 3], quality: 0.7, base64: true,
 		});
-
 		if (!result.canceled && result.assets[0].base64) {
 			setFotos([...fotos, `data:image/jpeg;base64,${result.assets[0].base64}`]);
+			setFotoAntiga(null);
+		}
+	};
+
+	const abrirGaleria = async () => {
+		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (permissionResult.granted === false) {
+			Alert.alert("Erro", "Você precisa permitir o acesso à galeria.");
+			return;
+		}
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsMultipleSelection: true, quality: 0.7, base64: true,
+		});
+		if (!result.canceled && result.assets[0].base64) {
+			setFotos([...fotos, `data:image/jpeg;base64,${result.assets[0].base64}`]);
+			setFotoAntiga(null);
 		}
 	};
 
 	const removerFoto = (index: number) => {
-		const novasFotos = fotos.filter((_, i) => i !== index);
-		setFotos(novasFotos);
+		setFotos(fotos.filter((_, i) => i !== index));
 	};
 
 	const salvarVeiculo = async () => {
-		if (!form.placa || !form.tipo || !form.marca_id || !form.modelo_id || !form.tipoRodado || !form.eixos) {
-			Alert.alert('Atenção', 'Preencha todos os campos obrigatórios (*), incluindo Marca e Modelo.');
-			return;
-		}
 		setIsSaving(true);
-		const dadosCompletos = { ...form, fotos };
-		const res = await apiService.salvarVeiculo(dadosCompletos);
-		setIsSaving(false);
-		if (res && res.success) {
-			Alert.alert('Sucesso', res.message);
-			setModalVisible(false);
-			carregarVeiculos();
-		} else {
-			Alert.alert('Erro', res?.message || 'Falha ao gravar.');
+		try {
+			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ...form, fotos })
+			});
+			const result = await response.json();
+			setIsSaving(false);
+			if (result.success) {
+				Alert.alert('Sucesso', 'Veículo salvo!');
+				setModalVisible(false);
+				carregarVeiculos();
+			} else {
+				Alert.alert('Erro ao Salvar', result.message);
+			}
+		} catch (e) {
+			setIsSaving(false);
+			Alert.alert('Erro de Rede', 'Não foi possível conectar ao servidor.');
 		}
 	};
 
@@ -181,86 +234,122 @@ export default function VeiculosScreen() {
 
 	return (
 		<View style={styles.container}>
-			<View style={styles.headerBusca}>
-				<Text style={styles.title}>Gestão de Frotas</Text>
-				<View style={styles.row}>
-					<TextInput style={styles.inputBusca} placeholder="Código ou Placa..." value={filtroBusca} onChangeText={setFiltroBusca} autoCapitalize="characters" />
-					<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarVeiculos(filtroBusca)}>
-						<Feather name="search" size={20} color="#fff" />
-					</TouchableOpacity>
-				</View>
-				<TouchableOpacity style={styles.btnNovo} onPress={() => { resetForm(); setModalVisible(true); }}>
-					<Feather name="plus-circle" size={18} color="#ED1C24" />
-					<Text style={styles.btnNovoText}>Inserir Veículo</Text>
-				</TouchableOpacity>
-			</View>
-
-			{isLoading ? <ActivityIndicator size="large" color="#ED1C24" style={{ marginTop: 50 }} /> : (
-				<FlatList data={veiculos} keyExtractor={(item, index) => String(item?.id || index)} contentContainerStyle={{ padding: 20 }}
-					renderItem={({ item }) => (
-						<View style={styles.card}>
-							<View style={styles.cardHeader}>
-								<MaterialCommunityIcons name="truck-outline" size={24} color="#333" />
-								<Text style={styles.cardPlaca}>{item.placa}</Text>
-								<View style={styles.badgeCode}><Text style={styles.badgeCodeText}>Cód: {item.codigo || 'N/A'}</Text></View>
-							</View>
-							<View style={styles.cardBody}>
-								<Text style={styles.cardInfo}>{item.marca} - {item.modelo}</Text>
-								<Text style={styles.cardInfoDetail}>Rodado: {item.rodado} • {item.eixos} Eixos</Text>
-								<Text style={styles.cardInfoDetail}>Prop: {item.proprietario || 'N/A'}</Text>
-							</View>
-							<View style={styles.cardActions}>
-								<TouchableOpacity style={styles.btnAcao} onPress={() => handleEditar(item)}>
-									<Feather name="edit" size={16} color="#555" />
-									<Text style={styles.btnAcaoText}>Modificar</Text>
-								</TouchableOpacity>
+			<FlatList
+				data={veiculos}
+				keyExtractor={(item, index) => String(item?.id || index)}
+				contentContainerStyle={{ paddingBottom: 40 }}
+				showsVerticalScrollIndicator={false}
+				ListHeaderComponent={
+					<View style={styles.filterSection}>
+						<Text style={styles.sectionTitle}>Buscar Veículos</Text>
+						<View style={styles.row}>
+							<View style={{ width: '100%' }}>
+								<Text style={styles.label}>Código ou Placa</Text>
+								<TextInput
+									style={styles.input}
+									placeholder="Ex: 102 ou ABC-1234"
+									value={filtroBusca}
+									onChangeText={setFiltroBusca}
+									autoCapitalize="characters"
+								/>
 							</View>
 						</View>
-					)}
-				/>
-			)}
+
+						<View style={styles.actionRow}>
+							<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarVeiculos(filtroBusca)}>
+								<Feather name="search" size={18} color="#fff" />
+								<Text style={styles.btnText}>Buscar</Text>
+							</TouchableOpacity>
+
+							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
+								<Feather name="plus-circle" size={18} color="#ffffff" />
+								<Text style={styles.btnInserirText}>Inserir</Text>
+							</TouchableOpacity>
+						</View>
+						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: 15 }]}>Resultados</Text>
+						{isLoading && veiculos.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#ED1C24" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
+					</View>
+				}
+				renderItem={({ item }) => (
+					<View style={styles.card}>
+						<View style={styles.cardHeader}>
+							<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo || item.id} - {item.placa}</Text>
+							<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}>
+								<Text style={[styles.statusText, { color: '#1967d2' }]}>{item.tipo || 'VEÍCULO'}</Text>
+							</View>
+						</View>
+
+						<View style={styles.cardInfoBox}>
+							<View style={styles.cardInfoRow}>
+								<MaterialCommunityIcons name="truck-outline" size={16} color="#666" style={{ marginRight: 8 }} />
+								<Text style={styles.cardInfoText}>Marca: #{item.marca_id || '--'} {item.marca} - {item.modelo}</Text>
+							</View>
+							<View style={styles.cardInfoRow}>
+								<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
+								<Text style={styles.cardInfoText}>Rodado: {item.rodado} • {item.eixos} Eixos</Text>
+							</View>
+							<View style={styles.cardInfoRow}>
+								<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
+								<Text style={styles.cardInfoText}>Prop: {item.proprietario || 'N/A'}</Text>
+							</View>
+						</View>
+
+						<View style={styles.cardActions}>
+							<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
+								<Feather name="edit-2" size={16} color="#ffffff" />
+								<Text style={styles.btnEditarCardText}>Editar</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				)}
+				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum veículo encontrado.</Text> : null}
+			/>
 
 			<Modal visible={modalVisible} animationType="slide">
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
-					<View style={styles.modalHeader}>
-						<TouchableOpacity onPress={() => setModalVisible(false)}><Feather name="arrow-left" size={24} color="#333" /></TouchableOpacity>
+					<View style={styles.modalHeaderFull}>
+						<TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#333" /></TouchableOpacity>
 						<Text style={styles.modalTitle}>{isEditing ? 'Editar Veículo' : 'Cadastro de Veículos'}</Text>
 						<View style={{ width: 24 }} />
 					</View>
 
-					<ScrollView contentContainerStyle={{ padding: 20 }}>
+					<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
 						<Text style={styles.groupTitle}>1. Informações do Veículo</Text>
 
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Código Interno</Text><TextInput style={styles.input} value={form.codigo} onChangeText={t => setForm({ ...form, codigo: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Placa</Text><MaskedTextInput mask="AAA-9*99" style={styles.input} value={form.placa} onChangeText={(t, raw) => setForm({ ...form, placa: raw })} autoCapitalize="characters" /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Código Interno</Text><TextInput style={styles.input} value={form.codigo} onChangeText={t => setForm({ ...form, codigo: t })} keyboardType="numeric" /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* Placa</Text><TextInput style={styles.input} value={form.placa} onChangeText={(t) => setForm({ ...form, placa: formatarPlaca(t) })} autoCapitalize="characters" maxLength={8} /></View>
+						</View>
+
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>Espécie</Text>
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.especie} onValueChange={v => setForm({ ...form, especie: v })} items={[{ label: '1 - Passageiros', value: '1' }, { label: '2 - Carga', value: '2' }, { label: '3 - Misto', value: '3' }, { label: '4 - Tração', value: '4' }, { label: '5 - Competição', value: '5' }, { label: '6 - Especial', value: '6' }, { label: '7 - Coleção', value: '7' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+						</View>
+
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>* Tipo Veículo</Text>
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v, tipoRodado: '' })} items={TIPOS_VEICULOS} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 						</View>
 
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Espécie</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.especie} onValueChange={v => setForm({ ...form, especie: v })} items={[{ label: '1 - Passageiros', value: '1' }, { label: '2 - Carga', value: '2' }, { label: '3 - Misto', value: '3' }, { label: '4 - Tração', value: '4' }, { label: '5 - Competição', value: '5' }, { label: '6 - Especial', value: '6' }, { label: '7 - Coleção', value: '7' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Tipo Veículo</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v })} items={[{ label: 'Hatch', value: 'Hatch' }, { label: 'Sedan', value: 'Sedan' }, { label: 'Micro-Ônibus', value: 'Micro-Ônibus' }, { label: 'Ônibus', value: 'Ônibus' }, { label: 'Picape', value: 'Picape' }, { label: 'Van', value: 'Van' }, { label: 'Cavalo', value: 'Cavalo' }, { label: 'Caminhão', value: 'Caminhão' }, { label: 'Utilitario', value: 'Utilitario' }, { label: 'Implemento', value: 'Implemento' }, { label: 'Motocicleta', value: 'Motocicleta' }, { label: 'Doblo', value: 'Doblo' }, { label: 'SUV', value: 'SUV' }, { label: 'Carreta', value: 'Carreta' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
-						</View>
-
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>UF</Text><RNPickerSelect placeholder={{ label: 'UF', value: '' }} value={form.uf} onValueChange={v => setForm({ ...form, uf: v })} items={UFS.map(u => ({ label: u, value: u }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 							<View style={styles.inputGroupH}><Text style={styles.label}>Renavam</Text><TextInput style={styles.input} value={form.renavam} onChangeText={t => setForm({ ...form, renavam: t })} keyboardType="numeric" /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>UF</Text><RNPickerSelect placeholder={{ label: 'UF', value: '' }} value={form.uf} onValueChange={v => setForm({ ...form, uf: v })} items={UFS.map(u => ({ label: u, value: u }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 						</View>
 
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>* Marca</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca')}>
-									<Text style={{ color: form.marca ? '#000' : '#999' }}>{form.marca || 'Selecionar...'}</Text>
-									<Feather name="search" size={16} color="#999" />
-								</TouchableOpacity>
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>* Modelo</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo')}>
-									<Text style={{ color: form.modelo ? '#000' : '#999' }}>{form.modelo || 'Selecionar...'}</Text>
-									<Feather name="search" size={16} color="#999" />
-								</TouchableOpacity>
-							</View>
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>* Marca</Text>
+							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca')}>
+								<Text style={{ color: form.marca ? '#000' : '#999' }}>{form.marca || 'Selecionar...'}</Text>
+								<Feather name="search" size={16} color="#999" />
+							</TouchableOpacity>
+						</View>
+
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>* Modelo</Text>
+							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo')}>
+								<Text style={{ color: form.modelo ? '#000' : '#999' }}>{form.modelo || 'Selecionar...'}</Text>
+								<Feather name="search" size={16} color="#999" />
+							</TouchableOpacity>
 						</View>
 
 						<View style={styles.row}>
@@ -273,82 +362,93 @@ export default function VeiculosScreen() {
 							<View style={styles.inputGroupH}><Text style={styles.label}>Combustível</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.combustivel} onValueChange={v => setForm({ ...form, combustivel: v })} items={[{ label: 'ARLA', value: 'ARLA' }, { label: 'Gasolina', value: 'Gasolina' }, { label: 'Etanol', value: 'Etanol' }, { label: 'GNV', value: 'GNV' }, { label: 'Diesel', value: 'Diesel' }, { label: 'Diesel S10', value: 'Diesel S10' }, { label: 'Diesel S50', value: 'Diesel S50' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 						</View>
 
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Tanque (L)</Text><TextInput style={styles.input} value={form.tanque} onChangeText={t => setForm({ ...form, tanque: t })} keyboardType="numeric" /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Passageiros</Text><TextInput style={styles.input} value={form.qtde_passageiros} onChangeText={t => setForm({ ...form, qtde_passageiros: t })} keyboardType="numeric" /></View>
-						</View>
-
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Estepes</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.estepe} onValueChange={v => setForm({ ...form, estepe: v })} items={[{ label: '0', value: '0' }, { label: '1', value: '1' }, { label: '2', value: '2' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Calib. Orig.</Text><TextInput style={styles.input} value={form.calibragem_original} onChangeText={t => setForm({ ...form, calibragem_original: t })} keyboardType="numeric" /></View>
-						</View>
-
 						<Text style={styles.groupTitle}>2. Informações da Carga</Text>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Tipo Carroceria</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoCarroceria} onValueChange={v => setForm({ ...form, tipoCarroceria: v })} items={[{ label: '00 - nao aplicavel', value: '00' }, { label: '01 - Aberta', value: '01' }, { label: '02 - Fechada/Bau', value: '02' }, { label: '03 - Granelera', value: '03' }, { label: '04 - Porta Container', value: '04' }, { label: '05 - Sider', value: '05' }, { label: '06 - Tanque', value: '06' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Tipo Rodado</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoRodado} onValueChange={v => setForm({ ...form, tipoRodado: v })} items={[{ label: '3/4', value: '3/4' }, { label: 'Toco', value: 'Toco' }, { label: 'Truck', value: 'Truck' }, { label: 'Bitruck', value: 'Bitruck' }, { label: 'Carreta', value: 'Carreta' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>Tipo Carroceria</Text>
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoCarroceria} onValueChange={v => setForm({ ...form, tipoCarroceria: v })} items={[{ label: '00 - nao aplicavel', value: '00' }, { label: '01 - Aberta', value: '01' }, { label: '02 - Fechada/Bau', value: '02' }, { label: '03 - Granelera', value: '03' }, { label: '04 - Porta Container', value: '04' }, { label: '05 - Sider', value: '05' }, { label: '06 - Tanque', value: '06' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 						</View>
 
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Eixos</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.eixos} onValueChange={v => setForm({ ...form, eixos: v })} items={eixosPermitidos.map(e => ({ label: `${e}`, value: e }))} style={pickerStyles} useNativeAndroidPickerStyle={false} disabled={eixosPermitidos.length === 1} Icon={PickerIcon} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Tara Kg</Text><TextInput style={styles.input} value={form.taraKg} onChangeText={t => setForm({ ...form, taraKg: t })} keyboardType="numeric" /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* Tipo Rodado</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoRodado} onValueChange={v => setForm({ ...form, tipoRodado: v })} items={getRodadoOptions()} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* Eixos</Text><TextInput style={[styles.input, { backgroundColor: '#e1e4e8' }]} value={form.eixos} editable={false} placeholder="Auto" /></View>
 						</View>
 
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Capacidade Kg</Text><TextInput style={styles.input} value={form.capacidadeKg} onChangeText={t => setForm({ ...form, capacidadeKg: t })} keyboardType="numeric" /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Capacidade M3</Text><TextInput style={styles.input} value={form.capacidadeM3} onChangeText={t => setForm({ ...form, capacidadeM3: t })} keyboardType="numeric" /></View>
+							<View style={styles.inputGroup31}><Text style={styles.label}>Tara Kg</Text><TextInput style={styles.input} value={form.taraKg} onChangeText={t => setForm({ ...form, taraKg: t })} keyboardType="numeric" /></View>
+							<View style={styles.inputGroup31}><Text style={styles.label}>Cap. Kg</Text><TextInput style={styles.input} value={form.capacidadeKg} onChangeText={t => setForm({ ...form, capacidadeKg: t })} keyboardType="numeric" /></View>
+							<View style={styles.inputGroup31}><Text style={styles.label}>Cap. M3</Text><TextInput style={styles.input} value={form.capacidadeM3} onChangeText={t => setForm({ ...form, capacidadeM3: t })} keyboardType="numeric" /></View>
 						</View>
 
 						<Text style={styles.groupTitle}>3. Informações do Proprietário</Text>
-						<View style={styles.row}>
-							<View style={{ width: '100%', marginBottom: 15 }}>
-								<Text style={styles.label}>Proprietário</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('entidade')}>
-									<Text style={{ color: form.proprietario ? '#000' : '#999' }}>{form.proprietario || 'Selecionar Proprietário...'}</Text>
-									<Feather name="search" size={16} color="#999" />
+
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>Proprietário (Digite ou Busque)</Text>
+							<View style={styles.inputWithIcon}>
+								<TextInput
+									style={styles.inputFlex}
+									value={form.proprietario}
+									onChangeText={t => setForm({ ...form, proprietario: t, proprietario_id: '' })}
+									placeholder="Nome do Proprietário..."
+								/>
+								<TouchableOpacity style={styles.searchIconBtn} onPress={() => abrirBuscaDinamica('entidade')}>
+									<Feather name="search" size={20} color="#fff" />
 								</TouchableOpacity>
 							</View>
 						</View>
 
+						<View style={styles.inputGroupFull}>
+							<Text style={styles.label}>Tipo Proprietário</Text>
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoProprietario} onValueChange={v => setForm({ ...form, tipoProprietario: v })} items={[{ label: '0 - AC Agregado', value: '0' }, { label: '1 - Tac Independente', value: '1' }, { label: '2 - Outros', value: '2' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+						</View>
+
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Tipo Proprietário</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoProprietario} onValueChange={v => setForm({ ...form, tipoProprietario: v })} items={[{ label: '0 - AC Agregado', value: '0' }, { label: '1 - Tac Independente', value: '1' }, { label: '2 - Outros', value: '2' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 							<View style={styles.inputGroupH}><Text style={styles.label}>RNTRC</Text><TextInput style={styles.input} value={form.rntrc} onChangeText={t => setForm({ ...form, rntrc: t })} /></View>
-						</View>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>UF</Text><RNPickerSelect placeholder={{ label: 'UF', value: '' }} value={form.proprietarioUf} onValueChange={v => setForm({ ...form, proprietarioUf: v })} items={UFS.map(u => ({ label: u, value: u }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>UF do Prop.</Text><RNPickerSelect placeholder={{ label: 'UF', value: '' }} value={form.proprietarioUf} onValueChange={v => setForm({ ...form, proprietarioUf: v })} items={UFS.map(u => ({ label: u, value: u }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 						</View>
 
-						<Text style={styles.groupTitle}>4. Vencimento de Documentos</Text>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Venc. CRLV</Text><MaskedTextInput mask="99/99/9999" style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" value={form.vencimento_crlv} onChangeText={(t, raw) => setForm({ ...form, vencimento_crlv: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Venc. CIV</Text><MaskedTextInput mask="99/99/9999" style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" value={form.vencimento_civ} onChangeText={(t, raw) => setForm({ ...form, vencimento_civ: t })} /></View>
-						</View>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Venc. CIPP</Text><MaskedTextInput mask="99/99/9999" style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" value={form.vencimento_cipp} onChangeText={(t, raw) => setForm({ ...form, vencimento_cipp: t })} /></View>
+						<Text style={[styles.groupTitle, { zIndex: -1, elevation: -1 }]}>4. Fotos do Veículo</Text>
+
+						<View style={[styles.fotoContainerWrap, { zIndex: -1, elevation: -1 }]}>
+							<TouchableOpacity style={[styles.btnFoto, { marginRight: 5 }]} onPress={tirarFoto}>
+								<Feather name="camera" size={24} color="#666" />
+								<Text style={styles.btnFotoText}>Câmera</Text>
+							</TouchableOpacity>
+							<TouchableOpacity style={[styles.btnFoto, { marginLeft: 5 }]} onPress={abrirGaleria}>
+								<Feather name="image" size={24} color="#666" />
+								<Text style={styles.btnFotoText}>Galeria</Text>
+							</TouchableOpacity>
 						</View>
 
-						<Text style={styles.groupTitle}>5. Fotos do Veículo</Text>
-						<TouchableOpacity style={styles.btnFoto} onPress={tirarFoto}>
-							<Feather name="camera" size={20} color="#666" />
-							<Text style={styles.btnFotoText}>Tirar Foto do Caminhão</Text>
-						</TouchableOpacity>
-
-						<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 15 }}>
-							{fotos.map((uri, index) => (
-								<View key={index} style={styles.fotoContainer}>
-									<Image source={{ uri }} style={styles.fotoPreview} />
-									<TouchableOpacity style={styles.btnRemoveFoto} onPress={() => removerFoto(index)}>
+						{fotoAntiga && fotos.length === 0 && (
+							<View style={{ marginTop: 15, zIndex: -1, elevation: -1 }}>
+								<View style={styles.fotoContainerSolo}>
+									<Image source={{ uri: fotoAntiga }} style={styles.fotoPreview} />
+									<TouchableOpacity style={styles.btnRemoveFoto} onPress={() => setFotoAntiga(null)}>
 										<Feather name="x" size={12} color="#fff" />
 									</TouchableOpacity>
 								</View>
-							))}
-						</ScrollView>
+							</View>
+						)}
 
-						<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }]} onPress={salvarVeiculo} disabled={isSaving}>
+						{fotos.length > 0 && (
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 15, zIndex: -1, elevation: -1 }}>
+								{fotos.map((uri, index) => (
+									<View key={index} style={styles.fotoContainerSolo}>
+										<Image source={{ uri }} style={styles.fotoPreview} />
+										<TouchableOpacity style={styles.btnRemoveFoto} onPress={() => removerFoto(index)}>
+											<Feather name="x" size={12} color="#fff" />
+										</TouchableOpacity>
+									</View>
+								))}
+							</ScrollView>
+						)}
+
+						<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { zIndex: -1, elevation: -1 }]} onPress={salvarVeiculo} disabled={isSaving}>
 							{isSaving ? <ActivityIndicator color="#fff" /> : (
 								<>
 									<Feather name="save" size={20} color="#fff" />
-									<Text style={styles.btnSalvarText}>Gravar Cadastro Completo</Text>
+									<Text style={styles.btnSalvarText}>Gravar</Text>
 								</>
 							)}
 						</TouchableOpacity>
@@ -398,45 +498,56 @@ export default function VeiculosScreen() {
 }
 
 const pickerStyles = StyleSheet.create({
-	inputIOS: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333', marginBottom: 15, paddingRight: 30, minHeight: 48 },
-	inputAndroid: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333', marginBottom: 15, paddingRight: 30, minHeight: 48 },
+	inputIOS: { fontSize: 14, paddingVertical: 14, paddingHorizontal: 15, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, color: '#000000', paddingRight: 30, backgroundColor: '#f9f9f9', marginBottom: 15 },
+	inputAndroid: { fontSize: 14, paddingHorizontal: 15, paddingVertical: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, color: '#000000', paddingRight: 30, backgroundColor: '#f9f9f9', marginBottom: 15 },
 });
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8' },
-	headerBusca: { backgroundColor: '#fff', padding: 20, paddingTop: 30, borderBottomWidth: 1, borderColor: '#eee', elevation: 2 },
-	title: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-	row: { flexDirection: 'row', justifyContent: 'space-between' },
-	inputBusca: { flex: 1, backgroundColor: '#f0f0f0', borderRadius: 8, paddingHorizontal: 15, height: 45, marginRight: 10 },
-	btnBuscar: { backgroundColor: '#333', width: 45, height: 45, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnNovo: { flexDirection: 'row', backgroundColor: '#ffe5e6', borderWidth: 1, borderColor: '#ED1C24', borderRadius: 8, paddingVertical: 12, justifyContent: 'center', alignItems: 'center', marginTop: 15 },
-	btnNovoText: { color: '#ED1C24', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
-	card: { backgroundColor: '#fff', borderRadius: 10, padding: 15, marginBottom: 15, elevation: 2, borderWidth: 1, borderColor: '#eee' },
-	cardHeader: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10, marginBottom: 10 },
-	cardPlaca: { fontSize: 18, fontWeight: 'bold', color: '#333', marginLeft: 10, flex: 1 },
-	badgeCode: { backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-	badgeCodeText: { fontSize: 12, fontWeight: 'bold', color: '#666' },
-	cardBody: { marginBottom: 10 },
-	cardInfo: { fontSize: 15, color: '#333', fontWeight: '600' },
-	cardInfoDetail: { fontSize: 13, color: '#888', marginTop: 2 },
-	cardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 10 },
-	btnAcao: { flexDirection: 'row', alignItems: 'center', padding: 5 },
-	btnAcaoText: { marginLeft: 5, fontSize: 13, color: '#555', fontWeight: '600' },
-	modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20, borderBottomWidth: 1, borderColor: '#eee' },
-	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#ED1C24', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#ffe5e6', paddingBottom: 5, backgroundColor: '#fff' },
-	inputGroupH: { width: '48%' },
+	filterSection: { backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#eee', elevation: 3, zIndex: 1, marginBottom: 15 },
+	sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
-	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
+	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, fontSize: 14, color: '#000', marginBottom: 10, minHeight: 48 },
 	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
-	btnSalvar: { backgroundColor: '#ED1C24', flexDirection: 'row', paddingVertical: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
-	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
+	row: { flexDirection: 'row', justifyContent: 'space-between' },
+	inputGroupH: { width: '48%' },
+	inputGroup31: { width: '31%' },
+	inputGroupFull: { width: '100%', marginBottom: 5 },
 
-	btnFoto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed', borderRadius: 8, paddingVertical: 15, backgroundColor: '#f9f9f9' },
-	btnFotoText: { marginLeft: 10, color: '#666', fontWeight: 'bold' },
-	fotoContainer: { marginRight: 10, position: 'relative' },
-	fotoPreview: { width: 100, height: 100, borderRadius: 8 },
+	inputWithIcon: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+	inputFlex: { flex: 1, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000' },
+	searchIconBtn: { backgroundColor: '#3276b1', width: 48, height: 48, justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderWidth: 1, borderColor: '#3276b1' },
+
+	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginRight: 10 },
+	btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+	btnInserir: { flex: 1, backgroundColor: '#63c77b', borderWidth: 1, borderColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginLeft: 10 },
+	btnInserirText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+
+	card: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 15, marginHorizontal: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2.22, elevation: 3, overflow: 'hidden' },
+	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+	cardClient: { fontSize: 14, fontWeight: 'bold', color: '#333', flex: 1, marginRight: 10 },
+	statusBadge: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12 },
+	statusText: { fontSize: 10, fontWeight: 'bold' },
+	cardInfoBox: { padding: 15, paddingBottom: 10 },
+	cardInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+	cardInfoText: { fontSize: 13, color: '#666' },
+	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
+	btnEditarCard: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, borderRadius: 8, width: '33%' },
+	btnEditarCardText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
+
+	modalHeaderFull: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', elevation: 2 },
+	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#ED1C24', marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#ffe5e6', paddingBottom: 5 },
+
+	fotoContainerWrap: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+	btnFoto: { flex: 1, backgroundColor: '#f0f0f0', borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 20 },
+	btnFotoText: { marginTop: 8, fontSize: 14, color: '#666', fontWeight: '500' },
+	fotoContainerSolo: { marginRight: 10, position: 'relative' },
+	fotoPreview: { width: 100, height: 100, borderRadius: 8, borderWidth: 1, borderColor: '#ddd' },
 	btnRemoveFoto: { position: 'absolute', top: -5, right: -5, backgroundColor: '#ED1C24', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
+	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
 
 	modalOverlayBusca: { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
 	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },

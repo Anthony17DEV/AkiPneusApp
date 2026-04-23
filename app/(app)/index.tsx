@@ -1,7 +1,7 @@
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+﻿import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Keyboard, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
 
@@ -23,6 +23,8 @@ export default function DashboardScreen() {
 	const [termoBusca, setTermoBusca] = useState('');
 	const [isBuscando, setIsBuscando] = useState(false);
 	const [veiculoEncontrado, setVeiculoEncontrado] = useState<VeiculoBusca | null>(null);
+
+	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 
 	const carregarDashboard = async () => {
 		const res = await apiService.buscarDashboard(user?.id);
@@ -89,9 +91,16 @@ export default function DashboardScreen() {
 						<Text style={styles.badgeText}>{user?.nivel || 'Aferidor'}</Text>
 					</View>
 				</View>
-				<View style={styles.avatarPlaceholder}>
-					<Feather name="user" size={24} color="#fff" />
-				</View>
+				{user?.foto ? (
+					<Image 
+						source={{ uri: `${URL_FOTOS}${user.foto}` }} 
+						style={styles.avatar} 
+					/>
+				) : (
+					<View style={[styles.avatar, styles.avatarPlaceholder]}>
+						<Feather name="user" size={50} color="#999" />
+					</View>
+				)}
 			</View>
 
 			<View style={styles.sectionBusca}>
@@ -171,6 +180,7 @@ const styles = StyleSheet.create({
 	greeting: { fontSize: 24, fontWeight: 'bold', color: '#333' },
 	badgeNivel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffe5e6', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, marginTop: 6, alignSelf: 'flex-start' },
 	badgeText: { fontSize: 12, fontWeight: '600', color: '#ED1C24', marginLeft: 6 },
+	avatar: { width: 45, height: 45, borderRadius: 25 },
 	avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' },
 
 	sectionBusca: { backgroundColor: '#fff', padding: 20, borderRadius: 12, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 3 },

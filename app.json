@@ -1,62 +1,62 @@
 {
-  "expo": {
-    "name": "AkiPneusApp",
-    "slug": "aki-pneus-app-v2",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "akipneusapp",
-    "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.Cactus.AkiPneusApp",
-      "buildNumber": "1",
-      "config": {
-        "googleMapsApiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
-      },
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para exibir o mapa de leads e registrar o local dos atendimentos.",
-        "NSPhotoLibraryUsageDescription": "O AkiPneusApp precisa acessar suas fotos para que você possa anexar imagens de clientes, fachadas de postos e documentos.",
-        "NSCameraUsageDescription": "O AkiPneusApp precisa usar a câmera para tirar fotos durante as visitas e digitalizar documentos em tempo real.",
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    },
-    "android": {
-      "versionCode": 1,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.Cactus.AkiPneusApp",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
-        }
-      }
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/icon.png"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-web-browser"
-    ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "d1a24e69-6268-419a-8e1e-17e560a3472e"
-      }
-    }
-  }
+	"expo": {
+		"name": "AkiPneusApp",
+		"slug": "aki-pneus-app-v2",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"icon": "./assets/images/logo_akipneus.png",
+		"scheme": "akipneusapp",
+		"userInterfaceStyle": "automatic",
+		"splash": {
+			"image": "./assets/images/logo_akipneus.png",
+			"resizeMode": "contain",
+			"backgroundColor": "#ffffff"
+		},
+		"ios": {
+			"supportsTablet": true,
+			"bundleIdentifier": "com.Cactus.AkiPneusApp",
+			"buildNumber": "1",
+			"config": {
+				"googleMapsApiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
+			},
+			"infoPlist": {
+				"NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para exibir o mapa de leads e registrar o local dos atendimentos.",
+				"NSPhotoLibraryUsageDescription": "O AkiPneusApp precisa acessar suas fotos para que você possa anexar imagens de clientes, fachadas de postos e documentos.",
+				"NSCameraUsageDescription": "O AkiPneusApp precisa usar a câmera para tirar fotos durante as visitas e digitalizar documentos em tempo real.",
+				"ITSAppUsesNonExemptEncryption": false
+			}
+		},
+		"android": {
+			"versionCode": 1,
+			"adaptiveIcon": {
+				"foregroundImage": "./assets/images/logo_akipneus.png",
+				"backgroundColor": "#ffffff"
+			},
+			"package": "com.Cactus.AkiPneusApp",
+			"config": {
+				"googleMaps": {
+					"apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
+				}
+			}
+		},
+		"web": {
+			"bundler": "metro",
+			"output": "static",
+			"favicon": "./assets/images/logo_akipneus.png"
+		},
+		"plugins": [
+			"expo-router",
+			"expo-secure-store",
+			"expo-web-browser"
+		],
+		"experiments": {
+			"typedRoutes": true
+		},
+		"extra": {
+			"router": {},
+			"eas": {
+				"projectId": "d1a24e69-6268-419a-8e1e-17e560a3472e"
+			}
+		}
+	}
 }

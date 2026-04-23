@@ -11,7 +11,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 
 	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Usuário';
 
-	const URL_FOTOS = 'https://sistemascactus.com/grupofan/crm_distribuidora/galeria/imagem/';
+	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 
 	return (
 		<DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
@@ -35,7 +35,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 				<DrawerItem
 					label="Sair da Conta"
 					icon={({ size }) => <Feather name="log-out" size={size} color="#ED1C24" />}
-					labelStyle={{ color: '#ED1C24', fontWeight: 'bold', marginLeft: -15 }}
+					labelStyle={{ color: '#ED1C24', fontWeight: 'bold', marginLeft: -10 }}
 					onPress={signOut}
 				/>
 			</View>
