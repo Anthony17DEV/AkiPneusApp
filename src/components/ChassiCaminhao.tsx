@@ -75,7 +75,6 @@ export function ChassiCaminhao({ qtdEixos, qtdEstepes = 0, dadosPneus = {}, onPn
 
 				{qtdEstepes > 0 && (
 					<View style={styles.estepesWrapper}>
-						<Text style={styles.estepeTitle}>[ ESTEPE ]</Text>
 						<View style={styles.estepesContainer}>
 							{qtdEstepes === 1 ? (
 								renderPneu('ESTEPE 1', styles.pneuEstepe, 'STE 1')

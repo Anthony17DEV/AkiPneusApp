@@ -147,9 +147,11 @@ export const apiService = {
 		}
 	},
 
-	buscarDinamica: async (tipo, busca, marcaId = null) => {
+	buscarDinamica: async (tipo, busca, extras = {}) => {
 		try {
-			const response = await api.post('api_busca_dinamica.php', { tipo, busca, marca_id: marcaId });
+			const payload = { tipo, busca, ...extras };
+
+			const response = await api.post('api_busca_dinamica.php', payload);
 			return parseData(response.data);
 		} catch (error) {
 			return { success: false, data: [] };

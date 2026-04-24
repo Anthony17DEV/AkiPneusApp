@@ -82,7 +82,7 @@ export default function AppLayout() {
 				name="veiculos"
 				options={{
 					drawerLabel: 'Veículos',
-					title: 'Gestão de Frotas',
+					title: 'Veículos',
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="truck-outline" size={size} color={color} />,
 				}}
 			/>
@@ -90,8 +90,9 @@ export default function AppLayout() {
 				name="checklist"
 				options={{
 					drawerLabel: 'Checklist',
-					title: 'Inspeção Veicular',
+					title: 'Checklist',
 					drawerIcon: ({ color, size }) => <Feather name="check-square" size={size} color={color} />,
+					drawerItemStyle: { display: 'none' },
 				}}
 			/>
 			<Drawer.Screen

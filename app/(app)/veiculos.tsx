@@ -1,4 +1,5 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -36,6 +37,7 @@ const TIPOS_VEICULOS = [
 ];
 
 export default function VeiculosScreen() {
+	const navigation = useNavigation<any>();
 	const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
@@ -295,10 +297,28 @@ export default function VeiculosScreen() {
 						</View>
 
 						<View style={styles.cardActions}>
-							<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
-								<Feather name="edit-2" size={16} color="#ffffff" />
-								<Text style={styles.btnEditarCardText}>Editar</Text>
-							</TouchableOpacity>
+							<View style={styles.actionButtonsRow}>
+								<TouchableOpacity
+									style={styles.btnChecklistCard}
+									onPress={() => navigation.navigate('checklist', {
+										veiculo_id: item.id,
+										placa: item.placa,
+										eixos: item.eixos,
+										rodado: item.rodado
+									})}
+								>
+									<Feather name="clipboard" size={16} color="#ffffff" />
+									<Text style={styles.btnChecklistCardText}>Checklist</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									style={styles.btnEditarCard}
+									onPress={() => handleEditar(item)}
+								>
+									<Feather name="edit-2" size={16} color="#ffffff" />
+									<Text style={styles.btnEditarCardText}>Editar</Text>
+								</TouchableOpacity>
+							</View>
 						</View>
 					</View>
 				)}
@@ -532,8 +552,11 @@ const styles = StyleSheet.create({
 	cardInfoBox: { padding: 15, paddingBottom: 10 },
 	cardInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
 	cardInfoText: { fontSize: 13, color: '#666' },
-	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
-	btnEditarCard: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, borderRadius: 8, width: '33%' },
+	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa' },
+	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+	btnChecklistCard: { backgroundColor: '#f39c12', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8, marginRight: 10 },
+	btnChecklistCardText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
+	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, borderRadius: 8, width: '33%' },
 	btnEditarCardText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
 
 	modalHeaderFull: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', elevation: 2 },
