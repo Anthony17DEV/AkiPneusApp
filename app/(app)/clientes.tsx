@@ -266,7 +266,20 @@ export default function ClientesScreen() {
 						<Text style={styles.groupTitle}>3. Perfil do Cliente</Text>
 						<View style={styles.inputGroup}>
 							<Text style={styles.label}>Tipo de Cliente</Text>
-							<RNPickerSelect placeholder={{ label: 'Selecione o tipo...', value: '', color: '#999' }} onValueChange={(value) => setFormCliente({ ...formCliente, tipoCliente: value })} value={formCliente.tipoCliente} items={[{ label: 'TRANSPORTADORA', value: 'TRANSPORTADORA' }, { label: 'FROTA PRÓPRIA', value: 'FROTA PRÓPRIA' }, { label: 'AUTÔNOMO', value: 'AUTÔNOMO' }, { label: 'BORRACHARIA', value: 'BORRACHARIA' }]} style={pickerSelectStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							<RNPickerSelect
+								placeholder={{ label: 'Selecione o tipo...', value: '', color: '#666' }}
+								onValueChange={(value) => setFormCliente({ ...formCliente, tipoCliente: value })}
+								value={formCliente.tipoCliente}
+								items={[
+									{ label: 'TRANSPORTADORA', value: 'TRANSPORTADORA', color: '#000' },
+									{ label: 'FROTA PRÓPRIA', value: 'FROTA PRÓPRIA', color: '#000' },
+									{ label: 'AUTÔNOMO', value: 'AUTÔNOMO', color: '#000' },
+									{ label: 'BORRACHARIA', value: 'BORRACHARIA', color: '#000' }
+								]}
+								style={pickerSelectStyles}
+								useNativeAndroidPickerStyle={false}
+								Icon={PickerIcon}
+							/>
 						</View>
 
 						<Text style={[styles.groupTitle, { zIndex: -1, elevation: -1 }]}>4. Anexos / Fotos</Text>

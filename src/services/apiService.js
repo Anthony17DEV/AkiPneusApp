@@ -170,5 +170,27 @@ export const apiService = {
 			const response = await api.post('api_checklist.php', { acao: 'iniciar', ...dados });
 			return parseData(response.data);
 		} catch (error) { return { success: false, message: 'Erro de conexão.' }; }
+	},
+
+	recuperarSenha: async (usuarioOuEmail) => {
+		try {
+			console.log("📤 Pedindo pra recuperar:", usuarioOuEmail);
+
+			const response = await api.post('api_recuperar_senha.php', { usuario: usuarioOuEmail });
+
+			console.log("📥 Resposta BRUTA do servidor:", response.data);
+
+			if (typeof response.data === 'string' && !response.data.includes('"success"')) {
+				return { success: false, message: "O PHP deu erro: " + response.data.substring(0, 100) };
+			}
+
+			return parseData(response.data);
+		} catch (error) {
+			console.error('❌ Erro no catch:', error);
+			return {
+				success: false,
+				message: error.response?.data?.message || 'Erro de conexão com o servidor.'
+			};
+		}
 	}
 };

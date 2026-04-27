@@ -327,8 +327,8 @@ export default function ChecklistScreen() {
 							</View>
 						</View>
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Marca</Text><TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca_pneu')}><Text style={{ color: formPneu.marca ? '#000' : '#999', fontSize: 13 }}>{formPneu.marca || 'Buscar...'}</Text><Feather name="search" size={14} color="#999" /></TouchableOpacity></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Modelo</Text><TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo_pneu')}><Text style={{ color: formPneu.modelo ? '#000' : '#999', fontSize: 13 }}>{formPneu.modelo || 'Buscar...'}</Text><Feather name="search" size={14} color="#999" /></TouchableOpacity></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Marca</Text><TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca_pneu')}><Text style={{ color: formPneu.marca ? '#000' : '#000000', fontSize: 13 }}>{formPneu.marca || 'Buscar...'}</Text><Feather name="search" size={14} color="#000000" /></TouchableOpacity></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Modelo</Text><TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo_pneu')}><Text style={{ color: formPneu.modelo ? '#000' : '#000000', fontSize: 13 }}>{formPneu.modelo || 'Buscar...'}</Text><Feather name="search" size={14} color="#000000" /></TouchableOpacity></View>
 						</View>
 						<View style={styles.row}>
 							<View style={{ width: '100%', marginBottom: 15 }}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.valor} onChangeText={t => setFormPneu({ ...formPneu, valor: t })} /></View>
@@ -341,12 +341,43 @@ export default function ChecklistScreen() {
 						</View>
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}><Text style={styles.label}>Ferro</Text><TextInput style={styles.inputModal} value={formPneu.ferro} onChangeText={t => setFormPneu({ ...formPneu, ferro: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Tipo</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={formPneu.tipo} onValueChange={v => setFormPneu({ ...formPneu, tipo: v })} items={[{ label: 'Novo', value: 'Novo' }, { label: 'Reformado', value: 'Reformado' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>Tipo</Text>
+								<RNPickerSelect
+									placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
+									value={formPneu.tipo}
+									onValueChange={v => setFormPneu({ ...formPneu, tipo: v })}
+									items={[
+										{ label: 'Novo', value: 'Novo', color: '#000' },
+										{ label: 'Reformado', value: 'Reformado', color: '#000' }
+									]}
+									style={pickerStyles}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
+							</View>
 						</View>
 
 						{formPneu.tipo === 'Reformado' && (
 							<View style={[styles.row, { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8 }]}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Qtde Reforma (Grau)</Text><RNPickerSelect placeholder={{ label: '...', value: '' }} value={formPneu.grau} onValueChange={v => setFormPneu({ ...formPneu, grau: v })} items={[{ label: '1', value: '1' }, { label: '2', value: '2' }, { label: '3', value: '3' }, { label: '4', value: '4' }, { label: '5', value: '5' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Qtde Reforma (Grau)</Text>
+									<RNPickerSelect
+										placeholder={{ label: '...', value: '', color: '#666' }}
+										value={formPneu.grau}
+										onValueChange={v => setFormPneu({ ...formPneu, grau: v })}
+										items={[
+											{ label: '1', value: '1', color: '#000' },
+											{ label: '2', value: '2', color: '#000' },
+											{ label: '3', value: '3', color: '#000' },
+											{ label: '4', value: '4', color: '#000' },
+											{ label: '5', value: '5', color: '#000' }
+										]}
+										style={pickerStyles}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								</View>
 								<View style={styles.inputGroupH}><Text style={styles.label}>Banda</Text><TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}><Text style={{ color: formPneu.banda_nome ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{formPneu.banda_nome || 'Buscar...'}</Text></TouchableOpacity></View>
 							</View>
 						)}
@@ -490,7 +521,10 @@ export default function ChecklistScreen() {
 	);
 }
 
-const pickerStyles = StyleSheet.create({ inputIOS: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333', marginBottom: 15, paddingRight: 30, minHeight: 48 }, inputAndroid: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333', marginBottom: 15, paddingRight: 30, minHeight: 48 } });
+const pickerStyles = StyleSheet.create({
+	inputIOS: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#000', marginBottom: 15, paddingRight: 30, minHeight: 48 },
+	inputAndroid: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#000', marginBottom: 15, paddingRight: 30, minHeight: 48 }
+});
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8', paddingHorizontal: 20 },

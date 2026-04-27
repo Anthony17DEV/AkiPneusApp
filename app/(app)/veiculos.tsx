@@ -20,20 +20,20 @@ interface Veiculo {
 const UFS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'];
 
 const TIPOS_VEICULOS = [
-	{ label: 'Caminhão', value: 'Caminhão' },
-	{ label: 'Cavalo', value: 'Cavalo' },
-	{ label: 'Carreta', value: 'Carreta' },
-	{ label: 'Hatch', value: 'Hatch' },
-	{ label: 'Sedan', value: 'Sedan' },
-	{ label: 'Micro-Ônibus', value: 'Micro-Ônibus' },
-	{ label: 'Ônibus', value: 'Ônibus' },
-	{ label: 'Picape', value: 'Picape' },
-	{ label: 'Van', value: 'Van' },
-	{ label: 'Utilitario', value: 'Utilitario' },
-	{ label: 'Implemento', value: 'Implemento' },
-	{ label: 'Motocicleta', value: 'Motocicleta' },
-	{ label: 'Doblo', value: 'Doblo' },
-	{ label: 'SUV', value: 'SUV' }
+	{ label: 'Caminhão', value: 'Caminhão', color: '#000' },
+	{ label: 'Cavalo', value: 'Cavalo', color: '#000' },
+	{ label: 'Carreta', value: 'Carreta', color: '#000' },
+	{ label: 'Hatch', value: 'Hatch', color: '#000' },
+	{ label: 'Sedan', value: 'Sedan', color: '#000' },
+	{ label: 'Micro-Ônibus', value: 'Micro-Ônibus', color: '#000' },
+	{ label: 'Ônibus', value: 'Ônibus', color: '#000' },
+	{ label: 'Picape', value: 'Picape', color: '#000' },
+	{ label: 'Van', value: 'Van', color: '#000' },
+	{ label: 'Utilitario', value: 'Utilitario', color: '#000' },
+	{ label: 'Implemento', value: 'Implemento', color: '#000' },
+	{ label: 'Motocicleta', value: 'Motocicleta', color: '#000' },
+	{ label: 'Doblo', value: 'Doblo', color: '#000' },
+	{ label: 'SUV', value: 'SUV', color: '#000' }
 ];
 
 export default function VeiculosScreen() {
@@ -84,10 +84,10 @@ export default function VeiculosScreen() {
 	}, [form.tipoRodado]);
 
 	const getRodadoOptions = () => {
-		if (form.tipo === 'Caminhão') return [{ label: '3/4 (2 Eixos)', value: '3/4' }, { label: 'Toco (2 Eixos)', value: 'Toco' }, { label: 'Truck (3 Eixos)', value: 'Truck' }, { label: 'Bi-truck (4 Eixos)', value: 'Bi-truck' }];
-		if (form.tipo === 'Cavalo') return [{ label: 'Toco (2 Eixos)', value: 'Toco' }, { label: 'Truck (3 Eixos)', value: 'Truck' }];
-		if (form.tipo === 'Carreta') return [{ label: '2 Eixos', value: '2 Eixos' }, { label: '3 Eixos', value: '3 Eixos' }, { label: '4 Eixos', value: '4 Eixos' }];
-		return [{ label: 'Selecione o Tipo de Veículo primeiro', value: '' }];
+		if (form.tipo === 'Caminhão') return [{ label: '3/4 (2 Eixos)', value: '3/4', color: '#000' }, { label: 'Toco (2 Eixos)', value: 'Toco', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'Truck', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'Bi-truck', color: '#000' }];
+		if (form.tipo === 'Cavalo') return [{ label: 'Toco (2 Eixos)', value: 'Toco', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'Truck', color: '#000' }];
+		if (form.tipo === 'Carreta') return [{ label: '2 Eixos', value: '2 Eixos', color: '#000' }, { label: '3 Eixos', value: '3 Eixos', color: '#000' }, { label: '4 Eixos', value: '4 Eixos', color: '#000' }];
+		return [{ label: 'Selecione o Tipo de Veículo primeiro', value: '', color: '#000' }];
 	};
 
 	useEffect(() => { carregarVeiculos(); }, []);
@@ -343,17 +343,17 @@ export default function VeiculosScreen() {
 
 						<View style={styles.inputGroupFull}>
 							<Text style={styles.label}>Espécie</Text>
-							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.especie} onValueChange={v => setForm({ ...form, especie: v })} items={[{ label: '1 - Passageiros', value: '1' }, { label: '2 - Carga', value: '2' }, { label: '3 - Misto', value: '3' }, { label: '4 - Tração', value: '4' }, { label: '5 - Competição', value: '5' }, { label: '6 - Especial', value: '6' }, { label: '7 - Coleção', value: '7' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.especie} onValueChange={v => setForm({ ...form, especie: v })} items={[{ label: '1 - Passageiros', value: '1', color: '#000' }, { label: '2 - Carga', value: '2', color: '#000' }, { label: '3 - Misto', value: '3', color: '#000' }, { label: '4 - Tração', value: '4', color: '#000' }, { label: '5 - Competição', value: '5', color: '#000' }, { label: '6 - Especial', value: '6', color: '#000' }, { label: '7 - Coleção', value: '7', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 						</View>
 
 						<View style={styles.inputGroupFull}>
 							<Text style={styles.label}>* Tipo Veículo</Text>
-							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v, tipoRodado: '' })} items={TIPOS_VEICULOS} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v, tipoRodado: '' })} items={TIPOS_VEICULOS} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 						</View>
 
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}><Text style={styles.label}>Renavam</Text><TextInput style={styles.input} value={form.renavam} onChangeText={t => setForm({ ...form, renavam: t })} keyboardType="numeric" /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>UF</Text><RNPickerSelect placeholder={{ label: 'UF', value: '' }} value={form.uf} onValueChange={v => setForm({ ...form, uf: v })} items={UFS.map(u => ({ label: u, value: u }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>UF</Text><RNPickerSelect placeholder={{ label: 'UF', value: '', color: '#666' }} value={form.uf} onValueChange={v => setForm({ ...form, uf: v })} items={UFS.map(u => ({ label: u, value: u, color: '#000' }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 						</View>
 
 						<View style={styles.inputGroupFull}>
@@ -379,18 +379,18 @@ export default function VeiculosScreen() {
 
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}><Text style={styles.label}>Cor</Text><TextInput style={styles.input} value={form.cor} onChangeText={t => setForm({ ...form, cor: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Combustível</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.combustivel} onValueChange={v => setForm({ ...form, combustivel: v })} items={[{ label: 'ARLA', value: 'ARLA' }, { label: 'Gasolina', value: 'Gasolina' }, { label: 'Etanol', value: 'Etanol' }, { label: 'GNV', value: 'GNV' }, { label: 'Diesel', value: 'Diesel' }, { label: 'Diesel S10', value: 'Diesel S10' }, { label: 'Diesel S50', value: 'Diesel S50' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Combustível</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.combustivel} onValueChange={v => setForm({ ...form, combustivel: v })} items={[{ label: 'ARLA', value: 'ARLA', color: '#000' }, { label: 'Gasolina', value: 'Gasolina', color: '#000' }, { label: 'Etanol', value: 'Etanol', color: '#000' }, { label: 'GNV', value: 'GNV', color: '#000' }, { label: 'Diesel', value: 'Diesel', color: '#000' }, { label: 'Diesel S10', value: 'Diesel S10', color: '#000' }, { label: 'Diesel S50', value: 'Diesel S50', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 						</View>
 
 						<Text style={styles.groupTitle}>2. Informações da Carga</Text>
 
 						<View style={styles.inputGroupFull}>
 							<Text style={styles.label}>Tipo Carroceria</Text>
-							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoCarroceria} onValueChange={v => setForm({ ...form, tipoCarroceria: v })} items={[{ label: '00 - nao aplicavel', value: '00' }, { label: '01 - Aberta', value: '01' }, { label: '02 - Fechada/Bau', value: '02' }, { label: '03 - Granelera', value: '03' }, { label: '04 - Porta Container', value: '04' }, { label: '05 - Sider', value: '05' }, { label: '06 - Tanque', value: '06' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipoCarroceria} onValueChange={v => setForm({ ...form, tipoCarroceria: v })} items={[{ label: '00 - nao aplicavel', value: '00', color: '#000' }, { label: '01 - Aberta', value: '01', color: '#000' }, { label: '02 - Fechada/Bau', value: '02', color: '#000' }, { label: '03 - Granelera', value: '03', color: '#000' }, { label: '04 - Porta Container', value: '04', color: '#000' }, { label: '05 - Sider', value: '05', color: '#000' }, { label: '06 - Tanque', value: '06', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 						</View>
 
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Tipo Rodado</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoRodado} onValueChange={v => setForm({ ...form, tipoRodado: v })} items={getRodadoOptions()} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* Tipo Rodado</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipoRodado} onValueChange={v => setForm({ ...form, tipoRodado: v })} items={getRodadoOptions()} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 							<View style={styles.inputGroupH}><Text style={styles.label}>* Eixos</Text><TextInput style={[styles.input, { backgroundColor: '#e1e4e8' }]} value={form.eixos} editable={false} placeholder="Auto" /></View>
 						</View>
 
@@ -419,12 +419,12 @@ export default function VeiculosScreen() {
 
 						<View style={styles.inputGroupFull}>
 							<Text style={styles.label}>Tipo Proprietário</Text>
-							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '' }} value={form.tipoProprietario} onValueChange={v => setForm({ ...form, tipoProprietario: v })} items={[{ label: '0 - AC Agregado', value: '0' }, { label: '1 - Tac Independente', value: '1' }, { label: '2 - Outros', value: '2' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipoProprietario} onValueChange={v => setForm({ ...form, tipoProprietario: v })} items={[{ label: '0 - AC Agregado', value: '0', color: '#000' }, { label: '1 - Tac Independente', value: '1', color: '#000' }, { label: '2 - Outros', value: '2', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 						</View>
 
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}><Text style={styles.label}>RNTRC</Text><TextInput style={styles.input} value={form.rntrc} onChangeText={t => setForm({ ...form, rntrc: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>UF do Prop.</Text><RNPickerSelect placeholder={{ label: 'UF', value: '' }} value={form.proprietarioUf} onValueChange={v => setForm({ ...form, proprietarioUf: v })} items={UFS.map(u => ({ label: u, value: u }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>UF do Prop.</Text><RNPickerSelect placeholder={{ label: 'UF', value: '', color: '#666' }} value={form.proprietarioUf} onValueChange={v => setForm({ ...form, proprietarioUf: v })} items={UFS.map(u => ({ label: u, value: u, color: '#000' }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
 						</View>
 
 						<Text style={[styles.groupTitle, { zIndex: -1, elevation: -1 }]}>4. Fotos do Veículo</Text>
