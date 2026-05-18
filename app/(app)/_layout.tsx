@@ -34,8 +34,8 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 			<View style={styles.logoutContainer}>
 				<DrawerItem
 					label="Sair da Conta"
-					icon={({ size }) => <Feather name="log-out" size={size} color="#ED1C24" />}
-					labelStyle={{ color: '#ED1C24', fontWeight: 'bold', marginLeft: -10 }}
+					icon={({ size }) => <Feather name="log-out" size={size} color="#0c6ead" />}
+					labelStyle={{ color: '#0c6ead', fontWeight: 'bold', marginLeft: -10 }}
 					onPress={signOut}
 				/>
 			</View>
@@ -50,13 +50,17 @@ export default function AppLayout() {
 		<Drawer
 			drawerContent={(props) => <CustomDrawerContent {...props} />}
 			screenOptions={{
-				headerStyle: { backgroundColor: '#ED1C24' },
+				headerStyle: { backgroundColor: '#0c6ead' },
 				headerTintColor: '#fff',
-				drawerActiveTintColor: '#ED1C24',
+				drawerActiveTintColor: '#0c6ead',
 				drawerInactiveTintColor: '#333',
 				drawerActiveBackgroundColor: '#ffe5e6',
+				headerTitleAlign: 'center',
+				headerLeftContainerStyle: { width: 60, alignItems: 'center', justifyContent: 'center' },
+				headerRightContainerStyle: { width: 60, alignItems: 'center', justifyContent: 'center' },
+
 				headerRight: () => (
-					<TouchableOpacity onPress={signOut} style={{ marginRight: 15, padding: 5 }}>
+					<TouchableOpacity onPress={signOut} style={{ padding: 10 }}>
 						<Feather name="power" size={22} color="#fff" />
 					</TouchableOpacity>
 				),
@@ -66,7 +70,9 @@ export default function AppLayout() {
 				name="index"
 				options={{
 					drawerLabel: 'Dashboard',
-					title: 'Dashboard',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
 					drawerIcon: ({ color, size }) => <Feather name="pie-chart" size={size} color={color} />,
 				}}
 			/>
@@ -74,7 +80,9 @@ export default function AppLayout() {
 				name="clientes"
 				options={{
 					drawerLabel: 'Clientes',
-					title: 'Clientes',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
 					drawerIcon: ({ color, size }) => <Feather name="users" size={size} color={color} />,
 				}}
 			/>
@@ -82,15 +90,29 @@ export default function AppLayout() {
 				name="veiculos"
 				options={{
 					drawerLabel: 'Veículos',
-					title: 'Veículos',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="truck-outline" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="pneus"
+				options={{
+					drawerLabel: 'Pneus',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="tire" size={size} color={color} />,
 				}}
 			/>
 			<Drawer.Screen
 				name="checklist"
 				options={{
 					drawerLabel: 'Checklist',
-					title: 'Checklist',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
 					drawerIcon: ({ color, size }) => <Feather name="check-square" size={size} color={color} />,
 					drawerItemStyle: { display: 'none' },
 				}}
@@ -99,7 +121,9 @@ export default function AppLayout() {
 				name="perfil"
 				options={{
 					drawerLabel: 'Perfil',
-					title: 'Perfil',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
 					drawerIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
 				}}
 			/>
@@ -108,44 +132,10 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
-	drawerHeader: {
-		padding: 20,
-		borderBottomWidth: 1,
-		borderBottomColor: '#f0f0f0',
-		alignItems: 'center',
-		marginBottom: 10,
-	},
-	avatar: {
-		width: 80,
-		height: 80,
-		borderRadius: 40,
-		marginBottom: 10,
-		borderWidth: 2,
-		borderColor: '#ED1C24',
-	},
-	avatarPlaceholder: {
-		width: 80,
-		height: 80,
-		borderRadius: 40,
-		backgroundColor: '#ccc',
-		justifyContent: 'center',
-		alignItems: 'center',
-		marginBottom: 10,
-	},
-	userName: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#333',
-	},
-	userLevel: {
-		fontSize: 14,
-		color: '#666',
-		marginTop: 4,
-	},
-	logoutContainer: {
-		borderTopWidth: 1,
-		borderTopColor: '#f0f0f0',
-		paddingBottom: 20,
-		paddingTop: 10,
-	},
+	drawerHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', alignItems: 'center', marginBottom: 10 },
+	avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 10, borderWidth: 2, borderColor: '#0c6ead' },
+	avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+	userName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+	userLevel: { fontSize: 14, color: '#666', marginTop: 4 },
+	logoutContainer: { borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingBottom: 20, paddingTop: 10 },
 });

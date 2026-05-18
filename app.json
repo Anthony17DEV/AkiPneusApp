@@ -1,38 +1,38 @@
-{
+﻿{
 	"expo": {
-		"name": "AkiPneusApp",
-		"slug": "aki-pneus-app-v2",
+		"name": "SoluTires",
+		"slug": "Solu-Tires-App-v3",
 		"version": "1.0.0",
 		"orientation": "portrait",
-		"icon": "./assets/images/logo_akipneus.png",
-		"scheme": "akipneusapp",
+		"icon": "./assets/images/icon.png",
+		"scheme": "solutiresapp",
 		"userInterfaceStyle": "automatic",
 		"splash": {
-			"image": "./assets/images/logo_akipneus.png",
+			"image": "./assets/images/icon.png",
 			"resizeMode": "contain",
 			"backgroundColor": "#ffffff"
 		},
 		"ios": {
 			"supportsTablet": true,
-			"bundleIdentifier": "com.Cactus.AkiPneusApp",
+			"bundleIdentifier": "com.cactus.solutires",
 			"buildNumber": "1",
 			"config": {
 				"googleMapsApiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
 			},
 			"infoPlist": {
 				"NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para exibir o mapa de leads e registrar o local dos atendimentos.",
-				"NSPhotoLibraryUsageDescription": "O AkiPneusApp precisa acessar suas fotos para que você possa anexar imagens de clientes, fachadas de postos e documentos.",
-				"NSCameraUsageDescription": "O AkiPneusApp precisa usar a câmera para tirar fotos durante as visitas e digitalizar documentos em tempo real.",
+				"NSPhotoLibraryUsageDescription": "O SoluTires precisa acessar suas fotos para que você possa anexar imagens de clientes, fachadas de postos e documentos.",
+				"NSCameraUsageDescription": "O SoluTires precisa usar a câmera para tirar fotos durante as visitas e digitalizar documentos em tempo real.",
 				"ITSAppUsesNonExemptEncryption": false
 			}
 		},
 		"android": {
 			"versionCode": 1,
 			"adaptiveIcon": {
-				"foregroundImage": "./assets/images/logo_akipneus.png",
+				"foregroundImage": "./assets/images/solutires.png",
 				"backgroundColor": "#ffffff"
 			},
-			"package": "com.Cactus.AkiPneusApp",
+			"package": "com.cactus.solutires",
 			"config": {
 				"googleMaps": {
 					"apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
@@ -42,7 +42,7 @@
 		"web": {
 			"bundler": "metro",
 			"output": "static",
-			"favicon": "./assets/images/logo_akipneus.png"
+			"favicon": "./assets/images/solutires.png"
 		},
 		"plugins": [
 			"expo-router",
@@ -55,8 +55,9 @@
 		"extra": {
 			"router": {},
 			"eas": {
-				"projectId": "d1a24e69-6268-419a-8e1e-17e560a3472e"
+				"projectId": "3f2ff23e-7aae-40bb-9fe3-92736dea1907"
 			}
-		}
+		},
+		"owner": "cactustecnologia"
 	}
 }

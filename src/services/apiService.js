@@ -30,9 +30,10 @@ export const apiService = {
 		}
 	},
 
-	buscarVeiculo: async (termo) => {
+	buscarVeiculo: async (filtros) => {
 		try {
-			const response = await api.post('api_veiculo_buscar.php', { busca: termo });
+			const payload = typeof filtros === 'string' ? { busca: filtros } : filtros;
+			const response = await api.post('api_veiculo_buscar.php', payload);
 			return parseData(response.data);
 		} catch (error) {
 			console.error('Erro na busca de veículo:', error);
@@ -192,5 +193,35 @@ export const apiService = {
 				message: error.response?.data?.message || 'Erro de conexão com o servidor.'
 			};
 		}
-	}
+	},
+
+	buscarPneusGrid: async (filtros) => {
+		try {
+			const response = await api.post('api_pneus_buscar_grid.php', filtros);
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro na busca de pneus:', error);
+			return { success: false, data: [] };
+		}
+	},
+
+	salvarPneuGeral: async (dadosPneu) => {
+		try {
+			const response = await api.post('api_pneus_salvar.php', dadosPneu);
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao salvar pneu:', error);
+			return { success: false, message: 'Erro ao conectar com o servidor.' };
+		}
+	},
+
+	salvarLaudoPneu: async (dadosLaudo) => {
+		try {
+			const response = await api.post('api_pneu_salvar_laudo.php', dadosLaudo);
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao salvar laudo:', error);
+			return { success: false, message: 'Erro ao conectar com o servidor.' };
+		}
+	},
 };

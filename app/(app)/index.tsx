@@ -71,7 +71,7 @@ export default function DashboardScreen() {
 	if (isLoading) {
 		return (
 			<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f4f6f8' }}>
-				<ActivityIndicator size="large" color="#ED1C24" />
+				<ActivityIndicator size="large" color="#0c6ead" />
 				<Text style={{ marginTop: 10, color: '#666' }}>Carregando dados da frota...</Text>
 			</View>
 		);
@@ -81,20 +81,20 @@ export default function DashboardScreen() {
 		<ScrollView
 			style={styles.container}
 			showsVerticalScrollIndicator={false}
-			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ED1C24']} />}
+			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0c6ead']} />}
 		>
 			<View style={styles.header}>
 				<View>
 					<Text style={styles.greeting}>Fala, {primeiroNome}!</Text>
 					<View style={styles.badgeNivel}>
-						<FontAwesome5 name="tools" size={12} color="#ED1C24" />
+						<FontAwesome5 name="tools" size={12} color="#0c6ead" />
 						<Text style={styles.badgeText}>{user?.nivel || 'Aferidor'}</Text>
 					</View>
 				</View>
 				{user?.foto ? (
-					<Image 
-						source={{ uri: `${URL_FOTOS}${user.foto}` }} 
-						style={styles.avatar} 
+					<Image
+						source={{ uri: `${URL_FOTOS}${user.foto}` }}
+						style={styles.avatar}
 					/>
 				) : (
 					<View style={[styles.avatar, styles.avatarPlaceholder]}>
@@ -134,8 +134,8 @@ export default function DashboardScreen() {
 			</View>
 
 			<View style={styles.rowCards}>
-				<View style={[styles.statCard, { borderLeftColor: '#ED1C24', borderLeftWidth: 4 }]}>
-					<Feather name="truck" size={24} color="#ED1C24" />
+				<View style={[styles.statCard, { borderLeftColor: '#0c6ead', borderLeftWidth: 4 }]}>
+					<Feather name="truck" size={24} color="#0c6ead" />
 					<Text style={styles.statValue}>{veiculosHoje}</Text>
 					<Text style={styles.statLabel}>Veículos Hoje</Text>
 				</View>
@@ -178,8 +178,9 @@ const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8', paddingHorizontal: 20 },
 	header: { marginTop: 20, marginBottom: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20 },
 	greeting: { fontSize: 24, fontWeight: 'bold', color: '#333' },
-	badgeNivel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffe5e6', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, marginTop: 6, alignSelf: 'flex-start' },
-	badgeText: { fontSize: 12, fontWeight: '600', color: '#ED1C24', marginLeft: 6 },
+	badgeNivel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E2E8F0', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, marginTop: 6, alignSelf: 'flex-start' },
+	badgeText: { fontSize: 12, fontWeight: '600', color: '#0c6ead', marginLeft: 6 },
+	btnBuscar: { backgroundColor: '#0c6ead', width: 50, height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 	avatar: { width: 45, height: 45, borderRadius: 25 },
 	avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' },
 
@@ -187,7 +188,6 @@ const styles = StyleSheet.create({
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	inputContainer: { flexDirection: 'row', alignItems: 'center' },
 	input: { flex: 1, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#eee', borderRadius: 8, height: 50, paddingHorizontal: 15, fontSize: 16, color: '#333', marginRight: 10 },
-	btnBuscar: { backgroundColor: '#ED1C24', width: 50, height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 
 	resultCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', padding: 15, borderRadius: 8, marginTop: 15, borderWidth: 1, borderColor: '#ddd' },
 	placaText: { fontSize: 18, fontWeight: 'bold', color: '#333' },

@@ -1,14 +1,16 @@
-﻿import { Feather } from '@expo/vector-icons';
+﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
 	ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView,
-	Modal, Platform, ScrollView, StyleSheet, Text, TextInput,
+	Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput,
 	TouchableOpacity, View
 } from 'react-native';
 import { MaskedTextInput } from 'react-native-mask-text';
 import RNPickerSelect from 'react-native-picker-select';
 
+import LogoSolutires from '../../assets/images/solutires.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
 
@@ -24,8 +26,17 @@ interface Cliente {
 	fone1?: string;
 }
 
+interface Contato {
+	nome: string;
+	fone1: string;
+	fone2: string;
+	email: string;
+}
+
 export default function ClientesScreen() {
 	const { user } = useAuth();
+	const router = useRouter();
+
 	const [clientes, setClientes] = useState<Cliente[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -42,12 +53,17 @@ export default function ClientesScreen() {
 
 	const [fotos, setFotos] = useState<string[]>([]);
 	const [fotoAntiga, setFotoAntiga] = useState<string | null>(null);
+	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
 	const [formCliente, setFormCliente] = useState({
 		cnpj: '', identificacao: '',
 		cidade: '', cidade_id: '',
-		contato: '', fone1: '', fone2: '', email: '', tipoCliente: '', situacao: ''
+		tipoCliente: '', situacao: ''
 	});
+
+	const [contatos, setContatos] = useState<Contato[]>([
+		{ nome: '', fone1: '', fone2: '', email: '' }
+	]);
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'cidade'>('cidade');
@@ -73,11 +89,13 @@ export default function ClientesScreen() {
 	const loadMore = () => { if (!isLoading && !isFetchingMore && hasMore) carregarClientes(pagina + 1); };
 
 	const resetForm = () => {
-		setFormCliente({ cnpj: '', identificacao: '', cidade: '', cidade_id: '', contato: '', fone1: '', fone2: '', email: '', tipoCliente: '', situacao: '' });
+		setFormCliente({ cnpj: '', identificacao: '', cidade: '', cidade_id: '', tipoCliente: '', situacao: '' });
+		setContatos([{ nome: '', fone1: '', fone2: '', email: '' }]);
 		setFotos([]);
 		setFotoAntiga(null);
 		setIsEditing(false);
 		setIdEditando(null);
+		setFotoAmpliada(null);
 	};
 
 	const abrirModalNovo = () => { resetForm(); setModalInserirVisible(true); };
@@ -92,9 +110,15 @@ export default function ClientesScreen() {
 			setFormCliente({
 				cnpj: dados.cnpj || '', identificacao: dados.identificacao || '',
 				cidade: dados.cidade || '', cidade_id: dados.cidade_id || '',
-				contato: dados.contato || '', fone1: dados.fone1 || '', fone2: dados.fone2 || '',
-				email: dados.email || '', tipoCliente: dados.tipoCliente || '', situacao: dados.situacao || ''
+				tipoCliente: dados.tipoCliente || '', situacao: dados.situacao || ''
 			});
+
+			setContatos([{
+				nome: dados.contato || '',
+				fone1: dados.fone1 || '',
+				fone2: dados.fone2 || '',
+				email: dados.email || ''
+			}]);
 
 			setFotoAntiga(dados.foto ? `${URL_FOTOS}${dados.foto}` : null);
 			setFotos([]);
@@ -102,6 +126,18 @@ export default function ClientesScreen() {
 			setIdEditando(cliente.id);
 			setModalInserirVisible(true);
 		} else { Alert.alert('Erro', res?.message || 'Não foi possível carregar os detalhes.'); }
+	};
+
+	const adicionarContato = () => setContatos([...contatos, { nome: '', fone1: '', fone2: '', email: '' }]);
+	const removerContato = (index: number) => {
+		const novos = [...contatos];
+		novos.splice(index, 1);
+		setContatos(novos);
+	};
+	const atualizarContato = (index: number, campo: keyof Contato, valor: string) => {
+		const novos = [...contatos];
+		novos[index][campo] = valor;
+		setContatos(novos);
 	};
 
 	const abrirBuscaDinamica = (tipo: 'cidade') => {
@@ -125,16 +161,21 @@ export default function ClientesScreen() {
 		if (status !== 'granted') { Alert.alert('Permissão negada'); return; }
 		let result = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
 		if (!result.canceled && result.assets[0].base64) {
-			setFotos([`data:image/jpeg;base64,${result.assets[0].base64}`]);
-			setFotoAntiga(null);
+			setFotos([...fotos, `data:image/jpeg;base64,${result.assets[0].base64}`]);
 		}
 	};
 
 	const abrirGaleria = async () => {
-		let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: false, quality: 0.5, base64: true });
-		if (!result.canceled && result.assets[0].base64) {
-			setFotos([`data:image/jpeg;base64,${result.assets[0].base64}`]);
-			setFotoAntiga(null);
+		let result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsMultipleSelection: true,
+			quality: 0.5,
+			base64: true
+		});
+
+		if (!result.canceled) {
+			const novasFotos = result.assets.map(asset => `data:image/jpeg;base64,${asset.base64}`);
+			setFotos([...fotos, ...novasFotos]);
 		}
 	};
 
@@ -143,7 +184,13 @@ export default function ClientesScreen() {
 
 	const handleSalvarCliente = async () => {
 		if (!formCliente.cnpj || !formCliente.identificacao) { Alert.alert('Atenção', 'Preencha pelo menos o CNPJ e a Identificação.'); return; }
-		const dadosFinais: any = { ...formCliente, fotos };
+
+		const dadosFinais: any = {
+			...formCliente,
+			contatos: contatos,
+			fotos
+		};
+
 		try {
 			let response;
 			if (isEditing) { dadosFinais.id = idEditando; response = await apiService.modificarCliente(dadosFinais, user?.id); }
@@ -185,11 +232,27 @@ export default function ClientesScreen() {
 						<Text style={styles.cardInfoText}>{formatarTelefone(item.fone1)}</Text>
 					</View>
 				</View>
+
 				<View style={styles.cardActions}>
-					<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleActionModificar(item)}>
-						<Feather name="edit-2" size={18} color="#ffffff" />
-						<Text style={styles.btnEditarCardText}>Editar</Text>
-					</TouchableOpacity>
+					<View style={styles.actionButtonsRow}>
+						<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push({ pathname: '/veiculos', params: { cliente_id: item.id, cliente_nome: item.nome } } as any)}>
+							<Feather name="truck" size={14} color="#333" />
+							<Text style={styles.btnActionTextSecondary}>Veículos</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							style={styles.btnActionSecondary}
+							onPress={() => router.push({ pathname: '/pneus', params: { cliente_id: item.id, cliente_nome: item.nome } } as any)}
+						>
+							<MaterialCommunityIcons name="tire" size={16} color="#333" />
+							<Text style={styles.btnActionTextSecondary}>Pneus</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleActionModificar(item)}>
+							<Feather name="edit-2" size={14} color="#ffffff" />
+							<Text style={styles.btnEditarCardText}>Editar</Text>
+						</TouchableOpacity>
+					</View>
 				</View>
 			</View>
 		);
@@ -197,6 +260,7 @@ export default function ClientesScreen() {
 
 	return (
 		<View style={styles.container}>
+			<StatusBar barStyle="dark-content" />
 			<FlatList
 				data={clientes}
 				keyExtractor={(item, index) => String(item?.id || index)}
@@ -227,18 +291,23 @@ export default function ClientesScreen() {
 							</TouchableOpacity>
 						</View>
 						<Text style={[styles.sectionTitle, { marginTop: -10, marginBottom: -10 }]}></Text>
-						{isLoading && clientes.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#ED1C24" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
+						{isLoading && clientes.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
 					</View>
 				}
-				ListFooterComponent={isFetchingMore ? <ActivityIndicator size="small" color="#ED1C24" style={{ marginVertical: 20 }} /> : !hasMore && clientes.length > 0 ? <Text style={{ textAlign: 'center', color: '#999', marginVertical: 20 }}>Fim da lista.</Text> : null}
+				ListFooterComponent={isFetchingMore ? <ActivityIndicator size="small" color="#0c6ead" style={{ marginVertical: 20 }} /> : !hasMore && clientes.length > 0 ? <Text style={{ textAlign: 'center', color: '#999', marginVertical: 20 }}>Fim da lista.</Text> : null}
 				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum cliente encontrado.</Text> : null}
 			/>
 
 			<Modal visible={modalInserirVisible} animationType="slide" transparent={false}>
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
-					<View style={styles.modalHeaderFull}>
-						<TouchableOpacity onPress={() => setModalInserirVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#333" /></TouchableOpacity>
-						<Text style={styles.modalTitle}>{isEditing ? 'Editar Cliente' : 'Novo Cliente'}</Text>
+
+					<View style={styles.modalHeaderFullScreen}>
+						<TouchableOpacity onPress={() => setModalInserirVisible(false)} style={{ padding: 5 }}>
+							<Feather name="arrow-left" size={24} color="#fff" />
+						</TouchableOpacity>
+
+						<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
+
 						<View style={{ width: 24 }} />
 					</View>
 
@@ -255,13 +324,48 @@ export default function ClientesScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<Text style={styles.groupTitle}>2. Contato</Text>
-						<View style={styles.inputGroup}><Text style={styles.label}>Pessoa de Contato</Text><TextInput style={styles.input} placeholder="" value={formCliente.contato} onChangeText={(t) => setFormCliente({ ...formCliente, contato: t })} /></View>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Telefone 1</Text><MaskedTextInput mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad" value={formCliente.fone1} onChangeText={(t) => setFormCliente({ ...formCliente, fone1: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Telefone 2</Text><MaskedTextInput mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad" value={formCliente.fone2} onChangeText={(t) => setFormCliente({ ...formCliente, fone2: t })} /></View>
+						<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 5 }}>
+							<Text style={[styles.groupTitle, { marginTop: 0, marginBottom: 0, borderBottomWidth: 0 }]}>2. Pessoas de Contato</Text>
+							<TouchableOpacity style={styles.btnAddContato} onPress={adicionarContato}>
+								<Feather name="plus" size={14} color="#fff" />
+								<Text style={styles.btnAddContatoText}>Adicionar</Text>
+							</TouchableOpacity>
 						</View>
-						<View style={styles.inputGroup}><Text style={styles.label}>E-mail</Text><TextInput style={styles.input} placeholder="contato@empresa.com" keyboardType="email-address" autoCapitalize="none" value={formCliente.email} onChangeText={(t) => setFormCliente({ ...formCliente, email: t })} /></View>
+						<View style={{ height: 1, backgroundColor: '#E2E8F0', marginBottom: 15 }} />
+
+						{contatos.map((contato, index) => (
+							<View key={index} style={styles.contatoBox}>
+								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+									<Text style={styles.contatoIndexTitle}>Contato {index + 1}</Text>
+									{contatos.length > 1 && (
+										<TouchableOpacity onPress={() => removerContato(index)}>
+											<Feather name="trash-2" size={16} color="#E53935" />
+										</TouchableOpacity>
+									)}
+								</View>
+
+								<View style={styles.inputGroup}>
+									<Text style={styles.label}>Nome</Text>
+									<TextInput style={styles.input} placeholder="Ex: João da Silva" value={contato.nome} onChangeText={(t) => atualizarContato(index, 'nome', t)} />
+								</View>
+
+								<View style={styles.row}>
+									<View style={styles.inputGroupH}>
+										<Text style={styles.label}>Telefone 1</Text>
+										<MaskedTextInput mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad" value={contato.fone1} onChangeText={(t) => atualizarContato(index, 'fone1', t)} />
+									</View>
+									<View style={styles.inputGroupH}>
+										<Text style={styles.label}>Telefone 2</Text>
+										<MaskedTextInput mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad" value={contato.fone2} onChangeText={(t) => atualizarContato(index, 'fone2', t)} />
+									</View>
+								</View>
+
+								<View style={styles.inputGroup}>
+									<Text style={styles.label}>E-mail</Text>
+									<TextInput style={styles.input} placeholder="contato@empresa.com" keyboardType="email-address" autoCapitalize="none" value={contato.email} onChangeText={(t) => atualizarContato(index, 'email', t)} />
+								</View>
+							</View>
+						))}
 
 						<Text style={styles.groupTitle}>3. Perfil do Cliente</Text>
 						<View style={styles.inputGroup}>
@@ -284,30 +388,6 @@ export default function ClientesScreen() {
 
 						<Text style={[styles.groupTitle, { zIndex: -1, elevation: -1 }]}>4. Anexos / Fotos</Text>
 
-						{fotoAntiga && fotos.length === 0 && (
-							<View style={[styles.fotosGrid, { zIndex: -1, elevation: -1 }]}>
-								<View style={styles.fotoThumbContainer}>
-									<Image source={{ uri: fotoAntiga }} style={styles.fotoThumb} />
-									<TouchableOpacity style={styles.btnRemoverFoto} onPress={removerFotoAntiga}>
-										<Feather name="x" size={14} color="#fff" />
-									</TouchableOpacity>
-								</View>
-							</View>
-						)}
-
-						{fotos.length > 0 && (
-							<View style={[styles.fotosGrid, { zIndex: -1, elevation: -1 }]}>
-								{fotos.map((uri, index) => (
-									<View key={index} style={styles.fotoThumbContainer}>
-										<Image source={{ uri }} style={styles.fotoThumb} />
-										<TouchableOpacity style={styles.btnRemoverFoto} onPress={() => removerFoto(uri)}>
-											<Feather name="x" size={14} color="#fff" />
-										</TouchableOpacity>
-									</View>
-								))}
-							</View>
-						)}
-
 						<View style={[styles.fotoContainer, { zIndex: -1, elevation: -1 }]}>
 							<TouchableOpacity style={styles.btnFoto} onPress={abrirCamera}>
 								<Feather name="camera" size={24} color="#666" />
@@ -319,38 +399,72 @@ export default function ClientesScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<TouchableOpacity style={[styles.btnSalvar, { backgroundColor: '#85d697', zIndex: -1, elevation: -1 }]} onPress={handleSalvarCliente}>
-							<Feather name="save" size={20} color="#fff" style={{ marginRight: 10 }} />
+						{(fotoAntiga || fotos.length > 0) && (
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15, zIndex: -1, elevation: -1 }}>
+								{fotoAntiga && (
+									<View style={styles.fotoThumbContainer}>
+										<TouchableOpacity onPress={() => setFotoAmpliada(fotoAntiga)}>
+											<Image source={{ uri: fotoAntiga }} style={styles.fotoThumb} />
+										</TouchableOpacity>
+										<TouchableOpacity style={styles.btnRemoverFoto} onPress={removerFotoAntiga}>
+											<Feather name="x" size={14} color="#fff" />
+										</TouchableOpacity>
+									</View>
+								)}
+
+								{fotos.map((uri, index) => (
+									<View key={index} style={styles.fotoThumbContainer}>
+										<TouchableOpacity onPress={() => setFotoAmpliada(uri)}>
+											<Image source={{ uri }} style={styles.fotoThumb} />
+										</TouchableOpacity>
+										<TouchableOpacity style={styles.btnRemoverFoto} onPress={() => removerFoto(uri)}>
+											<Feather name="x" size={14} color="#fff" />
+										</TouchableOpacity>
+									</View>
+								))}
+							</ScrollView>
+						)}
+
+						<TouchableOpacity style={[styles.btnSalvar, { zIndex: -1, elevation: -1 }]} onPress={handleSalvarCliente}>
 							<Text style={styles.btnText}>{isEditing ? 'Gravar' : 'Gravar'}</Text>
 						</TouchableOpacity>
 						<View style={{ height: 40 }} />
 					</ScrollView>
 
-					{modalBuscaVisible && (
-						<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
-							<View style={styles.modalContentBusca}>
-								<View style={styles.modalHeaderBusca}>
-									<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca.toUpperCase()}</Text>
-									<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
-								</View>
-								<View style={styles.inputBuscaContainer}>
-									<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-									<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
-								</View>
-								{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#ED1C24" /> : (
-									<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
-										renderItem={({ item }) => (
-											<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-												<Text style={styles.itemBuscaNome}>{item.nome}</Text>
-											</TouchableOpacity>
-										)}
-										ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma cidade encontrada.</Text>}
-									/>
-								)}
-							</View>
+					{!!fotoAmpliada && (
+						<View style={styles.fullScreenOverlay}>
+							<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}>
+								<Feather name="x" size={30} color="#fff" />
+							</TouchableOpacity>
+							<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
 						</View>
 					)}
 				</KeyboardAvoidingView>
+			</Modal>
+
+			<Modal visible={modalBuscaVisible} transparent={true} animationType="fade">
+				<View style={styles.modalOverlayBusca}>
+					<View style={styles.modalContentBusca}>
+						<View style={styles.modalHeaderBusca}>
+							<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca.toUpperCase()}</Text>
+							<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
+						</View>
+						<View style={styles.inputBuscaContainer}>
+							<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
+							<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
+						</View>
+						{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
+							<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
+								renderItem={({ item }) => (
+									<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
+										<Text style={styles.itemBuscaNome}>{item.nome}</Text>
+									</TouchableOpacity>
+								)}
+								ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma cidade encontrada.</Text>}
+							/>
+						)}
+					</View>
+				</View>
 			</Modal>
 		</View>
 	);
@@ -372,6 +486,7 @@ const styles = StyleSheet.create({
 	inputGroupH: { width: '48%' },
 	inputGroup: { width: '100%', marginBottom: 10 },
 	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+
 	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginRight: 10 },
 	btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
 	btnInserir: { flex: 1, backgroundColor: '#63c77b', borderWidth: 1, borderColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginLeft: 10 },
@@ -385,24 +500,40 @@ const styles = StyleSheet.create({
 	cardInfoBox: { padding: 15, paddingBottom: 10 },
 	cardInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
 	cardInfoText: { fontSize: 13, color: '#666', marginLeft: 8 },
+
 	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
-	btnEditarCard: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, borderRadius: 8, width: '33%' },
-	btnEditarCardText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
+	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%' },
+	btnActionSecondary: { backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 12, marginRight: 8 },
+	btnActionTextSecondary: { color: '#333', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
+	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
+	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
-	modalHeaderFull: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', elevation: 2 },
+	modalHeaderFullScreen: { backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+
 	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#ED1C24', marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#ffe5e6', paddingBottom: 5 },
+	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 5 },
 
-	fotosGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 15 },
-	fotoThumbContainer: { position: 'relative', marginRight: 10, marginBottom: 10 },
-	fotoThumb: { width: 70, height: 70, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f0f0f0' },
-	btnRemoverFoto: { position: 'absolute', top: -5, right: -5, backgroundColor: '#ED1C24', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+	contatoBox: { backgroundColor: '#f9f9f9', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 15 },
+	contatoIndexTitle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+	btnAddContato: { backgroundColor: '#28a745', flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
+	btnAddContatoText: { color: '#fff', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
+
+	btnRemoverFoto: { position: 'absolute', top: 5, right: 5, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
+
+	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
+
+	fotoThumbContainer: { position: 'relative', marginRight: 15, marginBottom: 10 },
+	fotoThumb: { width: 100, height: 100, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f0f0f0' },
 	fotoContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
 	btnFoto: { flex: 1, backgroundColor: '#f0f0f0', borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, marginHorizontal: 5 },
 	btnFotoText: { marginTop: 8, fontSize: 14, color: '#666', fontWeight: '500' },
-	btnSalvar: { backgroundColor: '#ED1C24', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
 
-	modalOverlayBusca: { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+	fullScreenOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 99999, elevation: 99999 },
+	closeFullBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 100000, elevation: 100000, padding: 10 },
+	fullScreenImage: { width: '100%', height: '80%' },
+
+	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
 	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },

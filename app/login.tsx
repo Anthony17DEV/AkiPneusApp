@@ -15,8 +15,8 @@ import {
 	View
 } from 'react-native';
 
-import FundoLogin from '../assets/images/fundo_distribuidora.png';
-import Logo from '../assets/images/logo_akipneus.png';
+import FundoLogin from '../assets/images/fundo.jpeg';
+import Logo from '../assets/images/solutires.png';
 import { FooterText } from '../components/FooterText';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -32,7 +32,8 @@ export default function LoginScreen() {
 
 	useEffect(() => {
 		if (params.error) {
-			Alert.alert('Erro de Login', params.error as string);
+			Alert.alert('Erro de Login', decodeURIComponent(params.error as string));
+			router.setParams({ error: '' });
 		}
 	}, [params.error]);
 
@@ -44,12 +45,12 @@ export default function LoginScreen() {
 
 		setIsLoading(true);
 
-		const sucesso = await signIn({ usuario, senha });
+		const response = await signIn({ usuario, senha });
 
 		setIsLoading(false);
 
-		if (sucesso) {
-			router.replace('/(app)');
+		if (!response.success) {
+			Alert.alert('Erro de Login', response.message || 'Falha na autenticação.');
 		}
 	};
 
@@ -134,9 +135,9 @@ const styles = StyleSheet.create({
 	icon: { padding: 10 },
 	input: { flex: 1, paddingVertical: 10, paddingRight: 10, fontSize: 16, color: '#333' },
 	actionsContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-	button: { backgroundColor: '#ED1C24', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 5, minWidth: 100, alignItems: 'center', justifyContent: 'center', height: 48 },
+	button: { backgroundColor: '#0c6ead', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 5, minWidth: 100, alignItems: 'center', justifyContent: 'center', height: 48 },
 	buttonDisabled: { opacity: 0.7 },
 	buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-	forgotPasswordText: { color: '#ED1C24', fontSize: 14 },
+	forgotPasswordText: { color: '#0c6ead', fontSize: 14 },
 	eyeIcon: { padding: 10 },
 });

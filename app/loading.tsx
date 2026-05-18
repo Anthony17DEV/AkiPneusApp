@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+ï»¿import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ImageBackground, StyleSheet, View } from 'react-native';
@@ -15,26 +15,21 @@ export default function LoadingScreen() {
 	useEffect(() => {
 		const attemptLogin = async () => {
 			if (usuario && senha) {
-				try {
-					const result = await signIn({
-						usuario: String(usuario),
-						senha: String(senha)
-					});
+				const response = await signIn({
+					usuario: String(usuario),
+					senha: String(senha)
+				});
 
-					if (result === false) {
-						throw new Error('Falha na autenticação.');
-					}
-
-				} catch (error: any) {
+				if (!response.success) {
 					router.replace({
 						pathname: '/login',
-						params: { error: error.message || 'Não foi possível entrar. Verifique seus dados.' }
+						params: { error: encodeURIComponent(response.message || 'Falha na autenticaÃ§Ã£o.') }
 					});
 				}
 			} else {
 				router.replace({
 					pathname: '/login',
-					params: { error: 'Dados de login incompletos.' }
+					params: { error: encodeURIComponent('Dados de login incompletos.') }
 				});
 			}
 		};

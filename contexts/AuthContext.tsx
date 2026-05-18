@@ -18,7 +18,7 @@ interface UserData {
 interface AuthContextData {
 	user: UserData | null;
 	isLoading: boolean;
-	signIn: (credentials: any) => Promise<boolean>;
+	signIn: (credentials: any) => Promise<{ success: boolean; message?: string }>;
 	signOut: () => void;
 	updateUser: (newUserData: Partial<UserData>) => void;
 }
@@ -41,10 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		loadUserFromStorage();
 	}, []);
 
-	const signIn = async ({ usuario, senha }: any): Promise<boolean> => {
+	const signIn = async ({ usuario, senha }: any): Promise<{ success: boolean; message?: string }> => {
 		try {
 			if (!usuario || !senha) {
-				throw new Error("Por favor, preencha usuário e senha.");
+				return { success: false, message: "Por favor, preencha usuário e senha." };
 			}
 
 			const response = await apiService.login(usuario, senha);
@@ -56,17 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				await SecureStore.setItemAsync('userData', JSON.stringify(loggedUser));
 
 				router.replace('/(app)');
-				return true;
+				return { success: true };
 			} else {
-				throw new Error(response.message);
+				return { success: false, message: response.message };
 			}
 		} catch (error: any) {
 			console.error("Erro ao fazer login:", error);
-			router.replace({
-				pathname: '/login',
-				params: { error: error.message || 'Falha na comunicação.' },
-			});
-			return false;
+			return { success: false, message: error.message || 'Falha na comunicação.' };
 		}
 	};
 
@@ -84,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 		try {
 			await SecureStore.setItemAsync('userData', JSON.stringify(updatedUser));
-			console.log("Storage atualizado com:", newUserData);
 		} catch (e) {
 			console.error("Erro ao salvar no SecureStore:", e);
 		}

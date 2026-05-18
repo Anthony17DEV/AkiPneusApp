@@ -160,7 +160,7 @@ export default function PerfilScreen() {
 						)}
 					</TouchableOpacity>
 
-					<Text style={styles.userName}>{user?.nome || 'Usuário Aki Pneus'}</Text>
+					<Text style={styles.userName}>{user?.nome || 'Usuário SoluTires'}</Text>
 					<View style={styles.nivelBadge}>
 						<Text style={styles.nivelText}>{user?.nivel || 'Analista'}</Text>
 					</View>
@@ -170,7 +170,7 @@ export default function PerfilScreen() {
 				<View style={styles.cardInfo}>
 					<View style={styles.infoRow}>
 						<View style={styles.iconBox}>
-							<Feather name="mail" size={20} color="#ED1C24" />
+							<Feather name="mail" size={20} color="#0c6ead" />
 						</View>
 						<View>
 							<Text style={styles.infoLabel}>Login / E-mail</Text>
@@ -180,7 +180,7 @@ export default function PerfilScreen() {
 					<View style={styles.divider} />
 					<View style={styles.infoRow}>
 						<View style={styles.iconBox}>
-							<Feather name="shield" size={20} color="#ED1C24" />
+							<Feather name="shield" size={20} color="#0c6ead" />
 						</View>
 						<View>
 							<Text style={styles.infoLabel}>Nível de Acesso</Text>
@@ -265,11 +265,11 @@ const styles = StyleSheet.create({
 	avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: '#fff' },
 	avatarPlaceholder: { backgroundColor: '#e1e4e8', justifyContent: 'center', alignItems: 'center' },
 	uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
-	editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#ED1C24', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff', elevation: 3 },
-
+	editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#0c6ead', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff', elevation: 3 },
+	nivelBadge: { backgroundColor: '#E2E8F0', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+	nivelText: { color: '#0c6ead', fontSize: 12, fontWeight: 'bold' },
+	btnSalvar: { backgroundColor: '#0c6ead', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
 	userName: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-	nivelBadge: { backgroundColor: '#ffebe8', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-	nivelText: { color: '#ED1C24', fontSize: 12, fontWeight: 'bold' },
 
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#666', marginBottom: 10, marginTop: 15 },
 
@@ -289,7 +289,5 @@ const styles = StyleSheet.create({
 	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
 	modalLabel: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 8 },
 	modalInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 50, fontSize: 15, color: '#333', marginBottom: 20 },
-
-	btnSalvar: { backgroundColor: '#ED1C24', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });

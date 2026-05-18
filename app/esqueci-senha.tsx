@@ -17,7 +17,7 @@ import {
 import { apiService } from '../src/services/apiService';
 
 import FundoLogin from '../assets/images/fundo_distribuidora.png';
-import Logo from '../assets/images/logo_akipneus.png';
+import Logo from '../assets/images/solutires.png';
 import { FooterText } from '../components/FooterText';
 
 export default function EsqueciSenhaScreen() {
@@ -123,13 +123,10 @@ const styles = StyleSheet.create({
 	inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#000000', borderRadius: 5, height: 45, backgroundColor: '#f9f9f9', marginBottom: 20 },
 	icon: { padding: 10, paddingHorizontal: 12 },
 	input: { flex: 1, paddingVertical: 10, paddingRight: 10, fontSize: 16, color: '#333' },
-
 	actionsContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
-
-	button: { backgroundColor: '#ED1C24', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 5, minWidth: 110, alignItems: 'center', justifyContent: 'center', height: 48 },
+	button: { backgroundColor: '#0c6ead', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 5, minWidth: 110, alignItems: 'center', justifyContent: 'center', height: 48 },
 	buttonDisabled: { opacity: 0.7 },
 	buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-
 	backButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 10 },
 	backButtonText: { color: '#666', fontSize: 15, fontWeight: '600' },
 });
