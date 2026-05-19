@@ -1,7 +1,7 @@
 ﻿{
 	"expo": {
 		"name": "SoluTires",
-		"slug": "solutires-app-v3-novo",
+		"slug": "solutires-app-v3-limpo",
 		"version": "1.0.0",
 		"orientation": "portrait",
 		"icon": "./assets/images/miniatura.png",
@@ -29,10 +29,10 @@
 		"android": {
 			"versionCode": 1,
 			"adaptiveIcon": {
-				"foregroundImage": "./assets/images/solutires.png",
+				"foregroundImage": "./assets/images/miniatura.png",
 				"backgroundColor": "#ffffff"
 			},
-			"package": "com.cactus.solutires2",
+			"package": "com.cactus.solutires3",
 			"config": {
 				"googleMaps": {
 					"apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
@@ -42,7 +42,7 @@
 		"web": {
 			"bundler": "metro",
 			"output": "static",
-			"favicon": "./assets/images/solutires.png"
+			"favicon": "./assets/images/miniatura.png"
 		},
 		"plugins": [
 			"expo-router",
