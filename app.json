@@ -54,9 +54,7 @@
 		},
 		"extra": {
 			"router": {},
-			"eas": {
-				"projectId": "3f2ff23e-7aae-40bb-9fe3-92736dea1907"
-			}
+			"eas": {}
 		},
 		"owner": "cactustecnologia"
 	}
