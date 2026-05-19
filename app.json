@@ -1,14 +1,14 @@
 ﻿{
 	"expo": {
 		"name": "SoluTires",
-		"slug": "Solu-Tires-App-v3",
+		"slug": "solutires-app-v3-novo",
 		"version": "1.0.0",
 		"orientation": "portrait",
-		"icon": "./assets/images/icon.png",
+		"icon": "./assets/images/miniatura.png",
 		"scheme": "solutiresapp",
 		"userInterfaceStyle": "automatic",
 		"splash": {
-			"image": "./assets/images/icon.png",
+			"image": "./assets/images/miniatura.png",
 			"resizeMode": "contain",
 			"backgroundColor": "#ffffff"
 		},
@@ -32,7 +32,7 @@
 				"foregroundImage": "./assets/images/solutires.png",
 				"backgroundColor": "#ffffff"
 			},
-			"package": "com.cactus.solutires",
+			"package": "com.cactus.solutires2",
 			"config": {
 				"googleMaps": {
 					"apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
