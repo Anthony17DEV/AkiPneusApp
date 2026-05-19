@@ -493,7 +493,6 @@ export default function ChecklistScreen() {
 
 	return (
 		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" />
 			{isLoading && <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 50 }} />}
 
 			{veiculo && (
@@ -624,7 +623,6 @@ export default function ChecklistScreen() {
 			</Modal>
 
 			<Modal visible={modalPneuVisible} animationType="slide">
-				<StatusBar barStyle="light-content" />
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
 
 					<View style={styles.modalHeaderFullScreen}>
@@ -779,7 +777,16 @@ const styles = StyleSheet.create({
 	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 99999 },
 	modalSmall: { width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
 	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-	modalHeaderFullScreen: { backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+	modalHeaderFullScreen: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		backgroundColor: '#0c6ead',
+		paddingHorizontal: 15,
+		paddingBottom: 15,
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		elevation: 4,
+	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
 	btnRemoveFoto: { position: 'absolute', top: -10, right: -10, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },

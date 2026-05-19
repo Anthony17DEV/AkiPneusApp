@@ -260,7 +260,6 @@ export default function ClientesScreen() {
 
 	return (
 		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" />
 			<FlatList
 				data={clientes}
 				keyExtractor={(item, index) => String(item?.id || index)}
@@ -508,7 +507,16 @@ const styles = StyleSheet.create({
 	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
 	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
-	modalHeaderFullScreen: { backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+	modalHeaderFullScreen: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		backgroundColor: '#0c6ead',
+		paddingHorizontal: 15,
+		paddingBottom: 15,
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		elevation: 4,
+	},
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
 
 	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },

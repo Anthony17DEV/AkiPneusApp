@@ -181,7 +181,6 @@ export default function PneusScreen() {
 
 	return (
 		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" />
 			<FlatList
 				data={pneus}
 				keyExtractor={(item, index) => String(item?.id || index)}
@@ -423,7 +422,16 @@ const styles = StyleSheet.create({
 	btnEditarCard: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
 	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
-	modalHeaderFull: { backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+	modalHeaderFull: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		backgroundColor: '#0c6ead',
+		paddingHorizontal: 15,
+		paddingBottom: 15,
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		elevation: 4,
+	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
 
 	btnSalvar: { backgroundColor: '#63c77b', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },

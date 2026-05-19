@@ -411,7 +411,6 @@ export default function VeiculosScreen() {
 
 	return (
 		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" />
 			<FlatList
 				data={veiculos}
 				keyExtractor={(item, index) => String(item?.id || index)}
@@ -785,7 +784,16 @@ const styles = StyleSheet.create({
 	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
 	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
-	modalHeaderFull: { backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+	modalHeaderFull: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		backgroundColor: '#0c6ead',
+		paddingHorizontal: 15,
+		paddingBottom: 15,
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		elevation: 4,
+	},
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
 
 	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },

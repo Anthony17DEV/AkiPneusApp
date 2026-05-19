@@ -2,7 +2,7 @@
 import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
 import { Drawer } from 'expo-router/drawer';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
 
@@ -51,6 +51,8 @@ export default function AppLayout() {
 			drawerContent={(props) => <CustomDrawerContent {...props} />}
 			screenOptions={{
 				headerStyle: { backgroundColor: '#0c6ead' },
+				headerStatusBarHeight: Platform.OS === 'android' ? StatusBar.currentHeight : undefined,
+
 				headerTintColor: '#fff',
 				drawerActiveTintColor: '#0c6ead',
 				drawerInactiveTintColor: '#333',
