@@ -5,9 +5,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
-import { apiService } from '../../src/services/apiService';
-
 import LogoSolutires from '../../assets/images/solutires.png';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../src/services/apiService';
 
 interface Veiculo {
 	id: number; placa: string; codigo: string; eixos: string; rodado: string; calibragem_padrao: string;
@@ -34,6 +34,7 @@ export default function VeiculosScreen() {
 	const navigation = useNavigation<any>();
 	const params = useLocalSearchParams();
 	const router = useRouter();
+	const { signOut } = useAuth();
 
 	const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +73,23 @@ export default function VeiculosScreen() {
 		proprietario: '', proprietario_id: '', tipoProprietario: '', rntrc: '', proprietarioUf: '',
 		vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
 	});
+
+	const limparFiltroCliente = () => {
+		setFiltroCliente('');
+		setFiltroClienteId('');
+		router.setParams({ cliente_id: '', cliente_nome: '' });
+	};
+
+	const confirmSignOut = () => {
+		Alert.alert(
+			'Sair da Conta',
+			'Tem certeza que deseja sair do aplicativo?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{ text: 'Sair', style: 'destructive', onPress: signOut },
+			]
+		);
+	};
 
 	useEffect(() => {
 		if (params.action === 'novo') {
@@ -146,8 +164,13 @@ export default function VeiculosScreen() {
 	};
 
 	const resetForm = () => {
+		const preNome = (params.cliente_nome as string) || filtroCliente || '';
+		const preId = (params.cliente_id as string) || filtroClienteId || '';
+
 		setForm({
-			id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '', marca: '', marca_id: '', modelo: '', modelo_id: '', ano: '', anoModelo: '', cor: '', combustivel: '', tanque: '', qtde_passageiros: '', estepe: '', calibragem_original: '', tipoCarroceria: '', tipoRodado: '', eixos: '', taraKg: '', capacidadeKg: '', capacidadeM3: '', proprietario: '', proprietario_id: '', tipoProprietario: '', rntrc: '', proprietarioUf: '', vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
+			id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '', marca: '', marca_id: '', modelo: '', modelo_id: '', ano: '', anoModelo: '', cor: '', combustivel: '', tanque: '', qtde_passageiros: '', estepe: '', calibragem_original: '', tipoCarroceria: '', tipoRodado: '', eixos: '', taraKg: '', capacidadeKg: '', capacidadeM3: '',
+			proprietario: preNome, proprietario_id: preId,
+			tipoProprietario: '', rntrc: '', proprietarioUf: '', vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
 		});
 		setFotosNovas([]);
 		setFotosAntigas([]);
@@ -186,7 +209,14 @@ export default function VeiculosScreen() {
 	const tirarFoto = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Você precisa permitir o acesso à câmera."); return; }
-		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.7, base64: true });
+
+		const result = await ImagePicker.launchCameraAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsEditing: false,
+			quality: 0.7,
+			base64: true
+		});
+
 		if (!result.canceled && result.assets[0].base64) {
 			setFotosNovas([...fotosNovas, `data:image/jpeg;base64,${result.assets[0].base64}`]);
 		}
@@ -446,11 +476,19 @@ export default function VeiculosScreen() {
 						</View>
 
 						<View style={styles.inputGroupFull}>
-							<Text style={styles.label}>Cliente</Text>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+								<Text style={styles.label}>Cliente</Text>
+								{!!params.cliente_id && (
+									<TouchableOpacity onPress={limparFiltroCliente} style={{ paddingHorizontal: 5 }}>
+										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
+									</TouchableOpacity>
+								)}
+							</View>
 							<TextInput
-								style={styles.input}
+								style={[styles.input, params.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
 								placeholder="Nome do Cliente..."
 								value={filtroCliente}
+								editable={!params.cliente_id}
 								onChangeText={(text) => {
 									setFiltroCliente(text);
 									setFiltroClienteId('');
@@ -546,8 +584,12 @@ export default function VeiculosScreen() {
 							}} style={{ padding: 5 }}>
 								<Feather name="arrow-left" size={24} color="#fff" />
 							</TouchableOpacity>
+
 							<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
-							<View style={{ width: 24 }} />
+
+							<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}>
+								<Feather name="power" size={22} color="#fff" />
+							</TouchableOpacity>
 						</View>
 
 						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
@@ -557,12 +599,17 @@ export default function VeiculosScreen() {
 								<Text style={styles.label}>* Cliente</Text>
 								<View style={styles.inputWithIcon}>
 									<TextInput
-										style={styles.inputFlex}
+										style={[styles.inputFlex, params.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
 										value={form.proprietario}
+										editable={!params.cliente_id}
 										onChangeText={t => setForm({ ...form, proprietario: t, proprietario_id: '' })}
 										placeholder="Nome do Cliente..."
 									/>
-									<TouchableOpacity style={styles.searchIconBtn} onPress={() => abrirBuscaDinamica('entidade', form.proprietario)}>
+									<TouchableOpacity
+										style={[styles.searchIconBtn, params.cliente_id ? { backgroundColor: '#999', borderColor: '#999' } : {}]}
+										onPress={() => abrirBuscaDinamica('entidade', form.proprietario)}
+										disabled={!!params.cliente_id}
+									>
 										<Feather name="search" size={20} color="#fff" />
 									</TouchableOpacity>
 								</View>
@@ -601,7 +648,24 @@ export default function VeiculosScreen() {
 
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}><Text style={styles.label}>Cor</Text><TextInput style={styles.input} value={form.cor} onChangeText={t => setForm({ ...form, cor: t })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Combustível</Text><RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.combustivel} onValueChange={v => setForm({ ...form, combustivel: v })} items={[{ label: 'ARLA', value: 'ARLA', color: '#000' }, { label: 'Gasolina', value: 'Gasolina', color: '#000' }, { label: 'Etanol', value: 'Etanol', color: '#000' }, { label: 'GNV', value: 'GNV', color: '#000' }, { label: 'Diesel', value: 'Diesel', color: '#000' }, { label: 'Diesel S10', value: 'Diesel S10', color: '#000' }, { label: 'Diesel S50', value: 'Diesel S50', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Combustível</Text>
+									<RNPickerSelect
+										placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
+										value={form.combustivel}
+										onValueChange={v => setForm({ ...form, combustivel: v })}
+										items={[
+											{ label: 'Gasolina', value: 'Gasolina', color: '#000' },
+											{ label: 'Etanol', value: 'Etanol', color: '#000' },
+											{ label: 'Flex', value: 'Flex', color: '#000' },
+											{ label: 'Diesel', value: 'Diesel', color: '#000' },
+											{ label: 'Elétrico', value: 'Elétrico', color: '#000' }
+										]}
+										style={pickerStyles}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								</View>
 							</View>
 
 							<View style={styles.row}>
@@ -791,7 +855,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#0c6ead',
 		paddingHorizontal: 15,
 		paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -20 : 40),
 		elevation: 4,
 	},
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },

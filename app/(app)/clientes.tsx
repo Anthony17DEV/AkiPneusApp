@@ -34,7 +34,7 @@ interface Contato {
 }
 
 export default function ClientesScreen() {
-	const { user } = useAuth();
+	const { user, signOut } = useAuth();
 	const router = useRouter();
 
 	const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -52,7 +52,7 @@ export default function ClientesScreen() {
 	const [idEditando, setIdEditando] = useState<number | null>(null);
 
 	const [fotos, setFotos] = useState<string[]>([]);
-	const [fotoAntiga, setFotoAntiga] = useState<string | null>(null);
+	const [fotosAntigas, setFotosAntigas] = useState<string[]>([]);
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
 	const [formCliente, setFormCliente] = useState({
@@ -92,7 +92,7 @@ export default function ClientesScreen() {
 		setFormCliente({ cnpj: '', identificacao: '', cidade: '', cidade_id: '', tipoCliente: '', situacao: '' });
 		setContatos([{ nome: '', fone1: '', fone2: '', email: '' }]);
 		setFotos([]);
-		setFotoAntiga(null);
+		setFotosAntigas([]);
 		setIsEditing(false);
 		setIdEditando(null);
 		setFotoAmpliada(null);
@@ -113,14 +113,13 @@ export default function ClientesScreen() {
 				tipoCliente: dados.tipoCliente || '', situacao: dados.situacao || ''
 			});
 
-			setContatos([{
-				nome: dados.contato || '',
-				fone1: dados.fone1 || '',
-				fone2: dados.fone2 || '',
-				email: dados.email || ''
-			}]);
+			if (dados.contatos && dados.contatos.length > 0) {
+				setContatos(dados.contatos);
+			} else {
+				setContatos([{ nome: '', fone1: '', fone2: '', email: '' }]);
+			}
 
-			setFotoAntiga(dados.foto ? `${URL_FOTOS}${dados.foto}` : null);
+			setFotosAntigas(dados.foto ? dados.foto.split(',').map((f: string) => `${URL_FOTOS}${f}`) : []);
 			setFotos([]);
 			setIsEditing(true);
 			setIdEditando(cliente.id);
@@ -138,6 +137,17 @@ export default function ClientesScreen() {
 		const novos = [...contatos];
 		novos[index][campo] = valor;
 		setContatos(novos);
+	};
+
+	const confirmSignOut = () => {
+		Alert.alert(
+			'Sair da Conta',
+			'Tem certeza que deseja sair do aplicativo?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{ text: 'Sair', style: 'destructive', onPress: signOut },
+			]
+		);
 	};
 
 	const abrirBuscaDinamica = (tipo: 'cidade') => {
@@ -180,7 +190,9 @@ export default function ClientesScreen() {
 	};
 
 	const removerFoto = (uriRemover: string) => setFotos(fotos.filter(uri => uri !== uriRemover));
-	const removerFotoAntiga = () => setFotoAntiga(null);
+	const removerFotoAntiga = (indexRemover: number) => {
+		setFotosAntigas(fotosAntigas.filter((_, index) => index !== indexRemover));
+	};
 
 	const handleSalvarCliente = async () => {
 		if (!formCliente.cnpj || !formCliente.identificacao) { Alert.alert('Atenção', 'Preencha pelo menos o CNPJ e a Identificação.'); return; }
@@ -188,7 +200,8 @@ export default function ClientesScreen() {
 		const dadosFinais: any = {
 			...formCliente,
 			contatos: contatos,
-			fotos
+			fotos,
+			fotosAntigas: fotosAntigas.map(url => url.substring(url.lastIndexOf('/') + 1))
 		};
 
 		try {
@@ -203,11 +216,27 @@ export default function ClientesScreen() {
 		} catch (e: any) { Alert.alert('Erro Fatal', e.message); }
 	};
 
+	const aplicarMascaraTelefoneInput = (text: string) => {
+		let v = text.replace(/\D/g, '');
+		if (v.length <= 10) {
+			v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
+			v = v.replace(/(\d{4})(\d)/, '$1-$2');
+		} else {
+			v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
+			v = v.replace(/(\d{5})(\d)/, '$1-$2');
+		}
+		return v.substring(0, 15);
+	};
+
 	const formatarTelefone = (tel?: string) => {
 		if (!tel) return 'Sem telefone';
 		const limpo = tel.replace(/\D/g, '');
+
 		if (limpo.length === 11) return limpo.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
 		if (limpo.length === 10) return limpo.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+		if (limpo.length === 9) return limpo.replace(/(\d{5})(\d{4})/, '$1-$2');
+		if (limpo.length === 8) return limpo.replace(/(\d{4})(\d{4})/, '$1-$2');
+
 		return tel;
 	};
 
@@ -307,7 +336,9 @@ export default function ClientesScreen() {
 
 						<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
 
-						<View style={{ width: 24 }} />
+						<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}>
+							<Feather name="power" size={22} color="#fff" />
+						</TouchableOpacity>
 					</View>
 
 					<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
@@ -351,11 +382,23 @@ export default function ClientesScreen() {
 								<View style={styles.row}>
 									<View style={styles.inputGroupH}>
 										<Text style={styles.label}>Telefone 1</Text>
-										<MaskedTextInput mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad" value={contato.fone1} onChangeText={(t) => atualizarContato(index, 'fone1', t)} />
+										<TextInput
+											style={styles.input}
+											placeholder="(00) 00000-0000"
+											keyboardType="phone-pad"
+											value={contato.fone1}
+											onChangeText={(t) => atualizarContato(index, 'fone1', aplicarMascaraTelefoneInput(t))}
+										/>
 									</View>
 									<View style={styles.inputGroupH}>
 										<Text style={styles.label}>Telefone 2</Text>
-										<MaskedTextInput mask="(99) 99999-9999" style={styles.input} placeholder="(00) 00000-0000" keyboardType="phone-pad" value={contato.fone2} onChangeText={(t) => atualizarContato(index, 'fone2', t)} />
+										<TextInput
+											style={styles.input}
+											placeholder="(00) 00000-0000"
+											keyboardType="phone-pad"
+											value={contato.fone2}
+											onChangeText={(t) => atualizarContato(index, 'fone2', aplicarMascaraTelefoneInput(t))}
+										/>
 									</View>
 								</View>
 
@@ -398,21 +441,22 @@ export default function ClientesScreen() {
 							</TouchableOpacity>
 						</View>
 
-						{(fotoAntiga || fotos.length > 0) && (
+						{(fotosAntigas.length > 0 || fotos.length > 0) && (
 							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15, zIndex: -1, elevation: -1 }}>
-								{fotoAntiga && (
-									<View style={styles.fotoThumbContainer}>
-										<TouchableOpacity onPress={() => setFotoAmpliada(fotoAntiga)}>
-											<Image source={{ uri: fotoAntiga }} style={styles.fotoThumb} />
+
+								{fotosAntigas.map((uri, index) => (
+									<View key={`antiga-${index}`} style={styles.fotoThumbContainer}>
+										<TouchableOpacity onPress={() => setFotoAmpliada(uri)}>
+											<Image source={{ uri }} style={styles.fotoThumb} />
 										</TouchableOpacity>
-										<TouchableOpacity style={styles.btnRemoverFoto} onPress={removerFotoAntiga}>
+										<TouchableOpacity style={styles.btnRemoverFoto} onPress={() => removerFotoAntiga(index)}>
 											<Feather name="x" size={14} color="#fff" />
 										</TouchableOpacity>
 									</View>
-								)}
+								))}
 
 								{fotos.map((uri, index) => (
-									<View key={index} style={styles.fotoThumbContainer}>
+									<View key={`nova-${index}`} style={styles.fotoThumbContainer}>
 										<TouchableOpacity onPress={() => setFotoAmpliada(uri)}>
 											<Image source={{ uri }} style={styles.fotoThumb} />
 										</TouchableOpacity>
@@ -514,7 +558,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#0c6ead',
 		paddingHorizontal: 15,
 		paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -20 : 40),
 		elevation: 4,
 	},
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },

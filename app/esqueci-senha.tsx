@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { apiService } from '../src/services/apiService';
 
-import FundoLogin from '../assets/images/fundo_distribuidora.png';
+import FundoLogin from '../assets/images/fundo.jpeg';
 import Logo from '../assets/images/solutires.png';
 import { FooterText } from '../components/FooterText';
 

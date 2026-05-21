@@ -4,11 +4,29 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
+import LogoSolutires from '../../assets/images/solutires.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { ChassiCaminhao } from '../../src/components/ChassiCaminhao';
 import { apiService } from '../../src/services/apiService';
 
-interface Veiculo { id: number; placa: string; veic_tx_placa?: string; codigo: string; marca: string; modelo: string; eixos: string; rodado: string; calibragem_padrao: string; estepe: string; tipo: string; cor?: string; veic_tx_cor?: string; }
+interface Veiculo {
+	id: number;
+	placa: string;
+	veic_tx_placa?: string;
+	codigo: string;
+	marca: string;
+	modelo: string;
+	eixos: string;
+	veic_tx_eixos?: string;
+	rodado: string;
+	veic_tx_tipoRodado?: string;
+	calibragem_padrao: string;
+	estepe: string;
+	tipo: string;
+	veic_tx_tipo?: string;
+	cor?: string;
+	veic_tx_cor?: string;
+}
 
 export default function ChecklistScreen() {
 	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
@@ -16,7 +34,7 @@ export default function ChecklistScreen() {
 
 	const params = useLocalSearchParams();
 	const router = useRouter();
-	const { user } = useAuth();
+	const { user, signOut } = useAuth();
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [veiculo, setVeiculo] = useState<Veiculo | null>(null);
@@ -80,6 +98,26 @@ export default function ChecklistScreen() {
 		}
 	};
 
+	const confirmSignOut = () => {
+		Alert.alert(
+			'Sair da Conta',
+			'Tem certeza que deseja sair do aplicativo?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{ text: 'Sair', style: 'destructive', onPress: signOut },
+			]
+		);
+	};
+
+	const formatarValorDB = (val: any) => {
+		if (!val) return '';
+		let str = String(val).replace(',', '.');
+		let num = parseFloat(str);
+		if (isNaN(num)) return '';
+		let formatado = num.toFixed(2).replace('.', ',');
+		return formatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+	};
+
 	const carregarHistorico = async (vId: number) => {
 		const res = await apiService.listarChecklists(vId);
 		if (res && res.success) setHistorico(res.data);
@@ -136,41 +174,30 @@ export default function ChecklistScreen() {
 		}
 	};
 
-	const salvarComposicaoChecklist = async () => {
-		if (!idChecklistAtivo) return;
-		setIsLoading(true);
-		try {
-			const payload = {
-				checklist_id: idChecklistAtivo,
-				implementos: implementos.map(i => i.id)
-			};
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_checklist_salvar_composicao.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-
-			const textResponse = await response.text();
-
+	const fecharChecklistAtivo = async () => {
+		if (idChecklistAtivo) {
+			setIsLoading(true);
 			try {
-				const res = JSON.parse(textResponse);
-				if (res.success) {
-					Alert.alert('Sucesso', 'Checklist finalizado e salvo!');
-					setIdChecklistAtivo(null);
-					setImplementos([]);
-				} else {
-					Alert.alert('Erro', res.message || 'Falha ao salvar a composição.');
-				}
-			} catch (parseError) {
-				Alert.alert('Sucesso', 'Checklist finalizado e salvo!');
-				setIdChecklistAtivo(null);
-				setImplementos([]);
+				const payload = {
+					checklist_id: idChecklistAtivo,
+					implementos: implementos.map(i => i.id)
+				};
+				await fetch('https://sistemascactus.com/apicactus/akipneus/api_checklist_salvar_composicao.php', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload)
+				});
+			} catch (err) {
+				console.log('Erro ao salvar composição', err);
 			}
-
-		} catch (err) {
-			Alert.alert('Erro', 'Falha de rede ao salvar composição.');
-		} finally {
 			setIsLoading(false);
+		}
+
+		setIdChecklistAtivo(null);
+		setImplementos([]);
+
+		if (veiculo?.id) {
+			carregarHistorico(veiculo.id);
 		}
 	};
 
@@ -218,7 +245,7 @@ export default function ChecklistScreen() {
 	const tirarFotoPneu = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmera."); return; }
-		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.7, base64: true });
+		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
 
@@ -318,19 +345,38 @@ export default function ChecklistScreen() {
 		}
 		else if (tipoBusca === 'referencia_pneu') {
 			setFormPneu({
-				...formPneu, referencia: item.id, referencia_nome: item.nome, marca: item.marca || formPneu.marca,
-				modelo: item.modelo || formPneu.modelo, mm_original: item.mmOriginal || formPneu.mm_original,
-				valor: item.valor ? formatarMoeda(item.valor.toString()) : formPneu.valor
+				...formPneu,
+				referencia: item.id || item.refe_nb_id,
+				referencia_nome: item.nome || item.refe_tx_nome,
+				marca: item.isNewModel ? (formCadastro.marca || '') : '',
+				modelo: item.isNewModel ? (formCadastro.modelo || '') : '',
+				mm_original: item.isNewModel ? (formCadastro.mmOriginal || '') : '',
+				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : ''
 			});
 		}
 		else if (tipoBusca === 'marca_pneu') {
-			setFormPneu({ ...formPneu, referencia_nome: formCadastro.nome || formPneu.referencia_nome, marca: item.nome, modelo: '', mm_original: '' });
+			setFormPneu({
+				...formPneu,
+				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
+				marca: item.nome || item.refe_tx_marca,
+				modelo: '',
+				mm_original: '',
+				valor: ''
+			});
 		}
 		else if (tipoBusca === 'modelo_pneu') {
-			setFormPneu({ ...formPneu, referencia_nome: formCadastro.nome || formPneu.referencia_nome, marca: formCadastro.marca || formPneu.marca, modelo: item.nome, mm_original: item.mmOriginal || formPneu.mm_original });
+			setFormPneu({
+				...formPneu,
+				referencia: item.isNewModel ? item.id : formPneu.referencia,
+				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
+				marca: item.isNewModel ? (formCadastro.marca || formPneu.marca) : (item.refe_tx_marca || formPneu.marca),
+				modelo: item.nome || item.refe_tx_modelo,
+				mm_original: item.mmOriginal || item.refe_tx_mmOriginal || formPneu.mm_original,
+				valor: formatarValorDB(item.valor || item.refe_tx_valor || '') || formPneu.valor
+			});
 		}
 		else if (tipoBusca === 'banda') {
-			setFormPneu({ ...formPneu, banda: item.id, banda_nome: item.nome });
+			setFormPneu({ ...formPneu, banda: item.id, banda_nome: item.nome || item.banda });
 		}
 
 		setModalBuscaVisible(false);
@@ -338,8 +384,13 @@ export default function ChecklistScreen() {
 
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
-			nome: formPneu.referencia_nome || '', marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (formPneu.marca || ''),
-			modelo: tipoBusca === 'modelo_pneu' ? termoDigitado.trim() : '', mmOriginal: '', valor: '', sulco: ''
+			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (formPneu.referencia_nome || '')),
+			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
+
+			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
+			mmOriginal: '',
+			valor: '',
+			sulco: ''
 		});
 		setModalBuscaVisible(false);
 		setModalCadastroVisible(true);
@@ -361,13 +412,13 @@ export default function ChecklistScreen() {
 			const res = await response.json();
 			if (res.success) {
 				if (tipoBusca === 'referencia_pneu') {
-					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor });
+					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true });
 				} else if (tipoBusca === 'marca_pneu') {
-					selecionarItemBusca({ id: formCadastro.marca, nome: formCadastro.marca });
+					selecionarItemBusca({ id: res.id || formCadastro.marca, nome: formCadastro.marca, isNewModel: true });
 				} else if (tipoBusca === 'modelo_pneu') {
-					selecionarItemBusca({ id: formCadastro.modelo, nome: formCadastro.modelo, mmOriginal: formCadastro.mmOriginal });
+					selecionarItemBusca({ id: res.id, nome: formCadastro.modelo, mmOriginal: formCadastro.mmOriginal, valor: dadosCadastro.valor, isNewModel: true });
 				} else if (tipoBusca === 'banda') {
-					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo });
+					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true });
 				}
 
 				setModalCadastroVisible(false);
@@ -575,15 +626,20 @@ export default function ChecklistScreen() {
 					{idChecklistAtivo && (
 						<>
 							<View style={{ flexDirection: 'row', marginBottom: 20 }}>
-								<TouchableOpacity style={[styles.btnVoltarBranco, { flex: 1, marginRight: 10 }]} onPress={() => setIdChecklistAtivo(null)}>
+								<TouchableOpacity
+									style={[styles.btnVoltarBranco, { flex: 1, marginRight: (veiculo?.tipo?.trim().toLowerCase() === 'cavalo' || veiculo?.veic_tx_tipo?.trim().toLowerCase() === 'cavalo') ? 10 : 0 }]}
+									onPress={fecharChecklistAtivo}
+								>
 									<Feather name="arrow-left" size={16} color="#333" />
 									<Text style={styles.btnVoltarBrancoText}>Voltar</Text>
 								</TouchableOpacity>
 
-								<TouchableOpacity style={[styles.btnImplemento, { flex: 1 }]} onPress={() => abrirBuscaDinamica('implemento')}>
-									<Feather name="link" size={18} color="#fff" />
-									<Text style={styles.btnImplementoText}>Implemento</Text>
-								</TouchableOpacity>
+								{(veiculo?.tipo?.trim().toLowerCase() === 'cavalo' || veiculo?.veic_tx_tipo?.trim().toLowerCase() === 'cavalo') && (
+									<TouchableOpacity style={[styles.btnImplemento, { flex: 1 }]} onPress={() => abrirBuscaDinamica('implemento')}>
+										<Feather name="link" size={18} color="#fff" />
+										<Text style={styles.btnImplementoText}>Implemento</Text>
+									</TouchableOpacity>
+								)}
 							</View>
 
 							<View style={styles.chassiContainer}>
@@ -596,11 +652,7 @@ export default function ChecklistScreen() {
 								/>
 							</View>
 
-							<View style={{ marginTop: 30, marginBottom: 40, alignItems: 'center' }}>
-								<TouchableOpacity style={styles.btnGravarChecklist} onPress={salvarComposicaoChecklist}>
-									<Text style={styles.btnGravarChecklistText}>Gravar</Text>
-								</TouchableOpacity>
-							</View>
+							<View style={{ height: 40 }} />
 						</>
 					)}
 				</ScrollView>
@@ -626,9 +678,15 @@ export default function ChecklistScreen() {
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
 
 					<View style={styles.modalHeaderFullScreen}>
-						<TouchableOpacity onPress={() => setModalPneuVisible(false)}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
-						<Text style={styles.modalTitleHeader}>Checklist Pneu {pneuSelecionado}</Text>
-						<View style={{ width: 24 }} />
+						<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}>
+							<Feather name="arrow-left" size={24} color="#fff" />
+						</TouchableOpacity>
+
+						<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
+
+						<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}>
+							<Feather name="power" size={22} color="#fff" />
+						</TouchableOpacity>
 					</View>
 
 					<ScrollView contentContainerStyle={{ padding: 20 }}>
@@ -784,7 +842,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#0c6ead',
 		paddingHorizontal: 15,
 		paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -15 : 40),
+		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -20 : 40),
 		elevation: 4,
 	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },

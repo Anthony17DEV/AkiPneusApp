@@ -1,17 +1,28 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
+import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import { useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import React from 'react';
-import { Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-
 
 function CustomDrawerContent(props: DrawerContentComponentProps) {
 	const { user, signOut } = useAuth();
+	const router = useRouter();
 
 	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Usuário';
-
 	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+
+	const confirmSignOut = () => {
+		Alert.alert(
+			'Sair da Conta',
+			'Tem certeza que deseja sair do aplicativo?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{ text: 'Sair', style: 'destructive', onPress: signOut },
+			]
+		);
+	};
 
 	return (
 		<DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
@@ -28,7 +39,31 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 			</View>
 
 			<View style={{ flex: 1, paddingTop: 10 }}>
-				<DrawerItemList {...props} />
+				{props.state.routes.map((route, index) => {
+					const { options } = props.descriptors[route.key];
+					const label = options.drawerLabel !== undefined ? options.drawerLabel : options.title !== undefined ? options.title : route.name;
+					const isFocused = props.state.index === index;
+
+					if (route.name === 'checklist') {
+						return null;
+					}
+
+					return (
+						<DrawerItem
+							key={route.key}
+							label={label as string}
+							icon={options.drawerIcon}
+							focused={isFocused}
+							activeTintColor={options.drawerActiveTintColor}
+							inactiveTintColor={options.drawerInactiveTintColor}
+							activeBackgroundColor={options.drawerActiveBackgroundColor}
+							onPress={() => {
+								const routePath = route.name === 'index' ? '/' : `/${route.name}`;
+								router.replace(routePath as any);
+							}}
+						/>
+					);
+				})}
 			</View>
 
 			<View style={styles.logoutContainer}>
@@ -36,7 +71,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 					label="Sair da Conta"
 					icon={({ size }) => <Feather name="log-out" size={size} color="#0c6ead" />}
 					labelStyle={{ color: '#0c6ead', fontWeight: 'bold', marginLeft: -10 }}
-					onPress={signOut}
+					onPress={confirmSignOut}
 				/>
 			</View>
 		</DrawerContentScrollView>
@@ -45,6 +80,17 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 
 export default function AppLayout() {
 	const { signOut } = useAuth();
+
+	const confirmSignOut = () => {
+		Alert.alert(
+			'Sair da Conta',
+			'Tem certeza que deseja sair do aplicativo?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{ text: 'Sair', style: 'destructive', onPress: signOut },
+			]
+		);
+	};
 
 	return (
 		<Drawer
@@ -58,11 +104,11 @@ export default function AppLayout() {
 				drawerInactiveTintColor: '#333',
 				drawerActiveBackgroundColor: '#ffe5e6',
 				headerTitleAlign: 'center',
-				headerLeftContainerStyle: { width: 60, alignItems: 'center', justifyContent: 'center' },
-				headerRightContainerStyle: { width: 60, alignItems: 'center', justifyContent: 'center' },
+				headerLeftContainerStyle: { paddingLeft: 5 },
+				headerRightContainerStyle: { paddingRight: 5 },
 
 				headerRight: () => (
-					<TouchableOpacity onPress={signOut} style={{ padding: 10 }}>
+					<TouchableOpacity onPress={confirmSignOut} style={{ padding: 10 }}>
 						<Feather name="power" size={22} color="#fff" />
 					</TouchableOpacity>
 				),
@@ -106,6 +152,16 @@ export default function AppLayout() {
 						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
 					),
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="tire" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="checklist_avulso"
+				options={{
+					drawerLabel: 'Checklist Avulso',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />,
 				}}
 			/>
 			<Drawer.Screen
