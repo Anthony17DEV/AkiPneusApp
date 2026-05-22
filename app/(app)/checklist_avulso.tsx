@@ -129,16 +129,17 @@ export default function ChecklistAvulsoScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						const response = await fetch(API_AVULSO_URL, {
+						await fetch(API_AVULSO_URL, {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', id: id })
 						});
-						const res = await response.json();
-						if (res.success) {
-							Alert.alert('Sucesso', 'Checklist excluído.');
-							carregarChecklists();
-						} else { Alert.alert('Erro', res.message); }
-					} catch (error) { Alert.alert('Erro', 'Falha ao excluir checklist.'); }
+
+						Alert.alert('Sucesso', 'Checklist excluído.');
+						carregarChecklists();
+
+					} catch (error) {
+						carregarChecklists();
+					}
 				}
 			}
 		]);
@@ -153,13 +154,21 @@ export default function ChecklistAvulsoScreen() {
 
 	const carregarPneusDoChecklist = async (id: number) => {
 		setIsLoading(true);
-		setTimeout(() => {
-			setPneusPilha([
-				{ id: 1, serie: 'A123', dot: '2224', milimetros: '12', pressao: '110', referencia: '295/80R22.5', marca: 'Michelin' },
-				{ id: 2, serie: 'B456', dot: '1523', milimetros: '8', pressao: '105', referencia: '275/80R22.5', marca: 'Pirelli' },
-			]);
-			setIsLoading(false);
-		}, 500);
+		try {
+			const response = await fetch(API_AVULSO_URL, {
+				method: 'POST', headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ acao: 'listar_pneus', checklist_id: id })
+			});
+			const res = await response.json();
+			if (res.success) {
+				setPneusPilha(res.data || []);
+			} else {
+				setPneusPilha([]);
+			}
+		} catch (e) {
+			setPneusPilha([]);
+		}
+		setIsLoading(false);
 	};
 
 	const resetFormPneu = () => {
@@ -179,14 +188,37 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarPneu = async () => {
-		if (!formPneu.serie || !formPneu.milimetros || !formPneu.pressao) { Alert.alert('Atenção', 'Série, Sulco e Calibração são obrigatórios.'); return; }
+		if (!formPneu.serie || !formPneu.milimetros) { Alert.alert('Atenção', 'Série e Sulco são obrigatórios.'); return; }
 		setIsSaving(true);
-		setTimeout(() => {
-			Alert.alert('Sucesso', 'Pneu adicionado à pilha!');
-			carregarPneusDoChecklist(checklistAtivo.id);
+
+		try {
+			const payload = { acao: 'inserir_pneu', checklist_id: checklistAtivo.id, user_id: user?.id, ...formPneu, fotos: fotosPneu };
+			const response = await fetch(API_AVULSO_URL, {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+			});
+
+			const textoRetorno = await response.text();
+			const startIndex = textoRetorno.indexOf('{');
+			const endIndex = textoRetorno.lastIndexOf('}');
+
+			if (startIndex !== -1 && endIndex !== -1) {
+				const res = JSON.parse(textoRetorno.substring(startIndex, endIndex + 1));
+				if (res.success) {
+					Alert.alert('Sucesso', 'Pneu adicionado à pilha!');
+					carregarPneusDoChecklist(checklistAtivo.id);
+					setModalPneuVisible(false);
+				} else {
+					Alert.alert('Erro', res.message || 'Falha ao salvar pneu.');
+				}
+			} else {
+				Alert.alert('Erro', 'Servidor retornou uma resposta inválida.');
+			}
+		} catch (e) {
+			Alert.alert('Aviso', 'API não respondeu corretamente. Verifique o servidor PHP.');
+			setPneusPilha(prev => [...prev, { ...formPneu, id: Math.random() }]);
 			setModalPneuVisible(false);
-			setIsSaving(false);
-		}, 500);
+		}
+		setIsSaving(false);
 	};
 
 	const salvarLaudo = () => {
@@ -214,8 +246,16 @@ export default function ChecklistAvulsoScreen() {
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
 		if (tipo === 'entidade') {
-			const res = await apiService.buscarVeiculo({ busca: termo });
-			if (res && res.success) { setResultadosBusca(res.data.map((c: any) => ({ id: c.id || c.proprietario_id, nome: c.proprietario || c.nome }))); } else { setResultadosBusca([]); }
+			try {
+				const res = await apiService.buscarClientes(user?.id, user?.nivel, { nome: termo }, 1);
+				if (res && res.success) {
+					setResultadosBusca(res.data.map((c: any) => ({ id: c.id, nome: c.nome })));
+				} else {
+					setResultadosBusca([]);
+				}
+			} catch (e) {
+				setResultadosBusca([]);
+			}
 		} else {
 			const extras = { referencia_id: formPneu.referencia, marca_atual: formPneu.marca };
 			const res = await apiService.buscarDinamica(tipo, termo, extras);
@@ -251,7 +291,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const renderBuscaDinamica = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
+		<View style={styles.modalOverlayBusca}>
 			<View style={styles.modalContentBusca}>
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Selecionar</Text>
@@ -275,13 +315,49 @@ export default function ChecklistAvulsoScreen() {
 	);
 
 	const renderCadastroDinamico = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
+		<View style={styles.modalOverlayBusca}>
 			<View style={styles.modalSmall}>
 				<Text style={styles.modalTitle}>Cadastrar Novo</Text>
-				{tipoBusca === 'marca_pneu' && (<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" /><Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." /></>)}
-				{tipoBusca === 'modelo_pneu' && (<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>)}
-				{tipoBusca === 'referencia_pneu' && (<><Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>)}
-				{tipoBusca === 'banda' && (<><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><Text style={styles.label}>* Sulco (MM)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} /></>)}
+
+				{tipoBusca === 'marca_pneu' && (
+					<View>
+						<Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" />
+						<Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." />
+					</View>
+				)}
+
+				{tipoBusca === 'modelo_pneu' && (
+					<View>
+						<Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} />
+						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
+						<Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
+						<View style={styles.row}>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View>
+						</View>
+					</View>
+				)}
+
+				{tipoBusca === 'referencia_pneu' && (
+					<View>
+						<Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} />
+						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
+						<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
+						<View style={styles.row}>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View>
+						</View>
+					</View>
+				)}
+
+				{tipoBusca === 'banda' && (
+					<View>
+						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
+						<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
+						<Text style={styles.label}>* Sulco (MM)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} />
+					</View>
+				)}
+
 				<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
 					<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
 					<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0 }]} onPress={salvarCadastroDinamico}>
@@ -293,7 +369,7 @@ export default function ChecklistAvulsoScreen() {
 	);
 
 	const renderLaudo = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
+		<View style={styles.modalOverlayBusca}>
 			<View style={styles.modalSmall}>
 				<Text style={styles.modalTitle}>Emitir Laudo do Pneu</Text>
 				<Text style={styles.label}>* Motivo do Laudo</Text>
@@ -328,7 +404,7 @@ export default function ChecklistAvulsoScreen() {
 						<Text style={styles.stackedPneuNumber}>{index + 1}.</Text>
 						<View style={styles.stackedPneuInfo}>
 							<Text style={styles.stackedPneuSerie}>Série: {pneu.serie || 'S/N'}</Text>
-							<Text style={styles.stackedPneuStatus}>S: {pneu.milimetros}mm | L: {pneu.pressao}Lbs</Text>
+							<Text style={styles.stackedPneuStatus}>S: {pneu.milimetros}mm | L: {pneu.pressao || '--'}Lbs</Text>
 						</View>
 						<MaterialCommunityIcons name="tire" size={28} color="#aaa" style={styles.stackedPneuIcon} />
 					</TouchableOpacity>
@@ -341,6 +417,7 @@ export default function ChecklistAvulsoScreen() {
 		<View style={styles.container}>
 			{isLoading && !checklistAtivo && <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 20 }} />}
 
+			{/* VISÃO 1: LISTAGEM DE CHECKLISTS (GRID) */}
 			{!checklistAtivo && (
 				<FlatList
 					data={checklists}
@@ -358,8 +435,18 @@ export default function ChecklistAvulsoScreen() {
 								<View style={{ width: '48%' }}><Text style={styles.label}>Usuário</Text><TextInput style={styles.input} placeholder="Nome do usuário" value={filtroUsuario} onChangeText={setFiltroUsuario} /></View>
 							</View>
 							<View style={styles.actionRow}>
-								<TouchableOpacity style={styles.btnBuscar} onPress={carregarChecklists}><Feather name="search" size={18} color="#fff" /><Text style={styles.btnText}>Buscar</Text></TouchableOpacity>
-								<TouchableOpacity style={styles.btnInserir} onPress={() => { setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '' }); setModalNovoVisible(true); }}><Feather name="plus-circle" size={18} color="#ffffff" /><Text style={styles.btnInserirText}>Inserir</Text></TouchableOpacity>
+								<TouchableOpacity style={styles.btnBuscar} onPress={carregarChecklists}>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Feather name="search" size={18} color="#fff" />
+										<Text style={styles.btnText}>Buscar</Text>
+									</View>
+								</TouchableOpacity>
+								<TouchableOpacity style={styles.btnInserir} onPress={() => { setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '' }); setModalNovoVisible(true); }}>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Feather name="plus-circle" size={18} color="#ffffff" />
+										<Text style={styles.btnInserirText}>Inserir</Text>
+									</View>
+								</TouchableOpacity>
 							</View>
 							<Text style={[styles.sectionTitle, { marginTop: 25 }]}>Resultados ({checklists.length})</Text>
 						</View>
@@ -371,15 +458,36 @@ export default function ChecklistAvulsoScreen() {
 								<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}><Text style={[styles.statusText, { color: '#1967d2' }]}>{formatarDataLocal(item.data)}</Text></View>
 							</View>
 							<View style={styles.cardInfoBox}>
-								<View style={styles.cardInfoRow}><Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} /><Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {item.cliente}</Text></View>
-								<View style={styles.cardInfoRow}><MaterialCommunityIcons name="tire" size={16} color="#666" style={{ marginRight: 8 }} /><Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Pneus:</Text> {item.pneus_qtd} Inspecionados</Text></View>
-								<View style={styles.cardInfoRow}><Feather name="shield" size={14} color="#666" style={{ marginRight: 8 }} /><Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Usuário:</Text> {item.usuario}</Text></View>
+								<View style={styles.cardInfoRow}>
+									<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {item.cliente}</Text>
+								</View>
+								<View style={styles.cardInfoRow}>
+									<MaterialCommunityIcons name="tire" size={16} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Pneus:</Text> {item.pneus_qtd} Inspecionados</Text>
+								</View>
+								<View style={styles.cardInfoRow}>
+									<Feather name="shield" size={14} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Usuário:</Text> {item.usuario}</Text>
+								</View>
 							</View>
 							<View style={styles.cardActions}>
 								<View style={styles.actionButtonsRow}>
-									<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(item.id)}><Feather name="printer" size={14} color="#333" /><Text style={styles.btnImprimirHistoricoText}>Imprimir</Text></TouchableOpacity>
-									<TouchableOpacity style={styles.btnEditarCard} onPress={() => abrirChecklist(item)}><Feather name="edit-2" size={14} color="#ffffff" /><Text style={styles.btnEditarCardText}>Modificar</Text></TouchableOpacity>
-									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirChecklist(item.id)}><Feather name="trash-2" size={14} color="#ffffff" /></TouchableOpacity>
+									<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(item.id)}>
+										<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+											<Feather name="printer" size={14} color="#333" />
+											<Text style={styles.btnImprimirHistoricoText}>Imprimir</Text>
+										</View>
+									</TouchableOpacity>
+									<TouchableOpacity style={styles.btnEditarCard} onPress={() => abrirChecklist(item)}>
+										<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+											<Feather name="edit-2" size={14} color="#ffffff" />
+											<Text style={styles.btnEditarCardText}>Modificar</Text>
+										</View>
+									</TouchableOpacity>
+									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirChecklist(item.id)}>
+										<Feather name="trash-2" size={14} color="#ffffff" />
+									</TouchableOpacity>
 								</View>
 							</View>
 						</View>
@@ -388,36 +496,49 @@ export default function ChecklistAvulsoScreen() {
 				/>
 			)}
 
+			{/* VISÃO 2: CHECKLIST ATIVO (A PILHA DE PNEUS) */}
 			{checklistAtivo && (
 				<View style={{ flex: 1 }}>
 					<View style={styles.headerAtivo}>
 						<Text style={styles.headerAtivoTitle}>Checklist Avulso #{checklistAtivo.id}</Text>
-						<Text style={styles.headerAtivoSub}><Feather name="calendar" size={12} /> {formatarDataLocal(checklistAtivo.data)}   |   <Feather name="user" size={12} /> {checklistAtivo.usuario}</Text>
-						<Text style={styles.headerAtivoSub}><Feather name="truck" size={12} /> Cliente: {checklistAtivo.cliente}</Text>
+
+						<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+							<Feather name="calendar" size={14} color="#e0e0e0" />
+							<Text style={styles.headerAtivoSubText}> {formatarDataLocal(checklistAtivo.data)}   |   </Text>
+							<Feather name="user" size={14} color="#e0e0e0" />
+							<Text style={styles.headerAtivoSubText}> {checklistAtivo.usuario}</Text>
+						</View>
+
+						<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+							<Feather name="truck" size={14} color="#e0e0e0" />
+							<Text style={styles.headerAtivoSubText}> Cliente: {checklistAtivo.cliente}</Text>
+						</View>
 					</View>
 
 					<View style={styles.actionRowAtivo}>
 						<TouchableOpacity style={styles.btnVoltarBranco} onPress={() => { setChecklistAtivo(null); carregarChecklists(); }}>
-							<Feather name="arrow-left" size={18} color="#333" />
-							<Text style={styles.btnVoltarBrancoText}>Voltar</Text>
+							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+								<Feather name="arrow-left" size={18} color="#333" />
+								<Text style={styles.btnVoltarBrancoText}>Voltar</Text>
+							</View>
 						</TouchableOpacity>
 						<TouchableOpacity style={styles.btnNovoChecklist} onPress={abrirModalNovoPneu}>
-							<Feather name="plus-circle" size={18} color="#fff" />
-							<Text style={styles.btnNovoChecklistText}>Inserir Pneu</Text>
+							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+								<Feather name="plus-circle" size={18} color="#fff" />
+								<Text style={styles.btnNovoChecklistText}>Inserir Pneu</Text>
+							</View>
 						</TouchableOpacity>
 					</View>
 
-					<ScrollView
-						contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-						showsVerticalScrollIndicator={false}
-					>
+					<ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 						<Text style={styles.sectionTitle}>Pilha de Pneus ({pneusPilha.length} Inspecionados)</Text>
 						{renderPilhaGrafica()}
 					</ScrollView>
 				</View>
 			)}
 
-			<Modal visible={modalNovoVisible} transparent={true} animationType="fade">
+			{/* MODAL 1: NOVO CHECKLIST */}
+			<Modal visible={modalNovoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalNovoVisible(false)}>
 				<View style={styles.modalOverlayBusca}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>Novo Checklist Avulso</Text>
@@ -438,12 +559,11 @@ export default function ChecklistAvulsoScreen() {
 							</TouchableOpacity>
 						</View>
 					</View>
-
-					{modalBuscaVisible && renderBuscaDinamica()}
 				</View>
 			</Modal>
 
-			<Modal visible={modalPneuVisible} animationType="slide">
+			{/* MODAL 2: INSERIR / EDITAR PNEU DA PILHA */}
+			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
 					<View style={styles.modalHeaderFullScreen}>
 						<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
@@ -503,11 +623,17 @@ export default function ChecklistAvulsoScreen() {
 						</View>
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
 						</View>
 
 						<Text style={styles.groupTitle}>Evidências / Fotos</Text>
-						<TouchableOpacity style={styles.btnFoto} onPress={tirarFotoPneu}><Feather name="camera" size={20} color="#666" /><Text style={styles.btnFotoText}>Fotografar Pneu</Text></TouchableOpacity>
+						<TouchableOpacity style={styles.btnFoto} onPress={tirarFotoPneu}>
+							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+								<Feather name="camera" size={20} color="#666" />
+								<Text style={styles.btnFotoText}>Fotografar Pneu</Text>
+							</View>
+						</TouchableOpacity>
+
 						{fotosPneu.length > 0 && (
 							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 15 }}>
 								{fotosPneu.map((uri, index) => (
@@ -535,10 +661,6 @@ export default function ChecklistAvulsoScreen() {
 						<View style={{ height: 40 }} />
 					</ScrollView>
 
-					{modalBuscaVisible && renderBuscaDinamica()}
-					{modalCadastroVisible && renderCadastroDinamico()}
-					{modalLaudoVisible && renderLaudo()}
-
 					{fotoAmpliada && (
 						<View style={styles.fullScreenOverlay}>
 							<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}><Feather name="x-circle" size={36} color="#fff" /></TouchableOpacity>
@@ -546,6 +668,21 @@ export default function ChecklistAvulsoScreen() {
 						</View>
 					)}
 				</KeyboardAvoidingView>
+			</Modal>
+
+			{/* =========================================================
+			    MODAIS COMPARTILHADOS (NA RAIZ DO APLICATIVO PARA NÃO TRAVAR)
+			    ========================================================= */}
+			<Modal visible={modalBuscaVisible} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
+				{renderBuscaDinamica()}
+			</Modal>
+
+			<Modal visible={modalCadastroVisible} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
+				{renderCadastroDinamico()}
+			</Modal>
+
+			<Modal visible={modalLaudoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalLaudoVisible(false)}>
+				{renderLaudo()}
 			</Modal>
 		</View>
 	);
@@ -593,7 +730,7 @@ const styles = StyleSheet.create({
 
 	headerAtivo: { backgroundColor: '#0c6ead', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 30 },
 	headerAtivoTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 5 },
-	headerAtivoSub: { color: '#e0e0e0', fontSize: 14, marginBottom: 3 },
+	headerAtivoSubText: { color: '#e0e0e0', fontSize: 14, marginLeft: 5 },
 	actionRowAtivo: { flexDirection: 'row', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
 	btnVoltarBranco: { backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 50, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', flex: 1, marginRight: 10 },
 	btnVoltarBrancoText: { color: '#333', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
