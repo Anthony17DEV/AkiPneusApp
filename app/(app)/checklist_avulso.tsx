@@ -40,7 +40,7 @@ export default function ChecklistAvulsoScreen() {
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
 		valor: '', dot: '', serie: '', ferro: '', tipo: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '',
-		grau: '', banda: '', banda_nome: '', observacao: ''
+		grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: ''
 	});
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
@@ -52,9 +52,6 @@ export default function ChecklistAvulsoScreen() {
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
 	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '' });
-
-	const [modalLaudoVisible, setModalLaudoVisible] = useState(false);
-	const [formLaudo, setFormLaudo] = useState({ motivo: '', parecer: '' });
 
 	const confirmSignOut = () => {
 		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
@@ -69,6 +66,17 @@ export default function ChecklistAvulsoScreen() {
 		v = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
 		v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 		return v;
+	};
+
+	const handleDataChange = (text: string, setter: (val: string) => void) => {
+		let v = text.replace(/\D/g, '');
+		if (v.length > 8) v = v.substring(0, 8);
+		if (v.length > 4) {
+			v = v.replace(/^(\d{2})(\d{2})(\d{1,4})/, '$1/$2/$3');
+		} else if (v.length > 2) {
+			v = v.replace(/^(\d{2})(\d{1,2})/, '$1/$2');
+		}
+		setter(v);
 	};
 
 	const formatarDataLocal = (dataStr: string) => {
@@ -102,6 +110,8 @@ export default function ChecklistAvulsoScreen() {
 
 	const iniciarNovoChecklist = async () => {
 		if (!formNovo.cliente_id) { Alert.alert('Atenção', 'Selecione um cliente primeiro.'); return; }
+		if (formNovo.data.length < 10) { Alert.alert('Atenção', 'Data inválida.'); return; }
+
 		setIsLoading(true);
 		try {
 			const response = await fetch(API_AVULSO_URL, {
@@ -133,10 +143,8 @@ export default function ChecklistAvulsoScreen() {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', id: id })
 						});
-
 						Alert.alert('Sucesso', 'Checklist excluído.');
 						carregarChecklists();
-
 					} catch (error) {
 						carregarChecklists();
 					}
@@ -174,7 +182,7 @@ export default function ChecklistAvulsoScreen() {
 	const resetFormPneu = () => {
 		setFormPneu({
 			id: '', referencia: '', referencia_nome: '', marca: '', modelo: '', valor: '', dot: '', serie: '', ferro: '', tipo: '',
-			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', grau: '', banda: '', banda_nome: '', observacao: ''
+			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: ''
 		});
 		setFotosPneu([]);
 	};
@@ -183,16 +191,39 @@ export default function ChecklistAvulsoScreen() {
 
 	const editarPneu = (pneuMock: any) => {
 		resetFormPneu();
-		setFormPneu({ ...formPneu, ...pneuMock });
+		setFormPneu({ ...formPneu, ...pneuMock, motivo_recusa: pneuMock.motivo_recusa || '' });
+
+		const stringFotos = pneuMock.foto || pneuMock.pneu_tx_foto;
+		if (stringFotos && typeof stringFotos === 'string' && stringFotos.trim() !== '') {
+			const fotosDoBanco = stringFotos.split(',').filter((f: string) => f.trim() !== '').map((f: string) => FOTO_URL + f.trim());
+			setFotosPneu(fotosDoBanco);
+		} else {
+			setFotosPneu([]);
+		}
+
 		setModalPneuVisible(true);
 	};
 
 	const salvarPneu = async () => {
 		if (!formPneu.serie || !formPneu.milimetros) { Alert.alert('Atenção', 'Série e Sulco são obrigatórios.'); return; }
+		if (formPneu.dot && formPneu.dot.length !== 4) { Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.'); return; }
+
 		setIsSaving(true);
+		const acaoDoBanco = formPneu.id ? 'atualizar_pneu' : 'inserir_pneu';
+
+		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
+		const fotosAntigas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.split('/').pop());
 
 		try {
-			const payload = { acao: 'inserir_pneu', checklist_id: checklistAtivo.id, user_id: user?.id, ...formPneu, fotos: fotosPneu };
+			const payload = {
+				acao: acaoDoBanco,
+				checklist_id: checklistAtivo.id,
+				user_id: user?.id,
+				...formPneu,
+				fotos_novas: fotosNovas,
+				fotos_antigas: fotosAntigas
+			};
+
 			const response = await fetch(API_AVULSO_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
 			});
@@ -204,7 +235,7 @@ export default function ChecklistAvulsoScreen() {
 			if (startIndex !== -1 && endIndex !== -1) {
 				const res = JSON.parse(textoRetorno.substring(startIndex, endIndex + 1));
 				if (res.success) {
-					Alert.alert('Sucesso', 'Pneu adicionado à pilha!');
+					Alert.alert('Sucesso', `Pneu ${formPneu.id ? 'atualizado' : 'adicionado'} com sucesso!`);
 					carregarPneusDoChecklist(checklistAtivo.id);
 					setModalPneuVisible(false);
 				} else {
@@ -214,23 +245,11 @@ export default function ChecklistAvulsoScreen() {
 				Alert.alert('Erro', 'Servidor retornou uma resposta inválida.');
 			}
 		} catch (e) {
-			Alert.alert('Aviso', 'API não respondeu corretamente. Verifique o servidor PHP.');
-			setPneusPilha(prev => [...prev, { ...formPneu, id: Math.random() }]);
+			Alert.alert('Aviso', 'API não respondeu. Teste local salvo!');
+			carregarPneusDoChecklist(checklistAtivo.id);
 			setModalPneuVisible(false);
 		}
 		setIsSaving(false);
-	};
-
-	const salvarLaudo = () => {
-		if (!formLaudo.motivo) { Alert.alert('Atenção', 'Selecione o motivo do laudo.'); return; }
-		if (!formPneu.id) { Alert.alert('Atenção', 'Grave o pneu na pilha primeiro antes de laudar.'); return; }
-
-		setIsSaving(true);
-		setTimeout(() => {
-			Alert.alert('Sucesso', 'Laudo salvo com sucesso!');
-			setModalLaudoVisible(false);
-			setIsSaving(false);
-		}, 500);
 	};
 
 	const tirarFotoPneu = async () => {
@@ -239,6 +258,14 @@ export default function ChecklistAvulsoScreen() {
 		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
+
+	const escolherFotoGaleria = async () => {
+		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à galeria de fotos."); return; }
+		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
+	};
+
 	const removerFoto = (index: number) => { setFotosPneu(fotosPneu.filter((_, i) => i !== index)); };
 
 	const abrirBuscaDinamica = (tipo: any) => { setTipoBusca(tipo); setTermoComboBusca(''); setResultadosBusca([]); setModalBuscaVisible(true); buscarDinamicaNoBanco(tipo, ''); };
@@ -368,24 +395,6 @@ export default function ChecklistAvulsoScreen() {
 		</View>
 	);
 
-	const renderLaudo = () => (
-		<View style={styles.modalOverlayBusca}>
-			<View style={styles.modalSmall}>
-				<Text style={styles.modalTitle}>Emitir Laudo do Pneu</Text>
-				<Text style={styles.label}>* Motivo do Laudo</Text>
-				<RNPickerSelect placeholder={{ label: 'Selecione o motivo...', value: '', color: '#666' }} value={formLaudo.motivo} onValueChange={v => setFormLaudo({ ...formLaudo, motivo: v })} items={[{ label: 'Sucata', value: 'Sucata', color: '#000' }, { label: 'Desgaste Irregular', value: 'Desgaste Irregular', color: '#000' }, { label: 'Corte/Avaria', value: 'Corte/Avaria', color: '#000' }, { label: 'Bolha', value: 'Bolha', color: '#000' }, { label: 'Outros', value: 'Outros', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
-				<Text style={styles.label}>Parecer Técnico / Detalhes</Text>
-				<TextInput style={[styles.inputModal, { height: 100, textAlignVertical: 'top' }]} multiline={true} value={formLaudo.parecer} onChangeText={t => setFormLaudo({ ...formLaudo, parecer: t })} placeholder="Descreva a avaliação..." />
-				<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
-					<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalLaudoVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
-					<TouchableOpacity style={[styles.btnImprimirLaudo, { flex: 1.5 }]} onPress={salvarLaudo} disabled={isSaving}>
-						{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
-					</TouchableOpacity>
-				</View>
-			</View>
-		</View>
-	);
-
 	const renderPilhaGrafica = () => {
 		if (isLoading) return <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 40 }} />;
 
@@ -417,7 +426,6 @@ export default function ChecklistAvulsoScreen() {
 		<View style={styles.container}>
 			{isLoading && !checklistAtivo && <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 20 }} />}
 
-			{/* VISÃO 1: LISTAGEM DE CHECKLISTS (GRID) */}
 			{!checklistAtivo && (
 				<FlatList
 					data={checklists}
@@ -427,8 +435,8 @@ export default function ChecklistAvulsoScreen() {
 						<View style={styles.filterSection}>
 							<Text style={styles.sectionTitle}>Checklist Avulso de Pneus</Text>
 							<View style={styles.row}>
-								<View style={{ width: '48%' }}><Text style={styles.label}>Data Inicial</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataIni} onChangeText={setFiltroDataIni} keyboardType="numeric" /></View>
-								<View style={{ width: '48%' }}><Text style={styles.label}>Data Final</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataFim} onChangeText={setFiltroDataFim} keyboardType="numeric" /></View>
+								<View style={{ width: '48%' }}><Text style={styles.label}>Data Inicial</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataIni} onChangeText={t => handleDataChange(t, setFiltroDataIni)} keyboardType="numeric" maxLength={10} /></View>
+								<View style={{ width: '48%' }}><Text style={styles.label}>Data Final</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataFim} onChangeText={t => handleDataChange(t, setFiltroDataFim)} keyboardType="numeric" maxLength={10} /></View>
 							</View>
 							<View style={styles.row}>
 								<View style={{ width: '48%' }}><Text style={styles.label}>Cliente</Text><TextInput style={styles.input} placeholder="Buscar..." value={filtroCliente} onChangeText={setFiltroCliente} /></View>
@@ -496,7 +504,6 @@ export default function ChecklistAvulsoScreen() {
 				/>
 			)}
 
-			{/* VISÃO 2: CHECKLIST ATIVO (A PILHA DE PNEUS) */}
 			{checklistAtivo && (
 				<View style={{ flex: 1 }}>
 					<View style={styles.headerAtivo}>
@@ -525,7 +532,7 @@ export default function ChecklistAvulsoScreen() {
 						<TouchableOpacity style={styles.btnNovoChecklist} onPress={abrirModalNovoPneu}>
 							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 								<Feather name="plus-circle" size={18} color="#fff" />
-								<Text style={styles.btnNovoChecklistText}>Inserir Pneu</Text>
+								<Text style={styles.btnNovoChecklistText}>Inserir</Text>
 							</View>
 						</TouchableOpacity>
 					</View>
@@ -537,13 +544,12 @@ export default function ChecklistAvulsoScreen() {
 				</View>
 			)}
 
-			{/* MODAL 1: NOVO CHECKLIST */}
 			<Modal visible={modalNovoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalNovoVisible(false)}>
 				<View style={styles.modalOverlayBusca}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>Novo Checklist Avulso</Text>
 						<Text style={styles.label}>* Data</Text>
-						<TextInput style={styles.inputModal} value={formNovo.data} onChangeText={t => setFormNovo({ ...formNovo, data: t })} />
+						<TextInput style={styles.inputModal} value={formNovo.data} onChangeText={t => handleDataChange(t, (val) => setFormNovo({ ...formNovo, data: val }))} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
 						<Text style={styles.label}>* Cliente</Text>
 						<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('entidade')}>
 							<Text style={{ color: formNovo.cliente ? '#000' : '#999' }}>{formNovo.cliente || 'Selecionar Cliente...'}</Text>
@@ -562,7 +568,6 @@ export default function ChecklistAvulsoScreen() {
 				</View>
 			</Modal>
 
-			{/* MODAL 2: INSERIR / EDITAR PNEU DA PILHA */}
 			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
 					<View style={styles.modalHeaderFullScreen}>
@@ -595,7 +600,7 @@ export default function ChecklistAvulsoScreen() {
 
 						<Text style={styles.groupTitle}>Especificações Técnicas</Text>
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* DOT</Text><TextInput style={styles.inputModal} value={formPneu.dot} onChangeText={t => setFormPneu({ ...formPneu, dot: t })} /></View>
+							<View style={styles.inputGroupH}><Text style={styles.label}>* DOT (4 dígitos)</Text><TextInput style={styles.inputModal} value={formPneu.dot} onChangeText={t => setFormPneu({ ...formPneu, dot: t.replace(/\D/g, '') })} keyboardType="numeric" maxLength={4} placeholder="Ex: 2324" /></View>
 							<View style={styles.inputGroupH}><Text style={styles.label}>* Série</Text><TextInput style={styles.inputModal} value={formPneu.serie} onChangeText={t => setFormPneu({ ...formPneu, serie: t })} /></View>
 						</View>
 						<View style={styles.row}>
@@ -627,22 +632,54 @@ export default function ChecklistAvulsoScreen() {
 						</View>
 
 						<Text style={styles.groupTitle}>Evidências / Fotos</Text>
-						<TouchableOpacity style={styles.btnFoto} onPress={tirarFotoPneu}>
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<Feather name="camera" size={20} color="#666" />
-								<Text style={styles.btnFotoText}>Fotografar Pneu</Text>
-							</View>
-						</TouchableOpacity>
+						<View style={{ flexDirection: 'row', gap: 10 }}>
+							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={tirarFotoPneu}>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<Feather name="camera" size={20} color="#666" />
+									<Text style={styles.btnFotoText}>Câmera</Text>
+								</View>
+							</TouchableOpacity>
+							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={escolherFotoGaleria}>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<Feather name="image" size={20} color="#666" />
+									<Text style={styles.btnFotoText}>Galeria</Text>
+								</View>
+							</TouchableOpacity>
+						</View>
 
 						{fotosPneu.length > 0 && (
 							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 15 }}>
 								{fotosPneu.map((uri, index) => (
-									<View key={`foto_${index}`} style={styles.fotoContainer}><TouchableOpacity onPress={() => setFotoAmpliada(uri)}><Image source={{ uri }} style={styles.fotoPreview} /></TouchableOpacity><TouchableOpacity style={styles.btnRemoveFoto} onPress={() => removerFoto(index)}><Feather name="x" size={14} color="#fff" /></TouchableOpacity></View>
+									<View key={`foto_${index}`} style={styles.fotoContainer}>
+										<TouchableOpacity onPress={() => setFotoAmpliada(uri)}><Image source={{ uri }} style={styles.fotoPreview} /></TouchableOpacity>
+										<TouchableOpacity style={styles.btnRemoveFoto} onPress={() => removerFoto(index)}><Feather name="x" size={14} color="#fff" /></TouchableOpacity>
+									</View>
 								))}
 							</ScrollView>
 						)}
 
-						<Text style={styles.groupTitle}>Observações</Text>
+						<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
+						<View style={{ width: '100%', marginBottom: 15 }}>
+							<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
+							<RNPickerSelect
+								placeholder={{ label: 'Pneu aprovado (Nenhum)', value: '', color: '#666' }}
+								value={formPneu.motivo_recusa}
+								onValueChange={v => setFormPneu({ ...formPneu, motivo_recusa: v })}
+								items={[
+									{ label: 'Deslocamento de Talão', value: 'Deslocamento de talão', color: '#000' },
+									{ label: 'Deslocamento por Manchão Inadequado', value: 'Deslocamento por manchão inadequado', color: '#000' },
+									{ label: 'Rodagem em Baixa Pressão', value: 'Rodagem baixa pressão', color: '#000' },
+									{ label: 'Separação de Cintas', value: 'Separação de cintas', color: '#000' },
+									{ label: 'Dano Irreparável', value: 'Dano irreparável', color: '#000' },
+									{ label: 'Outros', value: 'Outros', color: '#000' }
+								]}
+								style={pickerStyles}
+								useNativeAndroidPickerStyle={false}
+								Icon={PickerIcon}
+							/>
+						</View>
+
+						<Text style={styles.label}>Observações (Opcional)</Text>
 						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
 
 						<View style={{ flexDirection: 'row', marginTop: 30, gap: 10 }}>
@@ -650,12 +687,8 @@ export default function ChecklistAvulsoScreen() {
 								<Text style={{ fontSize: 15, fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
 							</TouchableOpacity>
 
-							<TouchableOpacity style={[styles.btnLaudar, { flex: 1, height: 50 }]} onPress={() => setModalLaudoVisible(true)}>
-								<Text style={styles.btnLaudarText}>Laudar</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.2, marginTop: 0, height: 50 }]} onPress={salvarPneu} disabled={isSaving}>
-								{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
+							<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.5, marginTop: 0, height: 50 }]} onPress={salvarPneu} disabled={isSaving}>
+								{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>{formPneu.id ? 'Gravar' : 'Gravar'}</Text>}
 							</TouchableOpacity>
 						</View>
 						<View style={{ height: 40 }} />
@@ -670,19 +703,12 @@ export default function ChecklistAvulsoScreen() {
 				</KeyboardAvoidingView>
 			</Modal>
 
-			{/* =========================================================
-			    MODAIS COMPARTILHADOS (NA RAIZ DO APLICATIVO PARA NÃO TRAVAR)
-			    ========================================================= */}
 			<Modal visible={modalBuscaVisible} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
 				{renderBuscaDinamica()}
 			</Modal>
 
 			<Modal visible={modalCadastroVisible} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
 				{renderCadastroDinamico()}
-			</Modal>
-
-			<Modal visible={modalLaudoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalLaudoVisible(false)}>
-				{renderLaudo()}
 			</Modal>
 		</View>
 	);
@@ -743,9 +769,6 @@ const styles = StyleSheet.create({
 	btnSalvarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-	btnLaudar: { backgroundColor: '#E53935', flexDirection: 'row', padding: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnLaudarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
-	btnImprimirLaudo: { backgroundColor: '#63c77b', flexDirection: 'row', padding: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 
 	btnFoto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed', borderRadius: 8, paddingVertical: 15, backgroundColor: '#f9f9f9' },
 	btnFotoText: { marginLeft: 10, color: '#666', fontWeight: 'bold' },
@@ -773,7 +796,7 @@ const styles = StyleSheet.create({
 	pilhaGraficaContainer: { alignItems: 'center', paddingTop: 10 },
 	pneuStackedItem: {
 		backgroundColor: '#333', borderWidth: 5, borderColor: '#2a2a2a', borderRadius: 15,
-		width: '85%', height: 80, marginVertical: -5, flexDirection: 'row', alignItems: 'center',
+		width: '85%', height: 80, marginBottom: 6, marginTop: 2, flexDirection: 'row', alignItems: 'center',
 		paddingHorizontal: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
 	},
 	stackedPneuNumber: { color: '#aaa', fontSize: 20, fontWeight: 'bold', marginRight: 15 },
