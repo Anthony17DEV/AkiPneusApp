@@ -242,7 +242,13 @@ export default function ChecklistAvulsoScreen() {
 					Alert.alert('Erro', res.message || 'Falha ao salvar pneu.');
 				}
 			} else {
-				Alert.alert('Erro', 'Servidor retornou uma resposta inválida.');
+				if (textoRetorno.toLowerCase().includes('true') || textoRetorno.toLowerCase().includes('sucesso') || textoRetorno.trim() === '') {
+					Alert.alert('Sucesso', `Pneu ${formPneu.id ? 'atualizado' : 'adicionado'} com sucesso!`);
+					carregarPneusDoChecklist(checklistAtivo.id);
+					setModalPneuVisible(false);
+				} else {
+					Alert.alert('Erro', 'Servidor retornou uma resposta inválida.');
+				}
 			}
 		} catch (e) {
 			Alert.alert('Aviso', 'API não respondeu. Teste local salvo!');
@@ -318,7 +324,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const renderBuscaDinamica = () => (
-		<View style={styles.modalOverlayBusca}>
+		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
 			<View style={styles.modalContentBusca}>
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Selecionar</Text>
@@ -342,7 +348,7 @@ export default function ChecklistAvulsoScreen() {
 	);
 
 	const renderCadastroDinamico = () => (
-		<View style={styles.modalOverlayBusca}>
+		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
 			<View style={styles.modalSmall}>
 				<Text style={styles.modalTitle}>Cadastrar Novo</Text>
 
@@ -566,6 +572,7 @@ export default function ChecklistAvulsoScreen() {
 						</View>
 					</View>
 				</View>
+				{modalBuscaVisible && renderBuscaDinamica()}
 			</Modal>
 
 			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
@@ -700,16 +707,13 @@ export default function ChecklistAvulsoScreen() {
 							<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
 						</View>
 					)}
+
+					{modalBuscaVisible && renderBuscaDinamica()}
+					{modalCadastroVisible && renderCadastroDinamico()}
+
 				</KeyboardAvoidingView>
 			</Modal>
 
-			<Modal visible={modalBuscaVisible} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-				{renderBuscaDinamica()}
-			</Modal>
-
-			<Modal visible={modalCadastroVisible} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
-				{renderCadastroDinamico()}
-			</Modal>
 		</View>
 	);
 }
