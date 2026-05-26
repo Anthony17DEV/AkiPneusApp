@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#0c6ead',
 		paddingHorizontal: 15,
 		paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight ? StatusBar.currentHeight + -20 : 40),
+		paddingTop: Platform.OS === 'ios' ? 65 : (StatusBar.currentHeight ? StatusBar.currentHeight + 15 : 50),
 		elevation: 4,
 	},
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },

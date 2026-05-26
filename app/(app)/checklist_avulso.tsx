@@ -2,7 +2,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -40,7 +40,8 @@ export default function ChecklistAvulsoScreen() {
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
 		valor: '', dot: '', serie: '', ferro: '', tipo: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '',
-		grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: ''
+		grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: '',
+		ref_mm_original: '', ref_valor: ''
 	});
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
@@ -66,6 +67,15 @@ export default function ChecklistAvulsoScreen() {
 		v = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
 		v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 		return v;
+	};
+
+	const formatarValorDB = (val: any) => {
+		if (!val) return '';
+		let str = String(val).replace(',', '.');
+		let num = parseFloat(str);
+		if (isNaN(num)) return '';
+		let formatado = num.toFixed(2).replace('.', ',');
+		return formatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 	};
 
 	const handleDataChange = (text: string, setter: (val: string) => void) => {
@@ -182,16 +192,25 @@ export default function ChecklistAvulsoScreen() {
 	const resetFormPneu = () => {
 		setFormPneu({
 			id: '', referencia: '', referencia_nome: '', marca: '', modelo: '', valor: '', dot: '', serie: '', ferro: '', tipo: '',
-			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: ''
+			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: '',
+			ref_mm_original: '', ref_valor: ''
 		});
 		setFotosPneu([]);
+		setFotoAmpliada(null);
 	};
 
 	const abrirModalNovoPneu = () => { resetFormPneu(); setModalPneuVisible(true); };
 
 	const editarPneu = (pneuMock: any) => {
 		resetFormPneu();
-		setFormPneu({ ...formPneu, ...pneuMock, motivo_recusa: pneuMock.motivo_recusa || '' });
+		setFormPneu({
+			...formPneu,
+			...pneuMock,
+			motivo_recusa: pneuMock.motivo_recusa || '',
+			ref_mm_original: pneuMock.mm_original || '',
+			ref_valor: pneuMock.valor ? formatarValorDB(pneuMock.valor) : '',
+			valor: pneuMock.valor ? formatarValorDB(pneuMock.valor) : ''
+		});
 
 		const stringFotos = pneuMock.foto || pneuMock.pneu_tx_foto;
 		if (stringFotos && typeof stringFotos === 'string' && stringFotos.trim() !== '') {
@@ -206,7 +225,18 @@ export default function ChecklistAvulsoScreen() {
 
 	const salvarPneu = async () => {
 		if (!formPneu.serie || !formPneu.milimetros) { Alert.alert('Atenção', 'Série e Sulco são obrigatórios.'); return; }
-		if (formPneu.dot && formPneu.dot.length !== 4) { Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.'); return; }
+
+		if (formPneu.dot) {
+			if (formPneu.dot.length !== 4) {
+				Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.');
+				return;
+			}
+			const semana = parseInt(formPneu.dot.substring(0, 2));
+			if (semana < 1 || semana > 53) {
+				Alert.alert('Atenção', 'As duas primeiras posições do DOT representam a semana de fabricação e devem estar entre 01 e 53.');
+				return;
+			}
+		}
 
 		setIsSaving(true);
 		const acaoDoBanco = formPneu.id ? 'atualizar_pneu' : 'inserir_pneu';
@@ -220,6 +250,7 @@ export default function ChecklistAvulsoScreen() {
 				checklist_id: checklistAtivo.id,
 				user_id: user?.id,
 				...formPneu,
+				valor: formPneu.valor.replace(/\./g, ''),
 				fotos_novas: fotosNovas,
 				fotos_antigas: fotosAntigas
 			};
@@ -299,14 +330,77 @@ export default function ChecklistAvulsoScreen() {
 
 	const selecionarItemBusca = (item: any) => {
 		if (tipoBusca === 'entidade') { setFormNovo({ ...formNovo, cliente: item.nome, cliente_id: item.id }); }
-		else if (tipoBusca === 'referencia_pneu') { setFormPneu({ ...formPneu, referencia: item.id || item.refe_nb_id, referencia_nome: item.nome || item.refe_tx_nome, marca: item.isNewModel ? (formCadastro.marca || '') : '', modelo: item.isNewModel ? (formCadastro.modelo || '') : '', mm_original: item.isNewModel ? (formCadastro.mmOriginal || '') : '', valor: item.isNewModel ? formatarMoeda(formCadastro.valor || '') : '' }); }
-		else if (tipoBusca === 'marca_pneu') { setFormPneu({ ...formPneu, referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome, marca: item.nome || item.refe_tx_marca, modelo: '', mm_original: '', valor: '' }); }
-		else if (tipoBusca === 'modelo_pneu') { setFormPneu({ ...formPneu, referencia: item.isNewModel ? item.id : formPneu.referencia, referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome, marca: item.isNewModel ? (formCadastro.marca || formPneu.marca) : (item.refe_tx_marca || formPneu.marca), modelo: item.nome || item.refe_tx_modelo, mm_original: item.mmOriginal || item.refe_tx_mmOriginal || formPneu.mm_original, valor: formatarMoeda(item.valor || item.refe_tx_valor || '') || formPneu.valor }); }
-		else if (tipoBusca === 'banda') { setFormPneu({ ...formPneu, banda: item.id, banda_nome: item.nome || item.banda }); }
+		else if (tipoBusca === 'referencia_pneu') {
+			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || '');
+			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '');
+
+			setFormPneu({
+				...formPneu,
+				referencia: item.id || item.refe_nb_id,
+				referencia_nome: item.nome || item.refe_tx_nome,
+				marca: item.isNewModel ? (formCadastro.marca || '') : (item.refe_tx_marca || ''),
+				modelo: item.isNewModel ? (formCadastro.modelo || '') : (item.refe_tx_modelo || ''),
+				ref_mm_original: refMm,
+				ref_valor: refVal,
+				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
+				valor: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.valor : refVal
+			});
+		}
+		else if (tipoBusca === 'marca_pneu') {
+			setFormPneu({
+				...formPneu,
+				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
+				marca: item.nome || item.refe_tx_marca,
+				modelo: '',
+				mm_original: '',
+				valor: ''
+			});
+		}
+		else if (tipoBusca === 'modelo_pneu') {
+			const refMm = item.isNewModel ? (formCadastro.mmOriginal || formPneu.mm_original) : (item.refe_tx_mmOriginal || formPneu.mm_original);
+			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || formPneu.valor) : formatarValorDB(item.refe_tx_valor || formPneu.valor);
+
+			setFormPneu({
+				...formPneu,
+				referencia: item.isNewModel ? item.id : formPneu.referencia,
+				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
+				marca: item.isNewModel ? (formCadastro.marca || formPneu.marca) : (item.refe_tx_marca || formPneu.marca),
+				modelo: item.nome || item.refe_tx_modelo,
+				ref_mm_original: refMm,
+				ref_valor: refVal,
+				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
+				valor: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.valor : refVal
+			});
+		}
+		else if (tipoBusca === 'banda') {
+			setFormPneu({
+				...formPneu,
+				banda: item.id,
+				banda_nome: item.nome || item.banda,
+				mm_original: item.isNewModel ? formCadastro.sulco : (item.sulco ? String(item.sulco) : formPneu.mm_original),
+				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(item.valor || '') || formPneu.valor)
+			});
+		}
 		setModalBuscaVisible(false);
 	};
 
+	const abrirModalCadastro = (termoDigitado = '') => {
+		setFormCadastro({
+			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (formPneu.referencia_nome || '')),
+			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
+			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
+			mmOriginal: '', valor: '', sulco: ''
+		});
+		setModalBuscaVisible(false);
+		setModalCadastroVisible(true);
+	};
+
 	const salvarCadastroDinamico = async () => {
+		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
+		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
+		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha Referência, Marca, Modelo e o MM Original."); return; }
+		if (tipoBusca === 'banda' && (!formCadastro.marca || !formCadastro.modelo || !formCadastro.sulco)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
+
 		setIsCadastrando(true);
 		try {
 			const dadosCadastro = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
@@ -316,7 +410,7 @@ export default function ChecklistAvulsoScreen() {
 				if (tipoBusca === 'referencia_pneu') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true }); }
 				else if (tipoBusca === 'marca_pneu') { selecionarItemBusca({ id: res.id || formCadastro.marca, nome: formCadastro.marca, isNewModel: true }); }
 				else if (tipoBusca === 'modelo_pneu') { selecionarItemBusca({ id: res.id, nome: formCadastro.modelo, mmOriginal: formCadastro.mmOriginal, valor: dadosCadastro.valor, isNewModel: true }); }
-				else if (tipoBusca === 'banda') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true }); }
+				else if (tipoBusca === 'banda') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true, sulco: formCadastro.sulco, valor: formCadastro.valor }); }
 				setModalCadastroVisible(false);
 			} else { Alert.alert('Erro', res.message || 'Falha ao cadastrar.'); }
 		} catch (err) { Alert.alert('Erro', 'Falha na conexão.'); }
@@ -324,13 +418,13 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const renderBuscaDinamica = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
+		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalContentBusca}>
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Selecionar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda'].includes(tipoBusca) && (
-							<TouchableOpacity style={styles.btnInserirBuscaDinamicaMini} onPress={() => { setFormCadastro({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '' }); setModalBuscaVisible(false); setModalCadastroVisible(true); }}>
+							<TouchableOpacity style={styles.btnInserirBuscaDinamicaMini} onPress={() => abrirModalCadastro(termoComboBusca)}>
 								<Feather name="plus-circle" size={14} color="#28a745" /><Text style={styles.btnInserirBuscaDinamicaTextMini}>Inserir</Text>
 							</TouchableOpacity>
 						)}
@@ -348,7 +442,7 @@ export default function ChecklistAvulsoScreen() {
 	);
 
 	const renderCadastroDinamico = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
+		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalSmall}>
 				<Text style={styles.modalTitle}>Cadastrar Novo</Text>
 
@@ -387,7 +481,16 @@ export default function ChecklistAvulsoScreen() {
 					<View>
 						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
 						<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
-						<Text style={styles.label}>* Sulco (MM)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} />
+						<View style={styles.row}>
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>* Sulco (MM)</Text>
+								<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} />
+							</View>
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>Valor (R$)</Text>
+								<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" />
+							</View>
+						</View>
 					</View>
 				)}
 
@@ -418,8 +521,17 @@ export default function ChecklistAvulsoScreen() {
 					>
 						<Text style={styles.stackedPneuNumber}>{index + 1}.</Text>
 						<View style={styles.stackedPneuInfo}>
-							<Text style={styles.stackedPneuSerie}>Série: {pneu.serie || 'S/N'}</Text>
-							<Text style={styles.stackedPneuStatus}>S: {pneu.milimetros}mm | L: {pneu.pressao || '--'}Lbs</Text>
+							<Text style={styles.stackedPneuSerie} numberOfLines={1}>
+								{pneu.referencia_nome || pneu.referencia} | {pneu.marca} - {pneu.modelo}
+							</Text>
+							{pneu.tipo === 'Reformado' && (
+								<Text style={styles.stackedPneuBanda} numberOfLines={1}>
+									Banda: {pneu.banda_nome || pneu.banda} (Recap: {pneu.grau || pneu.qtde_reforma || 1})
+								</Text>
+							)}
+							<Text style={styles.stackedPneuStatus}>
+								Série: {pneu.serie || 'S/N'} | S: {pneu.milimetros}mm | L: {pneu.pressao || '--'}Lbs
+							</Text>
 						</View>
 						<MaterialCommunityIcons name="tire" size={28} color="#aaa" style={styles.stackedPneuIcon} />
 					</TouchableOpacity>
@@ -427,6 +539,8 @@ export default function ChecklistAvulsoScreen() {
 			</View>
 		);
 	};
+
+	const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />;
 
 	return (
 		<View style={styles.container}>
@@ -538,7 +652,7 @@ export default function ChecklistAvulsoScreen() {
 						<TouchableOpacity style={styles.btnNovoChecklist} onPress={abrirModalNovoPneu}>
 							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 								<Feather name="plus-circle" size={18} color="#fff" />
-								<Text style={styles.btnNovoChecklistText}>Inserir</Text>
+								<Text style={styles.btnNovoChecklistText}>Inserir Pneu</Text>
 							</View>
 						</TouchableOpacity>
 					</View>
@@ -572,6 +686,7 @@ export default function ChecklistAvulsoScreen() {
 						</View>
 					</View>
 				</View>
+
 				{modalBuscaVisible && renderBuscaDinamica()}
 			</Modal>
 
@@ -586,49 +701,94 @@ export default function ChecklistAvulsoScreen() {
 					<ScrollView contentContainerStyle={{ padding: 20 }}>
 						<Text style={styles.groupTitle}>Identificação do Pneu</Text>
 						<View style={styles.row}>
-							<View style={{ width: '100%', marginBottom: 15 }}>
+							<View style={styles.inputGroupH}>
 								<Text style={styles.label}>Referência</Text>
 								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('referencia_pneu')}>
 									<Text style={{ color: formPneu.referencia_nome ? '#000' : '#999' }}>{formPneu.referencia_nome || 'Selecionar Referência...'}</Text>
 									<Feather name="search" size={16} color="#999" />
 								</TouchableOpacity>
 							</View>
-						</View>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Marca</Text><TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca_pneu')}><Text style={{ color: formPneu.marca ? '#000' : '#000000', fontSize: 13 }}>{formPneu.marca || 'Buscar...'}</Text><Feather name="search" size={14} color="#000000" /></TouchableOpacity></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Modelo</Text><TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo_pneu')}><Text style={{ color: formPneu.modelo ? '#000' : '#000000', fontSize: 13 }}>{formPneu.modelo || 'Buscar...'}</Text><Feather name="search" size={14} color="#000000" /></TouchableOpacity></View>
-						</View>
-						<View style={styles.row}>
-							<View style={{ width: '100%', marginBottom: 15 }}>
-								<Text style={styles.label}>Valor (R$)</Text>
-								<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.valor} onChangeText={t => setFormPneu({ ...formPneu, valor: formatarMoeda(t) })} placeholder="0,00" />
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>Tipo</Text>
+								<RNPickerSelect
+									placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
+									value={formPneu.tipo}
+									onValueChange={v => {
+										if (v !== 'Reformado') {
+											setFormPneu({
+												...formPneu,
+												tipo: v, grau: '', banda: '', banda_nome: '',
+												mm_original: formPneu.ref_mm_original || formPneu.mm_original,
+												valor: formPneu.ref_valor || formPneu.valor
+											});
+										} else {
+											setFormPneu({ ...formPneu, tipo: v });
+										}
+									}}
+									items={[{ label: 'Novo', value: 'Novo', color: '#000' }, { label: 'Reformado', value: 'Reformado', color: '#000' }]}
+									style={pickerStyles}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
 							</View>
 						</View>
 
-						<Text style={styles.groupTitle}>Especificações Técnicas</Text>
 						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* DOT (4 dígitos)</Text><TextInput style={styles.inputModal} value={formPneu.dot} onChangeText={t => setFormPneu({ ...formPneu, dot: t.replace(/\D/g, '') })} keyboardType="numeric" maxLength={4} placeholder="Ex: 2324" /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Série</Text><TextInput style={styles.inputModal} value={formPneu.serie} onChangeText={t => setFormPneu({ ...formPneu, serie: t })} /></View>
-						</View>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Ferro</Text><TextInput style={styles.inputModal} value={formPneu.ferro} onChangeText={t => setFormPneu({ ...formPneu, ferro: t })} /></View>
 							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Tipo</Text>
-								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={formPneu.tipo} onValueChange={v => setFormPneu({ ...formPneu, tipo: v })} items={[{ label: 'Novo', value: 'Novo', color: '#000' }, { label: 'Reformado', value: 'Reformado', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+								<Text style={styles.label}>Marca</Text>
+								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca_pneu')}>
+									<Text style={{ color: formPneu.marca ? '#000' : '#000000', fontSize: 13 }}>{formPneu.marca || 'Buscar...'}</Text>
+									<Feather name="search" size={14} color="#000000" />
+								</TouchableOpacity>
+							</View>
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>Modelo</Text>
+								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo_pneu')}>
+									<Text style={{ color: formPneu.modelo ? '#000' : '#000000', fontSize: 13 }}>{formPneu.modelo || 'Buscar...'}</Text>
+									<Feather name="search" size={14} color="#000000" />
+								</TouchableOpacity>
 							</View>
 						</View>
 
 						{formPneu.tipo === 'Reformado' && (
 							<View style={[styles.row, { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginBottom: 15 }]}>
 								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Grau (Qtde Ref)</Text>
-									<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={formPneu.grau} onValueChange={v => setFormPneu({ ...formPneu, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+									<Text style={styles.label}>Recapagem</Text>
+									<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={formPneu.grau} onValueChange={v => setFormPneu({ ...formPneu, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, backgroundColor: '#fff' }, inputAndroid: { ...pickerStyles.inputAndroid, backgroundColor: '#fff' } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 								</View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Banda</Text><TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}><Text style={{ color: formPneu.banda_nome ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{formPneu.banda_nome || 'Buscar...'}</Text></TouchableOpacity></View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Banda</Text>
+									<TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}>
+										<Text style={{ color: formPneu.banda_nome ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{formPneu.banda_nome || 'Buscar...'}</Text>
+									</TouchableOpacity>
+								</View>
 							</View>
 						)}
 
-						<Text style={styles.groupTitle}>Aferição Atual (Desgaste/Lbs)</Text>
+						<Text style={styles.groupTitle}>Especificações</Text>
+						<View style={styles.row}>
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>* DOT (4 dígitos)</Text>
+								<TextInput style={styles.inputModal} value={formPneu.dot} onChangeText={t => setFormPneu({ ...formPneu, dot: t.replace(/\D/g, '') })} keyboardType="numeric" maxLength={4} placeholder="Ex: 2324" />
+							</View>
+							<View style={styles.inputGroupH}>
+								<Text style={styles.label}>* Série</Text>
+								<TextInput style={styles.inputModal} value={formPneu.serie} onChangeText={t => setFormPneu({ ...formPneu, serie: t })} />
+							</View>
+						</View>
+
+						<View style={{ width: '100%', marginBottom: 15 }}>
+							<Text style={styles.label}>Ferro</Text>
+							<TextInput style={styles.inputModal} value={formPneu.ferro} onChangeText={t => setFormPneu({ ...formPneu, ferro: t })} />
+						</View>
+
+						<Text style={styles.groupTitle}>Aferições</Text>
+
+						<View style={{ width: '100%', marginBottom: 15 }}>
+							<Text style={styles.label}>Valor (R$)</Text>
+							<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.valor} onChangeText={t => setFormPneu({ ...formPneu, valor: formatarMoeda(t) })} placeholder="0,00" />
+						</View>
+
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
 							<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
@@ -638,7 +798,30 @@ export default function ChecklistAvulsoScreen() {
 							<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
 						</View>
 
-						<Text style={styles.groupTitle}>Evidências / Fotos</Text>
+						<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
+						<View style={{ width: '100%', marginBottom: 15 }}>
+							<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
+							<RNPickerSelect
+								placeholder={{ label: 'Pneu aprovado (Nenhum)', value: '', color: '#666' }}
+								value={formPneu.motivo_recusa}
+								onValueChange={v => setFormPneu({ ...formPneu, motivo_recusa: v })}
+								items={[
+									{ label: 'Deslocamento de Talão', value: 'Deslocamento de talão', color: '#000' },
+									{ label: 'Deslocamento por Manchão Inadequado', value: 'Deslocamento por manchão inadequado', color: '#000' },
+									{ label: 'Rodagem em Baixa Pressão', value: 'Rodagem baixa pressão', color: '#000' },
+									{ label: 'Separação de Cintas', value: 'Separação de cintas', color: '#000' },
+									{ label: 'Dano Irreparável', value: 'Dano irreparável', color: '#000' },
+									{ label: 'Outros', value: 'Outros', color: '#000' }
+								]}
+								style={pickerStyles}
+								useNativeAndroidPickerStyle={false}
+								Icon={PickerIcon}
+							/>
+						</View>
+
+						<Text style={styles.label}>Observações (Opcional)</Text>
+						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
+
 						<View style={{ flexDirection: 'row', gap: 10 }}>
 							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={tirarFotoPneu}>
 								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -665,37 +848,13 @@ export default function ChecklistAvulsoScreen() {
 							</ScrollView>
 						)}
 
-						<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
-						<View style={{ width: '100%', marginBottom: 15 }}>
-							<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
-							<RNPickerSelect
-								placeholder={{ label: 'Pneu aprovado (Nenhum)', value: '', color: '#666' }}
-								value={formPneu.motivo_recusa}
-								onValueChange={v => setFormPneu({ ...formPneu, motivo_recusa: v })}
-								items={[
-									{ label: 'Deslocamento de Talão', value: 'Deslocamento de talão', color: '#000' },
-									{ label: 'Deslocamento por Manchão Inadequado', value: 'Deslocamento por manchão inadequado', color: '#000' },
-									{ label: 'Rodagem em Baixa Pressão', value: 'Rodagem baixa pressão', color: '#000' },
-									{ label: 'Separação de Cintas', value: 'Separação de cintas', color: '#000' },
-									{ label: 'Dano Irreparável', value: 'Dano irreparável', color: '#000' },
-									{ label: 'Outros', value: 'Outros', color: '#000' }
-								]}
-								style={pickerStyles}
-								useNativeAndroidPickerStyle={false}
-								Icon={PickerIcon}
-							/>
-						</View>
-
-						<Text style={styles.label}>Observações (Opcional)</Text>
-						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
-
-						<View style={{ flexDirection: 'row', marginTop: 30, gap: 10 }}>
+						<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
 							<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 50 }]} onPress={() => setModalPneuVisible(false)}>
-								<Text style={{ fontSize: 15, fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+								<Text style={{ fontSize: 15, fontWeight: 'bold', color: '#333' }}>Voltar</Text>
 							</TouchableOpacity>
 
-							<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.5, marginTop: 0, height: 50 }]} onPress={salvarPneu} disabled={isSaving}>
-								{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>{formPneu.id ? 'Gravar' : 'Gravar'}</Text>}
+							<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.2, marginTop: 0, height: 50 }]} onPress={salvarPneu} disabled={isSaving}>
+								{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
 							</TouchableOpacity>
 						</View>
 						<View style={{ height: 40 }} />
@@ -703,7 +862,9 @@ export default function ChecklistAvulsoScreen() {
 
 					{fotoAmpliada && (
 						<View style={styles.fullScreenOverlay}>
-							<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}><Feather name="x-circle" size={36} color="#fff" /></TouchableOpacity>
+							<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}>
+								<Feather name="x-circle" size={36} color="#fff" />
+							</TouchableOpacity>
 							<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
 						</View>
 					)}
@@ -713,7 +874,6 @@ export default function ChecklistAvulsoScreen() {
 
 				</KeyboardAvoidingView>
 			</Modal>
-
 		</View>
 	);
 }
@@ -767,12 +927,24 @@ const styles = StyleSheet.create({
 	btnNovoChecklist: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 50, borderRadius: 8, flex: 1 },
 	btnNovoChecklistText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
 
-	modalHeaderFullScreen: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0c6ead', paddingHorizontal: 15, paddingBottom: 15, paddingTop: Platform.OS === 'ios' ? 50 : 40, elevation: 4 },
+	modalHeaderFullScreen: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		backgroundColor: '#0c6ead',
+		paddingHorizontal: 15,
+		paddingBottom: 15,
+		paddingTop: Platform.OS === 'ios' ? 65 : (StatusBar.currentHeight ? StatusBar.currentHeight + 15 : 50),
+		elevation: 4,
+	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 	btnSalvarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+
+	btnImprimir: { backgroundColor: '#3276b1', flexDirection: 'row', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 0 },
+	btnImprimirText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
 
 	btnFoto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed', borderRadius: 8, paddingVertical: 15, backgroundColor: '#f9f9f9' },
 	btnFotoText: { marginLeft: 10, color: '#666', fontWeight: 'bold' },
@@ -781,12 +953,16 @@ const styles = StyleSheet.create({
 	btnRemoveFoto: { position: 'absolute', top: -10, right: -10, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
 
 	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-	modalTitleBusca: { fontSize: 16, fontWeight: 'bold' },
+	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
 	inputBuscaInterno: { backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, paddingHorizontal: 15, marginBottom: 15 },
-	itemBuscaDinamica: { borderBottomWidth: 1, borderColor: '#eee', paddingVertical: 15 },
-	itemBuscaNome: { fontSize: 15 },
+	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
+	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
+	itemBuscaDoc: { fontSize: 12, color: '#888', marginTop: 2 },
+	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
+	btnInserirBuscaDinamica: { backgroundColor: '#e8f5e9', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#63c77b', marginBottom: 15 },
+	btnInserirBuscaDinamicaText: { color: '#28a745', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
 	btnInserirBuscaDinamicaMini: { backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' },
 	btnInserirBuscaDinamicaTextMini: { color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 },
 
@@ -800,12 +976,13 @@ const styles = StyleSheet.create({
 	pilhaGraficaContainer: { alignItems: 'center', paddingTop: 10 },
 	pneuStackedItem: {
 		backgroundColor: '#333', borderWidth: 5, borderColor: '#2a2a2a', borderRadius: 15,
-		width: '85%', height: 80, marginBottom: 6, marginTop: 2, flexDirection: 'row', alignItems: 'center',
-		paddingHorizontal: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
+		width: '85%', minHeight: 85, marginBottom: 6, marginTop: 2, flexDirection: 'row', alignItems: 'center',
+		paddingHorizontal: 15, paddingVertical: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
 	},
 	stackedPneuNumber: { color: '#aaa', fontSize: 20, fontWeight: 'bold', marginRight: 15 },
 	stackedPneuInfo: { flex: 1 },
-	stackedPneuSerie: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-	stackedPneuStatus: { color: '#b0bec5', fontSize: 14, marginTop: 3 },
+	stackedPneuSerie: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+	stackedPneuBanda: { color: '#f39c12', fontSize: 12, marginTop: 3, fontWeight: 'bold' },
+	stackedPneuStatus: { color: '#b0bec5', fontSize: 12, marginTop: 3 },
 	stackedPneuIcon: { opacity: 0.6, marginLeft: 10 },
 });

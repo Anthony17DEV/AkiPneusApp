@@ -147,7 +147,7 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 								</View>
 							)}
 
-							{vIndex === 0 ? (
+							{(vIndex === 0 && !isCarreta) ? (
 								<View style={[styles.cabineShape, { backgroundColor: cabineBg }]}>
 									<View style={styles.paraChoque} />
 									<View style={styles.paraBrisa} />
@@ -172,7 +172,7 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 							{estepesLocal.length > 0 && (
 								<View style={styles.estepesWrapperLocal}>
 									<Text style={styles.estepeTitleLocal}>
-										[ ESTEPES {vIndex === 0 ? 'DO CAVALO' : 'DO IMPLEMENTO'} ]
+										[ ESTEPES {(vIndex === 0 && !isCarreta) ? 'DO CAVALO' : 'DO IMPLEMENTO'} ]
 									</Text>
 									<View style={styles.estepesContainer}>
 										{estepesLocal.map(num => {
