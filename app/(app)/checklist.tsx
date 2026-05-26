@@ -853,6 +853,13 @@ export default function ChecklistScreen() {
 								<Text style={{ fontSize: 15, fontWeight: 'bold', color: '#333' }}>Voltar</Text>
 							</TouchableOpacity>
 
+							{formPneu.id ? (
+								<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`)}>
+									<Feather name="printer" size={18} color="#fff" />
+									<Text style={styles.btnImprimirText}>Imprimir</Text>
+								</TouchableOpacity>
+							) : null}
+
 							<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.2, marginTop: 0, height: 50 }]} onPress={salvarAfericaoPneu} disabled={isSaving}>
 								{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
 							</TouchableOpacity>
