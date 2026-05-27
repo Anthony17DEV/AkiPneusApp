@@ -419,8 +419,7 @@ export default function ClientesScreen() {
 								items={[
 									{ label: 'TRANSPORTADORA', value: 'TRANSPORTADORA', color: '#000' },
 									{ label: 'FROTA PRÓPRIA', value: 'FROTA PRÓPRIA', color: '#000' },
-									{ label: 'AUTÔNOMO', value: 'AUTÔNOMO', color: '#000' },
-									{ label: 'BORRACHARIA', value: 'BORRACHARIA', color: '#000' }
+									{ label: 'AUTÔNOMO', value: 'AUTÔNOMO', color: '#000' }
 								]}
 								style={pickerSelectStyles}
 								useNativeAndroidPickerStyle={false}
@@ -580,6 +579,25 @@ const styles = StyleSheet.create({
 	fotoContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
 	btnFoto: { flex: 1, backgroundColor: '#f0f0f0', borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, marginHorizontal: 5 },
 	btnFotoText: { marginTop: 8, fontSize: 14, color: '#666', fontWeight: '500' },
+
+	btnVoltarCliente: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#eee',
+		paddingVertical: 10,
+		paddingHorizontal: 15,
+		borderRadius: 8,
+		marginBottom: 15,
+		alignSelf: 'flex-start',
+		borderWidth: 1,
+		borderColor: '#ccc'
+	},
+	btnVoltarClienteText: {
+		marginLeft: 8,
+		fontSize: 14,
+		fontWeight: 'bold',
+		color: '#333'
+	},
 
 	fullScreenOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 99999, elevation: 99999 },
 	closeFullBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 100000, elevation: 100000, padding: 10 },

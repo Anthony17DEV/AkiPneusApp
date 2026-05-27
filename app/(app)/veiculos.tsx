@@ -450,6 +450,13 @@ export default function VeiculosScreen() {
 					<View style={styles.filterSection}>
 						<Text style={styles.sectionTitle}>Buscar Veículos</Text>
 
+						{!!params?.cliente_id && (
+							<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/clientes')}>
+								<Feather name="arrow-left" size={16} color="#333" />
+								<Text style={styles.btnVoltarClienteText}>Voltar para Clientes</Text>
+							</TouchableOpacity>
+						)}
+
 						<View style={styles.row}>
 							<View style={{ width: '48%' }}>
 								<Text style={styles.label}>Código ou Placa</Text>
@@ -478,17 +485,17 @@ export default function VeiculosScreen() {
 						<View style={styles.inputGroupFull}>
 							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
 								<Text style={styles.label}>Cliente</Text>
-								{!!params.cliente_id && (
+								{!!params?.cliente_id && (
 									<TouchableOpacity onPress={limparFiltroCliente} style={{ paddingHorizontal: 5 }}>
 										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
 									</TouchableOpacity>
 								)}
 							</View>
 							<TextInput
-								style={[styles.input, params.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
+								style={[styles.input, params?.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
 								placeholder="Nome do Cliente..."
 								value={filtroCliente}
-								editable={!params.cliente_id}
+								editable={!params?.cliente_id}
 								onChangeText={(text) => {
 									setFiltroCliente(text);
 									setFiltroClienteId('');
@@ -868,6 +875,9 @@ const styles = StyleSheet.create({
 
 	fotoContainerSolo: { marginRight: 10, position: 'relative' },
 	fotoPreview: { width: 100, height: 100, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f0f0f0' },
+
+	btnVoltarCliente: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eee', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 15, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#ccc' },
+	btnVoltarClienteText: { marginLeft: 6, fontSize: 13, fontWeight: 'bold', color: '#333' },
 
 	btnRemoveFoto: { position: 'absolute', top: 5, right: 5, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
 

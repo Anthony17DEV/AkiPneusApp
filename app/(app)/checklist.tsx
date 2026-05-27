@@ -286,7 +286,10 @@ export default function ChecklistScreen() {
 		setIsSaving(true);
 
 		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
-		const fotosAntigas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.split('/').pop());
+		const fotosAntigasLimpas = fotosPneu
+			.filter(f => f.startsWith('http'))
+			.map(f => f.substring(f.lastIndexOf('/') + 1));
+		const stringFotosAntigas = fotosAntigasLimpas.join(',');
 
 		const dadosParaSalvar = {
 			...formPneu,
@@ -296,14 +299,25 @@ export default function ChecklistScreen() {
 			posicao: pneuSelecionado,
 			user_id: user?.id,
 			fotos_novas: fotosNovas,
-			fotos_antigas: fotosAntigas
+			fotos: fotosNovas,
+			fotos_antigas: fotosAntigasLimpas,
+			fotosAntigas: fotosAntigasLimpas,
+			fotosAntigas_mantidas: fotosAntigasLimpas,
+			pneu_tx_foto_antiga: stringFotosAntigas,
+			foto_antiga: stringFotosAntigas
 		};
 
 		const res = await apiService.salvarInspecaoPneu(dadosParaSalvar);
 
 		setIsSaving(false);
-		if (res && res.success) { Alert.alert('Sucesso', res.message); setModalPneuVisible(false); if (idChecklistAtivo) carregarCoresPneus(idChecklistAtivo); }
-		else { Alert.alert('Erro', res?.message || 'Falha ao salvar pneu.'); }
+		if (res && res.success) {
+			Alert.alert('Sucesso', res.message);
+			setModalPneuVisible(false);
+			if (idChecklistAtivo) carregarCoresPneus(idChecklistAtivo);
+		}
+		else {
+			Alert.alert('Erro', res?.message || 'Falha ao salvar pneu.');
+		}
 	};
 
 	const abrirBuscaDinamica = (tipo: any) => { setTipoBusca(tipo); setTermoComboBusca(''); setResultadosBusca([]); setModalBuscaVisible(true); buscarDinamicaNoBanco(tipo, ''); };
@@ -356,8 +370,10 @@ export default function ChecklistScreen() {
 				...formPneu,
 				referencia: item.id || item.refe_nb_id,
 				referencia_nome: item.nome || item.refe_tx_nome,
-				marca: item.isNewModel ? (formCadastro.marca || '') : (item.refe_tx_marca || ''),
-				modelo: item.isNewModel ? (formCadastro.modelo || '') : (item.refe_tx_modelo || ''),
+
+				marca: item.isNewModel ? (formCadastro.marca || '') : '',
+				modelo: item.isNewModel ? (formCadastro.modelo || '') : '',
+
 				ref_mm_original: refMm,
 				ref_valor: refVal,
 				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,

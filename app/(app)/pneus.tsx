@@ -15,6 +15,7 @@ interface Pneu {
 	valor?: string | number; mm_original?: string; milimetros?: string; pressao_padrao?: string; pressao?: string;
 	observacao?: string; referencia_id?: string; marca_id?: string; modelo_id?: string; banda_id?: string; veiculo_id?: string;
 	foto?: string; pneu_tx_foto?: string; motivo_recusa?: string; laud_tx_motivo?: string;
+	cliente?: string; proprietario?: string; cliente_id?: string; proprietario_id?: string;
 }
 
 export default function PneusScreen() {
@@ -39,7 +40,7 @@ export default function PneusScreen() {
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
-	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo'>('referencia_pneu');
+	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo' | 'entidade'>('referencia_pneu');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
@@ -55,19 +56,16 @@ export default function PneusScreen() {
 		id: '', referencia: '', referencia_id: '', marca: '', marca_id: '', modelo: '', modelo_id: '',
 		valor: '', dot: '', serie: '', ferro: '', tipo: '', grau: '', banda: '', banda_id: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
-		placa_associada: '', veiculo_id: '', motivo_recusa: '',
-		ref_mm_original: '', ref_valor: ''
+		placa_associada: '', veiculo_id: '', motivo_recusa: '', motivo_recusa_outro: '',
+		ref_mm_original: '', ref_valor: '',
+		cliente: '', cliente_id: ''
 	});
 
 	const confirmSignOut = () => {
-		Alert.alert(
-			'Sair da Conta',
-			'Tem certeza que deseja sair do aplicativo?',
-			[
-				{ text: 'Cancelar', style: 'cancel' },
-				{ text: 'Sair', style: 'destructive', onPress: signOut },
-			]
-		);
+		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
+			{ text: 'Cancelar', style: 'cancel' },
+			{ text: 'Sair', style: 'destructive', onPress: signOut },
+		]);
 	};
 
 	const formatarMoeda = (text: string) => {
@@ -85,6 +83,12 @@ export default function PneusScreen() {
 		if (isNaN(num)) return '';
 		let formatado = num.toFixed(2).replace('.', ',');
 		return formatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+	};
+
+	const limparFiltroCliente = () => {
+		setFiltroCliente('');
+		setFiltroClienteId('');
+		router.setParams({ cliente_id: '', cliente_nome: '' });
 	};
 
 	useEffect(() => {
@@ -118,12 +122,16 @@ export default function PneusScreen() {
 	};
 
 	const resetForm = () => {
+		const preNome = (params.cliente_nome as string) || filtroCliente || '';
+		const preId = (params.cliente_id as string) || filtroClienteId || '';
+
 		setForm({
 			id: '', referencia: '', referencia_id: '', marca: '', marca_id: '', modelo: '', modelo_id: '',
 			valor: '', dot: '', serie: '', ferro: '', tipo: '', grau: '', banda: '', banda_id: '',
 			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
-			placa_associada: '', veiculo_id: '', motivo_recusa: '',
-			ref_mm_original: '', ref_valor: ''
+			placa_associada: '', veiculo_id: '', motivo_recusa: '', motivo_recusa_outro: '',
+			ref_mm_original: '', ref_valor: '',
+			cliente: preNome, cliente_id: preId
 		});
 		setFotosPneu([]);
 		setFotoAmpliada(null);
@@ -131,6 +139,10 @@ export default function PneusScreen() {
 	};
 
 	const handleEditar = (item: any) => {
+		const motivoDB = item.motivo_recusa || item.laud_tx_motivo || '';
+		const motivosPadrao = ['Deslocamento de talão', 'Deslocamento por manchão inadequado', 'Rodagem baixa pressão', 'Separação de cintas', 'Dano irreparável', 'Outros'];
+		const isOutro = motivoDB && !motivosPadrao.includes(motivoDB);
+
 		setForm({
 			id: item.id ? item.id.toString() : '',
 			referencia: item.referencia || '', referencia_id: item.referencia_id || '',
@@ -145,8 +157,11 @@ export default function PneusScreen() {
 			pressao_padrao: item.pressao_padrao || '', pressao: item.pressao || '',
 			observacao: item.observacao || '',
 			placa_associada: item.placa_associada || '', veiculo_id: item.veiculo_id || '',
-			motivo_recusa: item.motivo_recusa || item.laud_tx_motivo || '',
-			ref_mm_original: item.mm_original || ''
+			motivo_recusa: isOutro ? 'Outros' : motivoDB,
+			motivo_recusa_outro: isOutro ? motivoDB : '',
+			ref_mm_original: item.mm_original || '',
+			cliente: item.cliente || item.proprietario || '',
+			cliente_id: item.cliente_id || item.proprietario_id || ''
 		});
 
 		const stringFotos = item.foto || item.pneu_tx_foto;
@@ -191,17 +206,26 @@ export default function PneusScreen() {
 			}
 		}
 
+		if (form.motivo_recusa === 'Outros' && !form.motivo_recusa_outro.trim()) {
+			Alert.alert('Atenção', 'Por favor, descreva o motivo da recusa no campo "Descreva o outro motivo".');
+			return;
+		}
+
 		setIsSaving(true);
 
 		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
 		const fotosAntigas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.split('/').pop());
 
+		const motivoFinal = form.motivo_recusa === 'Outros' ? form.motivo_recusa_outro : form.motivo_recusa;
+
 		const dadosParaSalvar = {
 			...form,
+			motivo_recusa: motivoFinal,
 			valor: form.valor.replace(/\./g, ''),
 			fotos_novas: fotosNovas,
 			fotos_antigas: fotosAntigas,
-			user_id: user?.id
+			user_id: user?.id,
+			cliente_id: form.cliente_id || params?.cliente_id || filtroClienteId
 		};
 
 		const res = await apiService.salvarPneuGeral(dadosParaSalvar);
@@ -230,10 +254,22 @@ export default function PneusScreen() {
 			if (res && res.success) {
 				const veiculosFormatados = res.data.map((v: any) => ({
 					id: v.id, nome: v.placa, placa: v.placa,
+					proprietario: v.proprietario, proprietario_id: v.proprietario_id,
 					documento: `Código: ${v.codigo || '--'} | Cliente: ${v.proprietario || 'N/A'}`
 				}));
 				setResultadosBusca(veiculosFormatados);
 			} else { setResultadosBusca([]); }
+		} else if (tipo === 'entidade') {
+			try {
+				const res = await apiService.buscarClientes(user?.id, user?.nivel, { nome: termo }, 1);
+				if (res && res.success) {
+					setResultadosBusca(res.data.map((c: any) => ({ id: c.id, nome: c.nome })));
+				} else {
+					setResultadosBusca([]);
+				}
+			} catch (e) {
+				setResultadosBusca([]);
+			}
 		} else {
 			const extras: any = {};
 			if (tipo === 'modelo_pneu') {
@@ -247,20 +283,20 @@ export default function PneusScreen() {
 	};
 
 	const selecionarItemBusca = (item: any) => {
-		if (tipoBusca === 'referencia_pneu') {
-			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || '');
-			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '');
-
+		if (tipoBusca === 'entidade') {
+			setForm({ ...form, cliente: item.nome, cliente_id: item.id });
+		}
+		else if (tipoBusca === 'referencia_pneu') {
 			setForm({
 				...form,
 				referencia: item.nome || item.refe_tx_nome,
 				referencia_id: item.id || item.refe_nb_id,
-				marca: item.isNewModel ? (formCadastro.marca || '') : (item.refe_tx_marca || ''),
-				modelo: item.isNewModel ? (formCadastro.modelo || '') : (item.refe_tx_modelo || ''),
-				ref_mm_original: refMm,
-				ref_valor: refVal,
-				mm_original: (form.tipo === 'Reformado' && form.banda) ? form.mm_original : refMm,
-				valor: (form.tipo === 'Reformado' && form.banda) ? form.valor : refVal
+				marca: item.isNewModel ? (formCadastro.marca || '') : '',
+				marca_id: item.isNewModel ? '' : '',
+				modelo: item.isNewModel ? (formCadastro.modelo || '') : '',
+				modelo_id: item.isNewModel ? '' : '',
+				mm_original: item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || ''),
+				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '')
 			});
 		} else if (tipoBusca === 'marca_pneu') {
 			setForm({
@@ -295,7 +331,13 @@ export default function PneusScreen() {
 				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(item.valor || '') || form.valor)
 			});
 		} else if (tipoBusca === 'veiculo') {
-			setForm({ ...form, placa_associada: item.placa || item.nome, veiculo_id: item.id });
+			setForm({
+				...form,
+				placa_associada: item.placa || item.nome,
+				veiculo_id: item.id,
+				cliente: item.proprietario || form.cliente,
+				cliente_id: item.proprietario_id || form.cliente_id
+			});
 		}
 		setModalBuscaVisible(false);
 	};
@@ -350,12 +392,15 @@ export default function PneusScreen() {
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalContentBusca}>
 				<View style={styles.modalHeaderBusca}>
-					<Text style={styles.modalTitleBusca}>Selecionar</Text>
+					<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda'].includes(tipoBusca) && (
 							<TouchableOpacity
 								style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
-								onPress={() => abrirModalCadastro(termoComboBusca)}
+								onPress={() => {
+									setModalBuscaVisible(false);
+									abrirModalCadastro(termoComboBusca);
+								}}
 							>
 								<Feather name="plus-circle" size={14} color="#28a745" />
 								<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
@@ -366,14 +411,20 @@ export default function PneusScreen() {
 						</TouchableOpacity>
 					</View>
 				</View>
-				<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
+				<View style={styles.inputBuscaContainer}>
+					<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
+					<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
+				</View>
 				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)} renderItem={({ item }) => (
-						<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-							<Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text>
-							{item.documento && <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.documento}</Text>}
-						</TouchableOpacity>
-					)} />
+					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
+						renderItem={({ item }) => (
+							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
+								<Text style={styles.itemBuscaNome}>{item.nome}</Text>
+								{item.documento && <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.documento}</Text>}
+							</TouchableOpacity>
+						)}
+						ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado.</Text>}
+					/>
 				)}
 			</View>
 		</View>
@@ -395,24 +446,11 @@ export default function PneusScreen() {
 					<><Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
 				)}
 				{tipoBusca === 'banda' && (
-					<View>
-						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
-						<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>* Sulco (MM)</Text>
-								<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} />
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Valor (R$)</Text>
-								<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" />
-							</View>
-						</View>
-					</View>
+					<><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><Text style={styles.label}>* Sulco (MM)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} /></>
 				)}
 				<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
 					<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
-					<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0 }]} onPress={salvarCadastroDinamico}>
+					<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={salvarCadastroDinamico}>
 						{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
 					</TouchableOpacity>
 				</View>
@@ -431,14 +469,41 @@ export default function PneusScreen() {
 				ListHeaderComponent={
 					<View style={styles.filterSection}>
 						<Text style={styles.sectionTitle}>Buscar Pneus</Text>
+
+						{!!params?.cliente_id && (
+							<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/clientes')}>
+								<Feather name="arrow-left" size={16} color="#333" />
+								<Text style={styles.btnVoltarClienteText}>Voltar para Clientes</Text>
+							</TouchableOpacity>
+						)}
+
 						<View style={styles.row}>
-							<View style={{ width: '48%' }}><Text style={styles.label}>Série</Text><TextInput style={styles.input} placeholder="Série" value={filtroSerie} onChangeText={setFiltroSerie} /></View>
-							<View style={{ width: '48%' }}><Text style={styles.label}>DOT</Text><TextInput style={styles.input} placeholder="DOT" value={filtroDot} onChangeText={setFiltroDot} /></View>
+							<View style={{ width: '31%' }}><Text style={styles.label}>Série</Text><TextInput style={styles.input} placeholder="Série" value={filtroSerie} onChangeText={setFiltroSerie} /></View>
+							<View style={{ width: '31%' }}><Text style={styles.label}>DOT</Text><TextInput style={styles.input} placeholder="DOT" value={filtroDot} onChangeText={setFiltroDot} /></View>
+							<View style={{ width: '31%' }}><Text style={styles.label}>Placa</Text><TextInput style={styles.input} placeholder="ABC-1234" value={filtroPlaca} onChangeText={setFiltroPlaca} autoCapitalize="characters" /></View>
 						</View>
-						<View style={styles.row}>
-							<View style={{ width: '30%' }}><Text style={styles.label}>Placa</Text><TextInput style={styles.input} placeholder="ABC-1234" value={filtroPlaca} onChangeText={setFiltroPlaca} autoCapitalize="characters" /></View>
-							<View style={{ width: '67%' }}><Text style={styles.label}>Cliente</Text><TextInput style={styles.input} placeholder="Nome do Cliente..." value={filtroCliente} onChangeText={(t) => { setFiltroCliente(t); setFiltroClienteId(''); }} /></View>
+
+						<View style={styles.inputGroupFull}>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+								<Text style={styles.label}>Cliente</Text>
+								{!!params?.cliente_id && (
+									<TouchableOpacity onPress={limparFiltroCliente} style={{ paddingHorizontal: 5 }}>
+										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
+									</TouchableOpacity>
+								)}
+							</View>
+							<TextInput
+								style={[styles.input, params?.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
+								placeholder="Nome do Cliente..."
+								value={filtroCliente}
+								editable={!params?.cliente_id}
+								onChangeText={(text) => {
+									setFiltroCliente(text);
+									setFiltroClienteId('');
+								}}
+							/>
 						</View>
+
 						<View style={styles.actionRow}>
 							<TouchableOpacity style={styles.btnBuscar} onPress={carregarPneus}><Feather name="search" size={18} color="#fff" /><Text style={styles.btnText}>Buscar</Text></TouchableOpacity>
 							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}><Feather name="plus-circle" size={18} color="#ffffff" /><Text style={styles.btnInserirText}>Inserir</Text></TouchableOpacity>
@@ -465,6 +530,10 @@ export default function PneusScreen() {
 									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Ref:</Text> {item.referencia} | {item.marca} - {item.modelo}</Text>
 								</View>
 								<View style={styles.cardInfoRow}>
+									<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {item.cliente || item.proprietario || 'Não associado'}</Text>
+								</View>
+								<View style={styles.cardInfoRow}>
 									<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
 									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>DOT:</Text> {item.dot}  •  <Text style={{ fontWeight: 'bold' }}>Ferro:</Text> {item.ferro}</Text>
 								</View>
@@ -472,10 +541,13 @@ export default function PneusScreen() {
 									<Feather name="layers" size={14} color="#666" style={{ marginRight: 8 }} />
 									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Tipo:</Text> {item.tipo}  •  <Text style={{ fontWeight: 'bold' }}>Reformas:</Text> {item.qtde_reforma}</Text>
 								</View>
-								<View style={styles.cardInfoRow}>
-									<Feather name="tool" size={14} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Banda:</Text> {item.banda}</Text>
-								</View>
+
+								{item.tipo !== 'Novo' && (
+									<View style={styles.cardInfoRow}>
+										<Feather name="tool" size={14} color="#666" style={{ marginRight: 8 }} />
+										<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Banda:</Text> {item.banda}</Text>
+									</View>
+								)}
 							</View>
 
 							<View style={styles.cardActions}>
@@ -508,13 +580,34 @@ export default function PneusScreen() {
 						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
 
 							<Text style={styles.groupTitle}>Veículo / Associação</Text>
+
+							<View style={styles.inputGroupFull}>
+								<Text style={styles.label}>Cliente Proprietário</Text>
+								<View style={styles.inputWithIcon}>
+									<TextInput
+										style={[styles.inputFlex, (params?.cliente_id || form.veiculo_id) ? { backgroundColor: '#eee', color: '#666' } : {}]}
+										value={form.cliente}
+										editable={!(params?.cliente_id || form.veiculo_id)}
+										onChangeText={t => setForm({ ...form, cliente: t, cliente_id: '' })}
+										placeholder="Nome do Cliente..."
+									/>
+									<TouchableOpacity
+										style={[styles.searchIconBtn, (params?.cliente_id || form.veiculo_id) ? { backgroundColor: '#999', borderColor: '#999' } : {}]}
+										onPress={() => abrirBuscaDinamica('entidade')}
+										disabled={!!(params?.cliente_id || form.veiculo_id)}
+									>
+										<Feather name="search" size={20} color="#fff" />
+									</TouchableOpacity>
+								</View>
+							</View>
+
 							<View style={styles.row}>
 								<View style={{ width: '100%', marginBottom: 15 }}>
 									<Text style={styles.label}>Associar à Placa (Vazio = Avulso)</Text>
 									<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('veiculo')}>
 										<Text style={{ color: form.placa_associada ? '#000' : '#999' }}>{form.placa_associada || 'Pneu Avulso...'}</Text>
 										{form.placa_associada ? (
-											<TouchableOpacity onPress={() => setForm({ ...form, placa_associada: '', veiculo_id: '' })}>
+											<TouchableOpacity onPress={() => setForm({ ...form, placa_associada: '', veiculo_id: '', cliente: (params?.cliente_id ? form.cliente : ''), cliente_id: (params?.cliente_id ? form.cliente_id : '') })}>
 												<Feather name="x-circle" size={18} color="#E53935" />
 											</TouchableOpacity>
 										) : (
@@ -638,6 +731,18 @@ export default function PneusScreen() {
 								/>
 							</View>
 
+							{form.motivo_recusa === 'Outros' && (
+								<View style={{ width: '100%', marginBottom: 15 }}>
+									<Text style={styles.label}>* Descreva o outro motivo</Text>
+									<TextInput
+										style={styles.inputModal}
+										value={form.motivo_recusa_outro}
+										onChangeText={t => setForm({ ...form, motivo_recusa_outro: t })}
+										placeholder="Escreva qual foi o motivo..."
+									/>
+								</View>
+							)}
+
 							<Text style={styles.label}>Observações (Opcional)</Text>
 							<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={form.observacao} onChangeText={t => setForm({ ...form, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
 
@@ -688,9 +793,7 @@ export default function PneusScreen() {
 
 						{fotoAmpliada && (
 							<View style={styles.fullScreenOverlay}>
-								<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}>
-									<Feather name="x-circle" size={36} color="#fff" />
-								</TouchableOpacity>
+								<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}><Feather name="x-circle" size={36} color="#fff" /></TouchableOpacity>
 								<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
 							</View>
 						)}
@@ -714,7 +817,7 @@ const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" sty
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8' },
 	filterSection: { backgroundColor: '#fff', padding: 20, elevation: 3, marginBottom: 15 },
-	sectionTitle: { fontSize: 12, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 10, justifyContent: 'center' },
 	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
@@ -723,6 +826,10 @@ const styles = StyleSheet.create({
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%' },
 	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+
+	inputWithIcon: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+	inputFlex: { flex: 1, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000' },
+	searchIconBtn: { backgroundColor: '#0c6ead', width: 48, height: 48, justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderWidth: 1, borderColor: '#0c6ead' },
 
 	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 10 },
 	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
@@ -775,15 +882,26 @@ const styles = StyleSheet.create({
 	boxReformado: { backgroundColor: '#f0f0f0', padding: 15, borderRadius: 8, marginBottom: 15 },
 
 	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-	modalTitleBusca: { fontSize: 16, fontWeight: 'bold' },
-	inputBuscaInterno: { backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, paddingHorizontal: 15, marginBottom: 15 },
-	itemBuscaDinamica: { borderBottomWidth: 1, borderColor: '#eee', paddingVertical: 15 },
-	itemBuscaNome: { fontSize: 15 },
+	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
+	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
+	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
+	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
+	itemBuscaDoc: { fontSize: 12, color: '#888', marginTop: 2 },
+	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
+	btnInserirBuscaDinamica: { backgroundColor: '#e8f5e9', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#63c77b', marginBottom: 15 },
+	btnInserirBuscaDinamicaText: { color: '#28a745', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
+	btnInserirBuscaDinamicaMini: { backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' },
+	btnInserirBuscaDinamicaTextMini: { color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 },
 
 	modalSmall: { width: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
-	modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+
+	btnVoltarCliente: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eee', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 15, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#ccc' },
+	btnVoltarClienteText: { marginLeft: 6, fontSize: 13, fontWeight: 'bold', color: '#333' },
+	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
 	fullScreenOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 99999, elevation: 99999 },
 	closeFullBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 100000, elevation: 100000, padding: 10 },

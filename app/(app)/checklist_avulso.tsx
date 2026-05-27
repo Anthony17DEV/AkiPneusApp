@@ -32,6 +32,27 @@ export default function ChecklistAvulsoScreen() {
 	const [checklistAtivo, setChecklistAtivo] = useState<any>(null);
 	const [pneusPilha, setPneusPilha] = useState<any[]>([]);
 
+	const [isSelectionMode, setIsSelectionMode] = useState(false);
+	const [selectedChecklists, setSelectedChecklists] = useState<number[]>([]);
+
+	const toggleSelectionMode = () => {
+		setIsSelectionMode(!isSelectionMode);
+		setSelectedChecklists([]);
+	};
+
+	const toggleChecklistSelection = (id: number) => {
+		if (selectedChecklists.includes(id)) {
+			setSelectedChecklists(selectedChecklists.filter(item => item !== id));
+		} else {
+			setSelectedChecklists([...selectedChecklists, id]);
+		}
+	};
+
+	const gerarRelatorioConsolidado = () => {
+		const idsStr = selectedChecklists.join(',');
+		Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}`);
+	};
+
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
 	const [fotosPneu, setFotosPneu] = useState<string[]>([]);
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
@@ -550,7 +571,7 @@ export default function ChecklistAvulsoScreen() {
 				<FlatList
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
-					contentContainerStyle={{ paddingBottom: 40 }}
+					contentContainerStyle={{ paddingBottom: 100 }}
 					ListHeaderComponent={
 						<View style={styles.filterSection}>
 							<Text style={styles.sectionTitle}>Checklist Avulso de Pneus</Text>
@@ -562,66 +583,102 @@ export default function ChecklistAvulsoScreen() {
 								<View style={{ width: '48%' }}><Text style={styles.label}>Cliente</Text><TextInput style={styles.input} placeholder="Buscar..." value={filtroCliente} onChangeText={setFiltroCliente} /></View>
 								<View style={{ width: '48%' }}><Text style={styles.label}>Usuário</Text><TextInput style={styles.input} placeholder="Nome do usuário" value={filtroUsuario} onChangeText={setFiltroUsuario} /></View>
 							</View>
+
 							<View style={styles.actionRow}>
 								<TouchableOpacity style={styles.btnBuscar} onPress={carregarChecklists}>
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<Feather name="search" size={18} color="#fff" />
-										<Text style={styles.btnText}>Buscar</Text>
-									</View>
+									<Feather name="search" size={18} color="#fff" />
+									<Text style={styles.btnText}>Buscar</Text>
 								</TouchableOpacity>
 								<TouchableOpacity style={styles.btnInserir} onPress={() => { setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '' }); setModalNovoVisible(true); }}>
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<Feather name="plus-circle" size={18} color="#ffffff" />
-										<Text style={styles.btnInserirText}>Inserir</Text>
-									</View>
+									<Feather name="plus-circle" size={18} color="#ffffff" />
+									<Text style={styles.btnInserirText}>Inserir</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity style={[styles.btnConsolidar, isSelectionMode && { backgroundColor: '#E53935' }]} onPress={toggleSelectionMode}>
+									<Feather name={isSelectionMode ? "x-circle" : "layers"} size={18} color="#ffffff" />
+									<Text style={styles.btnInserirText}>{isSelectionMode ? 'Cancelar' : 'Consolidar'}</Text>
 								</TouchableOpacity>
 							</View>
 							<Text style={[styles.sectionTitle, { marginTop: 25 }]}>Resultados ({checklists.length})</Text>
 						</View>
 					}
-					renderItem={({ item }) => (
-						<View style={styles.card}>
-							<View style={styles.cardHeader}>
-								<Text style={styles.cardTitle} numberOfLines={1}>Checklist #{item.id}</Text>
-								<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}><Text style={[styles.statusText, { color: '#1967d2' }]}>{formatarDataLocal(item.data)}</Text></View>
-							</View>
-							<View style={styles.cardInfoBox}>
-								<View style={styles.cardInfoRow}>
-									<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {item.cliente}</Text>
-								</View>
-								<View style={styles.cardInfoRow}>
-									<MaterialCommunityIcons name="tire" size={16} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Pneus:</Text> {item.pneus_qtd} Inspecionados</Text>
-								</View>
-								<View style={styles.cardInfoRow}>
-									<Feather name="shield" size={14} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Usuário:</Text> {item.usuario}</Text>
-								</View>
-							</View>
-							<View style={styles.cardActions}>
-								<View style={styles.actionButtonsRow}>
-									<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(item.id)}>
-										<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-											<Feather name="printer" size={14} color="#333" />
-											<Text style={styles.btnImprimirHistoricoText}>Imprimir</Text>
+					renderItem={({ item }) => {
+						const isSelected = selectedChecklists.includes(item.id);
+						return (
+							<TouchableOpacity
+								style={[styles.card, isSelected && styles.cardSelected]}
+								onPress={() => {
+									if (isSelectionMode) toggleChecklistSelection(item.id);
+									else abrirChecklist(item);
+								}}
+								activeOpacity={isSelectionMode ? 0.7 : 1}
+							>
+								<View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
+
+									{isSelectionMode && (
+										<View style={styles.checkboxContainer}>
+											<Feather name={isSelected ? "check-square" : "square"} size={24} color={isSelected ? "#1967d2" : "#ccc"} />
 										</View>
-									</TouchableOpacity>
-									<TouchableOpacity style={styles.btnEditarCard} onPress={() => abrirChecklist(item)}>
-										<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-											<Feather name="edit-2" size={14} color="#ffffff" />
-											<Text style={styles.btnEditarCardText}>Modificar</Text>
+									)}
+
+									<View style={{ flex: 1 }}>
+										<View style={styles.cardHeader}>
+											<Text style={styles.cardTitle} numberOfLines={1}>Checklist #{item.id}</Text>
+											<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}><Text style={[styles.statusText, { color: '#1967d2' }]}>{formatarDataLocal(item.data)}</Text></View>
 										</View>
-									</TouchableOpacity>
-									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirChecklist(item.id)}>
-										<Feather name="trash-2" size={14} color="#ffffff" />
-									</TouchableOpacity>
+										<View style={styles.cardInfoBox}>
+											<View style={styles.cardInfoRow}>
+												<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
+												<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {item.cliente}</Text>
+											</View>
+											<View style={styles.cardInfoRow}>
+												<MaterialCommunityIcons name="tire" size={16} color="#666" style={{ marginRight: 8 }} />
+												<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Pneus:</Text> {item.pneus_qtd} Inspecionados</Text>
+											</View>
+											<View style={styles.cardInfoRow}>
+												<Feather name="shield" size={14} color="#666" style={{ marginRight: 8 }} />
+												<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Usuário:</Text> {item.usuario}</Text>
+											</View>
+										</View>
+
+										{!isSelectionMode && (
+											<View style={styles.cardActions}>
+												<View style={styles.actionButtonsRow}>
+													<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(item.id)}>
+														<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+															<Feather name="printer" size={14} color="#333" />
+															<Text style={styles.btnImprimirHistoricoText}>Imprimir</Text>
+														</View>
+													</TouchableOpacity>
+													<TouchableOpacity style={styles.btnEditarCard} onPress={() => abrirChecklist(item)}>
+														<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+															<Feather name="edit-2" size={14} color="#ffffff" />
+															<Text style={styles.btnEditarCardText}>Modificar</Text>
+														</View>
+													</TouchableOpacity>
+													<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirChecklist(item.id)}>
+														<Feather name="trash-2" size={14} color="#ffffff" />
+													</TouchableOpacity>
+												</View>
+											</View>
+										)}
+									</View>
 								</View>
-							</View>
-						</View>
-					)}
+							</TouchableOpacity>
+						);
+					}}
 					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum checklist avulso encontrado.</Text> : null}
 				/>
+			)}
+
+			{isSelectionMode && selectedChecklists.length > 0 && (
+				<TouchableOpacity
+					style={styles.fab}
+					onPress={gerarRelatorioConsolidado}
+				>
+					<Feather name="printer" size={24} color="#fff" />
+					<Text style={styles.fabText}>Gerar Relatório ({selectedChecklists.length})</Text>
+				</TouchableOpacity>
 			)}
 
 			{checklistAtivo && (
@@ -896,19 +953,23 @@ const styles = StyleSheet.create({
 	filterSection: { backgroundColor: '#fff', padding: 20, elevation: 3, marginBottom: 15 },
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
-	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 10 },
+	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 10, justifyContent: 'center' },
 	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
 	inputModal: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
 	inputGroupH: { width: '48%' },
 
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 10 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
+	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
+	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
+	btnConsolidar: { flex: 1.3, backgroundColor: '#f39c12', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
 	btnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 	btnInserirText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginBottom: 15, elevation: 3, overflow: 'hidden' },
+	cardSelected: { borderColor: '#1967d2', borderWidth: 2, backgroundColor: '#f0f4ff' },
+	checkboxContainer: { paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee', backgroundColor: '#f9f9f9' },
+
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
 	cardTitle: { fontWeight: 'bold', fontSize: 15, color: '#333', flex: 1, marginRight: 10 },
 	statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
@@ -924,6 +985,9 @@ const styles = StyleSheet.create({
 	btnImprimirHistorico: { backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
 	btnImprimirHistoricoText: { color: '#333', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
 	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 12 },
+
+	fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#1967d2', borderRadius: 30, paddingVertical: 15, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, zIndex: 100 },
+	fabText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
 
 	headerAtivo: { backgroundColor: '#0c6ead', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 30 },
 	headerAtivoTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 5 },
