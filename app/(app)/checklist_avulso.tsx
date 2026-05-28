@@ -50,11 +50,15 @@ export default function ChecklistAvulsoScreen() {
 
 	const gerarRelatorioConsolidado = () => {
 		const idsStr = selectedChecklists.join(',');
-		Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}`);
 
 		setIsSelectionMode(false);
 		setSelectedChecklists([]);
-		carregarChecklists();
+
+		Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}`);
+
+		setTimeout(() => {
+			carregarChecklists();
+		}, 1000);
 	};
 
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
@@ -465,7 +469,15 @@ export default function ChecklistAvulsoScreen() {
 						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
 					</View>
 				</View>
-				<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
+				<View style={styles.inputBuscaContainer}>
+					<TextInput
+						style={styles.inputBuscaInterno}
+						placeholder="Buscar..."
+						value={termoComboBusca}
+						onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }}
+						autoFocus
+					/>
+				</View>
 				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
 					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)} renderItem={({ item }) => (
 						<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text></TouchableOpacity>
@@ -593,6 +605,7 @@ export default function ChecklistAvulsoScreen() {
 				<FlatList
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
+					extraData={{ isSelectionMode, selectedChecklists }}
 					contentContainerStyle={{ paddingBottom: 100 }}
 					ListHeaderComponent={
 						<View style={styles.filterSection}>
