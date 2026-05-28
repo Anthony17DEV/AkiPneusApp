@@ -550,11 +550,16 @@ export default function VeiculosScreen() {
 							<View style={styles.actionButtonsRow}>
 								<TouchableOpacity
 									style={styles.btnActionSecondary}
-									onPress={() => navigation.navigate('checklist', {
-										veiculo_id: item.id,
-										placa: item.placa,
-										eixos: item.eixos,
-										rodado: item.rodado
+									onPress={() => router.push({
+										pathname: '/checklist',
+										params: {
+											veiculo_id: item.id,
+											placa: item.placa,
+											eixos: item.eixos,
+											rodado: item.rodado,
+											cliente_id: params?.cliente_id,
+											cliente_nome: params?.cliente_nome
+										}
 									})}
 								>
 									<Feather name="clipboard" size={14} color="#333" />

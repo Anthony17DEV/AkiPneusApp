@@ -40,7 +40,7 @@ export default function PneusScreen() {
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
-	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo' | 'entidade'>('referencia_pneu');
+	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo' | 'entidade' | 'motivo_laudo'>('referencia_pneu');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
@@ -56,7 +56,7 @@ export default function PneusScreen() {
 		id: '', referencia: '', referencia_id: '', marca: '', marca_id: '', modelo: '', modelo_id: '',
 		valor: '', dot: '', serie: '', ferro: '', tipo: '', grau: '', banda: '', banda_id: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
-		placa_associada: '', veiculo_id: '', motivo_recusa: '', motivo_recusa_outro: '',
+		placa_associada: '', veiculo_id: '', motivo_recusa: '',
 		ref_mm_original: '', ref_valor: '',
 		cliente: '', cliente_id: ''
 	});
@@ -78,7 +78,15 @@ export default function PneusScreen() {
 
 	const formatarValorDB = (val: any) => {
 		if (!val) return '';
-		let str = String(val).replace(',', '.');
+		let str = String(val);
+		if (str.includes(',')) {
+			str = str.replace(/\./g, '').replace(',', '.');
+		} else {
+			const lastDot = str.lastIndexOf('.');
+			if (lastDot !== -1) {
+				str = str.substring(0, lastDot).replace(/\./g, '') + '.' + str.substring(lastDot + 1);
+			}
+		}
 		let num = parseFloat(str);
 		if (isNaN(num)) return '';
 		let formatado = num.toFixed(2).replace('.', ',');
@@ -129,7 +137,7 @@ export default function PneusScreen() {
 			id: '', referencia: '', referencia_id: '', marca: '', marca_id: '', modelo: '', modelo_id: '',
 			valor: '', dot: '', serie: '', ferro: '', tipo: '', grau: '', banda: '', banda_id: '',
 			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
-			placa_associada: '', veiculo_id: '', motivo_recusa: '', motivo_recusa_outro: '',
+			placa_associada: '', veiculo_id: '', motivo_recusa: '',
 			ref_mm_original: '', ref_valor: '',
 			cliente: preNome, cliente_id: preId
 		});
@@ -139,10 +147,6 @@ export default function PneusScreen() {
 	};
 
 	const handleEditar = (item: any) => {
-		const motivoDB = item.motivo_recusa || item.laud_tx_motivo || '';
-		const motivosPadrao = ['Deslocamento de talão', 'Deslocamento por manchão inadequado', 'Rodagem baixa pressão', 'Separação de cintas', 'Dano irreparável', 'Outros'];
-		const isOutro = motivoDB && !motivosPadrao.includes(motivoDB);
-
 		setForm({
 			id: item.id ? item.id.toString() : '',
 			referencia: item.referencia || '', referencia_id: item.referencia_id || '',
@@ -157,8 +161,7 @@ export default function PneusScreen() {
 			pressao_padrao: item.pressao_padrao || '', pressao: item.pressao || '',
 			observacao: item.observacao || '',
 			placa_associada: item.placa_associada || '', veiculo_id: item.veiculo_id || '',
-			motivo_recusa: isOutro ? 'Outros' : motivoDB,
-			motivo_recusa_outro: isOutro ? motivoDB : '',
+			motivo_recusa: item.motivo_recusa || item.laud_tx_motivo || '',
 			ref_mm_original: item.mm_original || '',
 			cliente: item.cliente || item.proprietario || '',
 			cliente_id: item.cliente_id || item.proprietario_id || ''
@@ -206,26 +209,26 @@ export default function PneusScreen() {
 			}
 		}
 
-		if (form.motivo_recusa === 'Outros' && !form.motivo_recusa_outro.trim()) {
-			Alert.alert('Atenção', 'Por favor, descreva o motivo da recusa no campo "Descreva o outro motivo".');
-			return;
-		}
-
 		setIsSaving(true);
 
 		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
-		const fotosAntigas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.split('/').pop());
-
-		const motivoFinal = form.motivo_recusa === 'Outros' ? form.motivo_recusa_outro : form.motivo_recusa;
+		const fotosAntigasLimpas = fotosPneu
+			.filter(f => f.startsWith('http'))
+			.map(f => f.substring(f.lastIndexOf('/') + 1));
+		const stringFotosAntigas = fotosAntigasLimpas.join(',');
 
 		const dadosParaSalvar = {
 			...form,
-			motivo_recusa: motivoFinal,
 			valor: form.valor.replace(/\./g, ''),
-			fotos_novas: fotosNovas,
-			fotos_antigas: fotosAntigas,
 			user_id: user?.id,
-			cliente_id: form.cliente_id || params?.cliente_id || filtroClienteId
+			cliente_id: form.cliente_id || params?.cliente_id || filtroClienteId,
+			fotos_novas: fotosNovas,
+			fotos: fotosNovas,
+			fotos_antigas: fotosAntigasLimpas,
+			fotosAntigas: fotosAntigasLimpas,
+			fotosAntigas_mantidas: fotosAntigasLimpas,
+			pneu_tx_foto_antiga: stringFotosAntigas,
+			foto_antiga: stringFotosAntigas
 		};
 
 		const res = await apiService.salvarPneuGeral(dadosParaSalvar);
@@ -286,6 +289,9 @@ export default function PneusScreen() {
 		if (tipoBusca === 'entidade') {
 			setForm({ ...form, cliente: item.nome, cliente_id: item.id });
 		}
+		else if (tipoBusca === 'motivo_laudo') {
+			setForm({ ...form, motivo_recusa: item.nome });
+		}
 		else if (tipoBusca === 'referencia_pneu') {
 			setForm({
 				...form,
@@ -344,7 +350,7 @@ export default function PneusScreen() {
 
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
-			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (form.referencia || '')),
+			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' ? termoDigitado.trim() : (form.referencia || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (form.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
 			mmOriginal: '', valor: '', sulco: ''
@@ -354,6 +360,7 @@ export default function PneusScreen() {
 	};
 
 	const salvarCadastroDinamico = async () => {
+		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
 		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
 		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
 		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha Referência, Marca, Modelo e o MM Original."); return; }
@@ -368,7 +375,9 @@ export default function PneusScreen() {
 			});
 			const res = await response.json();
 			if (res.success) {
-				if (tipoBusca === 'referencia_pneu') {
+				if (tipoBusca === 'motivo_laudo') {
+					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, isNewModel: true });
+				} else if (tipoBusca === 'referencia_pneu') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true });
 				} else if (tipoBusca === 'marca_pneu') {
 					selecionarItemBusca({ id: res.id || formCadastro.marca, nome: formCadastro.marca, isNewModel: true });
@@ -394,7 +403,7 @@ export default function PneusScreen() {
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda'].includes(tipoBusca) && (
+						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo'].includes(tipoBusca) && (
 							<TouchableOpacity
 								style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
 								onPress={() => {
@@ -434,8 +443,13 @@ export default function PneusScreen() {
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalSmall}>
 				<Text style={styles.modalTitle}>
-					Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : 'Modelo'}
+					Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : 'Modelo'}
 				</Text>
+
+				{tipoBusca === 'motivo_laudo' && (
+					<><Text style={styles.label}>* Nome do Motivo</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: Furo na lateral..." /></>
+				)}
+
 				{tipoBusca === 'marca_pneu' && (
 					<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" /><Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." /></>
 				)}
@@ -713,35 +727,17 @@ export default function PneusScreen() {
 							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
 							<View style={{ width: '100%', marginBottom: 15 }}>
 								<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
-								<RNPickerSelect
-									placeholder={{ label: 'Pneu aprovado (Nenhum)', value: '', color: '#666' }}
-									value={form.motivo_recusa}
-									onValueChange={v => setForm({ ...form, motivo_recusa: v })}
-									items={[
-										{ label: 'Deslocamento de Talão', value: 'Deslocamento de talão', color: '#000' },
-										{ label: 'Deslocamento por Manchão Inadequado', value: 'Deslocamento por manchão inadequado', color: '#000' },
-										{ label: 'Rodagem em Baixa Pressão', value: 'Rodagem baixa pressão', color: '#000' },
-										{ label: 'Separação de Cintas', value: 'Separação de cintas', color: '#000' },
-										{ label: 'Dano Irreparável', value: 'Dano irreparável', color: '#000' },
-										{ label: 'Outros', value: 'Outros', color: '#000' }
-									]}
-									style={pickerStyles}
-									useNativeAndroidPickerStyle={false}
-									Icon={PickerIcon}
-								/>
+								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('motivo_laudo')}>
+									<Text style={{ color: form.motivo_recusa ? '#000' : '#999' }}>{form.motivo_recusa || 'Selecionar Motivo...'}</Text>
+									{form.motivo_recusa ? (
+										<TouchableOpacity onPress={() => setForm({ ...form, motivo_recusa: '' })}>
+											<Feather name="x-circle" size={18} color="#E53935" />
+										</TouchableOpacity>
+									) : (
+										<Feather name="search" size={16} color="#999" />
+									)}
+								</TouchableOpacity>
 							</View>
-
-							{form.motivo_recusa === 'Outros' && (
-								<View style={{ width: '100%', marginBottom: 15 }}>
-									<Text style={styles.label}>* Descreva o outro motivo</Text>
-									<TextInput
-										style={styles.inputModal}
-										value={form.motivo_recusa_outro}
-										onChangeText={t => setForm({ ...form, motivo_recusa_outro: t })}
-										placeholder="Escreva qual foi o motivo..."
-									/>
-								</View>
-							)}
 
 							<Text style={styles.label}>Observações (Opcional)</Text>
 							<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={form.observacao} onChangeText={t => setForm({ ...form, observacao: t })} placeholder="Alguma nota sobre este pneu..." />

@@ -51,6 +51,10 @@ export default function ChecklistAvulsoScreen() {
 	const gerarRelatorioConsolidado = () => {
 		const idsStr = selectedChecklists.join(',');
 		Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}`);
+
+		setIsSelectionMode(false);
+		setSelectedChecklists([]);
+		carregarChecklists();
 	};
 
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
@@ -66,7 +70,7 @@ export default function ChecklistAvulsoScreen() {
 	});
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
-	const [tipoBusca, setTipoBusca] = useState<string>('');
+	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'entidade' | 'motivo_laudo'>('referencia_pneu');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
@@ -124,6 +128,10 @@ export default function ChecklistAvulsoScreen() {
 
 	const carregarChecklists = async () => {
 		setIsLoading(true);
+
+		setIsSelectionMode(false);
+		setSelectedChecklists([]);
+
 		try {
 			const response = await fetch(API_AVULSO_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -351,6 +359,9 @@ export default function ChecklistAvulsoScreen() {
 
 	const selecionarItemBusca = (item: any) => {
 		if (tipoBusca === 'entidade') { setFormNovo({ ...formNovo, cliente: item.nome, cliente_id: item.id }); }
+		else if (tipoBusca === 'motivo_laudo') {
+			setFormPneu({ ...formPneu, motivo_recusa: item.nome });
+		}
 		else if (tipoBusca === 'referencia_pneu') {
 			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || '');
 			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '');
@@ -407,7 +418,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
-			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (formPneu.referencia_nome || '')),
+			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' ? termoDigitado.trim() : (formPneu.referencia_nome || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
 			mmOriginal: '', valor: '', sulco: ''
@@ -417,6 +428,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarCadastroDinamico = async () => {
+		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
 		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
 		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
 		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha Referência, Marca, Modelo e o MM Original."); return; }
@@ -428,7 +440,8 @@ export default function ChecklistAvulsoScreen() {
 			const response = await fetch(API_CADASTRO_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosCadastro) });
 			const res = await response.json();
 			if (res.success) {
-				if (tipoBusca === 'referencia_pneu') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true }); }
+				if (tipoBusca === 'motivo_laudo') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, isNewModel: true }); }
+				else if (tipoBusca === 'referencia_pneu') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true }); }
 				else if (tipoBusca === 'marca_pneu') { selecionarItemBusca({ id: res.id || formCadastro.marca, nome: formCadastro.marca, isNewModel: true }); }
 				else if (tipoBusca === 'modelo_pneu') { selecionarItemBusca({ id: res.id, nome: formCadastro.modelo, mmOriginal: formCadastro.mmOriginal, valor: dadosCadastro.valor, isNewModel: true }); }
 				else if (tipoBusca === 'banda') { selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true, sulco: formCadastro.sulco, valor: formCadastro.valor }); }
@@ -444,7 +457,7 @@ export default function ChecklistAvulsoScreen() {
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Selecionar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda'].includes(tipoBusca) && (
+						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo'].includes(tipoBusca) && (
 							<TouchableOpacity style={styles.btnInserirBuscaDinamicaMini} onPress={() => abrirModalCadastro(termoComboBusca)}>
 								<Feather name="plus-circle" size={14} color="#28a745" /><Text style={styles.btnInserirBuscaDinamicaTextMini}>Inserir</Text>
 							</TouchableOpacity>
@@ -465,7 +478,16 @@ export default function ChecklistAvulsoScreen() {
 	const renderCadastroDinamico = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalSmall}>
-				<Text style={styles.modalTitle}>Cadastrar Novo</Text>
+				<Text style={styles.modalTitle}>
+					Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : 'Modelo'}
+				</Text>
+
+				{tipoBusca === 'motivo_laudo' && (
+					<View>
+						<Text style={styles.label}>* Nome do Motivo</Text>
+						<TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: Furo na lateral..." />
+					</View>
+				)}
 
 				{tipoBusca === 'marca_pneu' && (
 					<View>
@@ -858,22 +880,16 @@ export default function ChecklistAvulsoScreen() {
 						<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
 						<View style={{ width: '100%', marginBottom: 15 }}>
 							<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
-							<RNPickerSelect
-								placeholder={{ label: 'Pneu aprovado (Nenhum)', value: '', color: '#666' }}
-								value={formPneu.motivo_recusa}
-								onValueChange={v => setFormPneu({ ...formPneu, motivo_recusa: v })}
-								items={[
-									{ label: 'Deslocamento de Talão', value: 'Deslocamento de talão', color: '#000' },
-									{ label: 'Deslocamento por Manchão Inadequado', value: 'Deslocamento por manchão inadequado', color: '#000' },
-									{ label: 'Rodagem em Baixa Pressão', value: 'Rodagem baixa pressão', color: '#000' },
-									{ label: 'Separação de Cintas', value: 'Separação de cintas', color: '#000' },
-									{ label: 'Dano Irreparável', value: 'Dano irreparável', color: '#000' },
-									{ label: 'Outros', value: 'Outros', color: '#000' }
-								]}
-								style={pickerStyles}
-								useNativeAndroidPickerStyle={false}
-								Icon={PickerIcon}
-							/>
+							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('motivo_laudo')}>
+								<Text style={{ color: formPneu.motivo_recusa ? '#000' : '#999' }}>{formPneu.motivo_recusa || 'Selecionar Motivo...'}</Text>
+								{formPneu.motivo_recusa ? (
+									<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, motivo_recusa: '' })}>
+										<Feather name="x-circle" size={18} color="#E53935" />
+									</TouchableOpacity>
+								) : (
+									<Feather name="search" size={16} color="#999" />
+								)}
+							</TouchableOpacity>
 						</View>
 
 						<Text style={styles.label}>Observações (Opcional)</Text>
@@ -1024,10 +1040,11 @@ const styles = StyleSheet.create({
 	btnRemoveFoto: { position: 'absolute', top: -10, right: -10, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
 
 	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-	inputBuscaInterno: { backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, paddingHorizontal: 15, marginBottom: 15 },
+	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
+	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
 	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
 	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
 	itemBuscaDoc: { fontSize: 12, color: '#888', marginTop: 2 },
