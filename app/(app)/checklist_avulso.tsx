@@ -9,6 +9,8 @@ import LogoSolutires from '../../assets/images/solutires.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
 
+const KeyboardWrapper: any = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+
 export default function ChecklistAvulsoScreen() {
 	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
@@ -58,7 +60,7 @@ export default function ChecklistAvulsoScreen() {
 
 		setTimeout(() => {
 			carregarChecklists();
-		}, 1000);
+		}, 1500);
 	};
 
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
@@ -133,6 +135,8 @@ export default function ChecklistAvulsoScreen() {
 	const carregarChecklists = async () => {
 		setIsLoading(true);
 
+		setChecklists([]);
+		setChecklistAtivo(null);
 		setIsSelectionMode(false);
 		setSelectedChecklists([]);
 
@@ -469,15 +473,7 @@ export default function ChecklistAvulsoScreen() {
 						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
 					</View>
 				</View>
-				<View style={styles.inputBuscaContainer}>
-					<TextInput
-						style={styles.inputBuscaInterno}
-						placeholder="Buscar..."
-						value={termoComboBusca}
-						onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }}
-						autoFocus
-					/>
-				</View>
+				<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
 				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
 					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)} renderItem={({ item }) => (
 						<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text></TouchableOpacity>
@@ -599,13 +595,18 @@ export default function ChecklistAvulsoScreen() {
 
 	return (
 		<View style={styles.container}>
-			{isLoading && !checklistAtivo && <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 20 }} />}
+			{isLoading && !checklistAtivo?.id && <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 20 }} />}
 
-			{!checklistAtivo && (
+			{(!checklistAtivo || !checklistAtivo.id) && (
 				<FlatList
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
-					extraData={{ isSelectionMode, selectedChecklists }}
+
+					extraData={selectedChecklists}
+					removeClippedSubviews={false}
+					initialNumToRender={20}
+					windowSize={10}
+
 					contentContainerStyle={{ paddingBottom: 100 }}
 					ListHeaderComponent={
 						<View style={styles.filterSection}>
@@ -716,7 +717,7 @@ export default function ChecklistAvulsoScreen() {
 				</TouchableOpacity>
 			)}
 
-			{checklistAtivo && (
+			{(checklistAtivo && checklistAtivo.id) && (
 				<View style={{ flex: 1 }}>
 					<View style={styles.headerAtivo}>
 						<Text style={styles.headerAtivoTitle}>Checklist Avulso #{checklistAtivo.id}</Text>
@@ -783,189 +784,191 @@ export default function ChecklistAvulsoScreen() {
 			</Modal>
 
 			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
-				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
-					<View style={styles.modalHeaderFullScreen}>
-						<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
-						<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
-						<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}><Feather name="power" size={22} color="#fff" /></TouchableOpacity>
-					</View>
-
-					<ScrollView contentContainerStyle={{ padding: 20 }}>
-						<Text style={styles.groupTitle}>Identificação do Pneu</Text>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Referência</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('referencia_pneu')}>
-									<Text style={{ color: formPneu.referencia_nome ? '#000' : '#999' }}>{formPneu.referencia_nome || 'Selecionar Referência...'}</Text>
-									<Feather name="search" size={16} color="#999" />
-								</TouchableOpacity>
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Tipo</Text>
-								<RNPickerSelect
-									placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
-									value={formPneu.tipo}
-									onValueChange={v => {
-										if (v !== 'Reformado') {
-											setFormPneu({
-												...formPneu,
-												tipo: v, grau: '', banda: '', banda_nome: '',
-												mm_original: formPneu.ref_mm_original || formPneu.mm_original,
-												valor: formPneu.ref_valor || formPneu.valor
-											});
-										} else {
-											setFormPneu({ ...formPneu, tipo: v });
-										}
-									}}
-									items={[{ label: 'Novo', value: 'Novo', color: '#000' }, { label: 'Reformado', value: 'Reformado', color: '#000' }]}
-									style={pickerStyles}
-									useNativeAndroidPickerStyle={false}
-									Icon={PickerIcon}
-								/>
-							</View>
+				<View style={{ flex: 1, backgroundColor: '#fff' }}>
+					<KeyboardWrapper behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+						<View style={styles.modalHeaderFullScreen}>
+							<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
+							<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
+							<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}><Feather name="power" size={22} color="#fff" /></TouchableOpacity>
 						</View>
 
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Marca</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca_pneu')}>
-									<Text style={{ color: formPneu.marca ? '#000' : '#000000', fontSize: 13 }}>{formPneu.marca || 'Buscar...'}</Text>
-									<Feather name="search" size={14} color="#000000" />
-								</TouchableOpacity>
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Modelo</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo_pneu')}>
-									<Text style={{ color: formPneu.modelo ? '#000' : '#000000', fontSize: 13 }}>{formPneu.modelo || 'Buscar...'}</Text>
-									<Feather name="search" size={14} color="#000000" />
-								</TouchableOpacity>
-							</View>
-						</View>
-
-						{formPneu.tipo === 'Reformado' && (
-							<View style={[styles.row, { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginBottom: 15 }]}>
+						<ScrollView contentContainerStyle={{ padding: 20 }}>
+							<Text style={styles.groupTitle}>Identificação do Pneu</Text>
+							<View style={styles.row}>
 								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Recapagem</Text>
-									<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={formPneu.grau} onValueChange={v => setFormPneu({ ...formPneu, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, backgroundColor: '#fff' }, inputAndroid: { ...pickerStyles.inputAndroid, backgroundColor: '#fff' } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+									<Text style={styles.label}>Referência</Text>
+									<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('referencia_pneu')}>
+										<Text style={{ color: formPneu.referencia_nome ? '#000' : '#999' }}>{formPneu.referencia_nome || 'Selecionar Referência...'}</Text>
+										<Feather name="search" size={16} color="#999" />
+									</TouchableOpacity>
 								</View>
 								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Banda</Text>
-									<TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}>
-										<Text style={{ color: formPneu.banda_nome ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{formPneu.banda_nome || 'Buscar...'}</Text>
+									<Text style={styles.label}>Tipo</Text>
+									<RNPickerSelect
+										placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
+										value={formPneu.tipo}
+										onValueChange={v => {
+											if (v !== 'Reformado') {
+												setFormPneu({
+													...formPneu,
+													tipo: v, grau: '', banda: '', banda_nome: '',
+													mm_original: formPneu.ref_mm_original || formPneu.mm_original,
+													valor: formPneu.ref_valor || formPneu.valor
+												});
+											} else {
+												setFormPneu({ ...formPneu, tipo: v });
+											}
+										}}
+										items={[{ label: 'Novo', value: 'Novo', color: '#000' }, { label: 'Reformado', value: 'Reformado', color: '#000' }]}
+										style={pickerStyles}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								</View>
+							</View>
+
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Marca</Text>
+									<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca_pneu')}>
+										<Text style={{ color: formPneu.marca ? '#000' : '#000000', fontSize: 13 }}>{formPneu.marca || 'Buscar...'}</Text>
+										<Feather name="search" size={14} color="#000000" />
+									</TouchableOpacity>
+								</View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Modelo</Text>
+									<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo_pneu')}>
+										<Text style={{ color: formPneu.modelo ? '#000' : '#000000', fontSize: 13 }}>{formPneu.modelo || 'Buscar...'}</Text>
+										<Feather name="search" size={14} color="#000000" />
 									</TouchableOpacity>
 								</View>
 							</View>
-						)}
 
-						<Text style={styles.groupTitle}>Especificações</Text>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>* DOT (4 dígitos)</Text>
-								<TextInput style={styles.inputModal} value={formPneu.dot} onChangeText={t => setFormPneu({ ...formPneu, dot: t.replace(/\D/g, '') })} keyboardType="numeric" maxLength={4} placeholder="Ex: 2324" />
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>* Série</Text>
-								<TextInput style={styles.inputModal} value={formPneu.serie} onChangeText={t => setFormPneu({ ...formPneu, serie: t })} />
-							</View>
-						</View>
-
-						<View style={{ width: '100%', marginBottom: 15 }}>
-							<Text style={styles.label}>Ferro</Text>
-							<TextInput style={styles.inputModal} value={formPneu.ferro} onChangeText={t => setFormPneu({ ...formPneu, ferro: t })} />
-						</View>
-
-						<Text style={styles.groupTitle}>Aferições</Text>
-
-						<View style={{ width: '100%', marginBottom: 15 }}>
-							<Text style={styles.label}>Valor (R$)</Text>
-							<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.valor} onChangeText={t => setFormPneu({ ...formPneu, valor: formatarMoeda(t) })} placeholder="0,00" />
-						</View>
-
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
-						</View>
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
-						</View>
-
-						<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
-						<View style={{ width: '100%', marginBottom: 15 }}>
-							<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
-							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('motivo_laudo')}>
-								<Text style={{ color: formPneu.motivo_recusa ? '#000' : '#999' }}>{formPneu.motivo_recusa || 'Selecionar Motivo...'}</Text>
-								{formPneu.motivo_recusa ? (
-									<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, motivo_recusa: '' })}>
-										<Feather name="x-circle" size={18} color="#E53935" />
-									</TouchableOpacity>
-								) : (
-									<Feather name="search" size={16} color="#999" />
-								)}
-							</TouchableOpacity>
-						</View>
-
-						<Text style={styles.label}>Observações (Opcional)</Text>
-						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
-
-						<View style={{ flexDirection: 'row', gap: 10 }}>
-							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={tirarFotoPneu}>
-								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-									<Feather name="camera" size={20} color="#666" />
-									<Text style={styles.btnFotoText}>Câmera</Text>
-								</View>
-							</TouchableOpacity>
-							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={escolherFotoGaleria}>
-								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-									<Feather name="image" size={20} color="#666" />
-									<Text style={styles.btnFotoText}>Galeria</Text>
-								</View>
-							</TouchableOpacity>
-						</View>
-
-						{fotosPneu.length > 0 && (
-							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 15 }}>
-								{fotosPneu.map((uri, index) => (
-									<View key={`foto_${index}`} style={styles.fotoContainer}>
-										<TouchableOpacity onPress={() => setFotoAmpliada(uri)}><Image source={{ uri }} style={styles.fotoPreview} /></TouchableOpacity>
-										<TouchableOpacity style={styles.btnRemoveFoto} onPress={() => removerFoto(index)}><Feather name="x" size={14} color="#fff" /></TouchableOpacity>
+							{formPneu.tipo === 'Reformado' && (
+								<View style={[styles.row, { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginBottom: 15 }]}>
+									<View style={styles.inputGroupH}>
+										<Text style={styles.label}>Recapagem</Text>
+										<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={formPneu.grau} onValueChange={v => setFormPneu({ ...formPneu, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, backgroundColor: '#fff' }, inputAndroid: { ...pickerStyles.inputAndroid, backgroundColor: '#fff' } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 									</View>
-								))}
-							</ScrollView>
+									<View style={styles.inputGroupH}>
+										<Text style={styles.label}>Banda</Text>
+										<TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}>
+											<Text style={{ color: formPneu.banda_nome ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{formPneu.banda_nome || 'Buscar...'}</Text>
+										</TouchableOpacity>
+									</View>
+								</View>
+							)}
+
+							<Text style={styles.groupTitle}>Especificações</Text>
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>* DOT (4 dígitos)</Text>
+									<TextInput style={styles.inputModal} value={formPneu.dot} onChangeText={t => setFormPneu({ ...formPneu, dot: t.replace(/\D/g, '') })} keyboardType="numeric" maxLength={4} placeholder="Ex: 2324" />
+								</View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>* Série</Text>
+									<TextInput style={styles.inputModal} value={formPneu.serie} onChangeText={t => setFormPneu({ ...formPneu, serie: t })} />
+								</View>
+							</View>
+
+							<View style={{ width: '100%', marginBottom: 15 }}>
+								<Text style={styles.label}>Ferro</Text>
+								<TextInput style={styles.inputModal} value={formPneu.ferro} onChangeText={t => setFormPneu({ ...formPneu, ferro: t })} />
+							</View>
+
+							<Text style={styles.groupTitle}>Aferições</Text>
+
+							<View style={{ width: '100%', marginBottom: 15 }}>
+								<Text style={styles.label}>Valor (R$)</Text>
+								<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.valor} onChangeText={t => setFormPneu({ ...formPneu, valor: formatarMoeda(t) })} placeholder="0,00" />
+							</View>
+
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
+							</View>
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
+							</View>
+
+							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
+							<View style={{ width: '100%', marginBottom: 15 }}>
+								<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
+								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('motivo_laudo')}>
+									<Text style={{ color: formPneu.motivo_recusa ? '#000' : '#999' }}>{formPneu.motivo_recusa || 'Selecionar Motivo...'}</Text>
+									{formPneu.motivo_recusa ? (
+										<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, motivo_recusa: '' })}>
+											<Feather name="x-circle" size={18} color="#E53935" />
+										</TouchableOpacity>
+									) : (
+										<Feather name="search" size={16} color="#999" />
+									)}
+								</TouchableOpacity>
+							</View>
+
+							<Text style={styles.label}>Observações (Opcional)</Text>
+							<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
+
+							<View style={{ flexDirection: 'row', gap: 10 }}>
+								<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={tirarFotoPneu}>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Feather name="camera" size={20} color="#666" />
+										<Text style={styles.btnFotoText}>Câmera</Text>
+									</View>
+								</TouchableOpacity>
+								<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={escolherFotoGaleria}>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Feather name="image" size={20} color="#666" />
+										<Text style={styles.btnFotoText}>Galeria</Text>
+									</View>
+								</TouchableOpacity>
+							</View>
+
+							{fotosPneu.length > 0 && (
+								<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 15 }}>
+									{fotosPneu.map((uri, index) => (
+										<View key={`foto_${index}`} style={styles.fotoContainer}>
+											<TouchableOpacity onPress={() => setFotoAmpliada(uri)}><Image source={{ uri }} style={styles.fotoPreview} /></TouchableOpacity>
+											<TouchableOpacity style={styles.btnRemoveFoto} onPress={() => removerFoto(index)}><Feather name="x" size={14} color="#fff" /></TouchableOpacity>
+										</View>
+									))}
+								</ScrollView>
+							)}
+
+							<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
+								<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 50 }]} onPress={() => setModalPneuVisible(false)}>
+									<Text style={{ fontSize: 15, fontWeight: 'bold', color: '#333' }}>Voltar</Text>
+								</TouchableOpacity>
+
+								{formPneu.id ? (
+									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`)}>
+										<Feather name="printer" size={18} color="#fff" />
+										<Text style={styles.btnImprimirText}>Imprimir</Text>
+									</TouchableOpacity>
+								) : null}
+
+								<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.2, marginTop: 0, height: 50 }]} onPress={salvarPneu} disabled={isSaving}>
+									{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
+								</TouchableOpacity>
+							</View>
+							<View style={{ height: 40 }} />
+						</ScrollView>
+
+						{fotoAmpliada && (
+							<View style={styles.fullScreenOverlay}>
+								<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}>
+									<Feather name="x-circle" size={36} color="#fff" />
+								</TouchableOpacity>
+								<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
+							</View>
 						)}
 
-						<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
-							<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 50 }]} onPress={() => setModalPneuVisible(false)}>
-								<Text style={{ fontSize: 15, fontWeight: 'bold', color: '#333' }}>Voltar</Text>
-							</TouchableOpacity>
+						{modalBuscaVisible && renderBuscaDinamica()}
+						{modalCadastroVisible && renderCadastroDinamico()}
 
-							{formPneu.id ? (
-								<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`)}>
-									<Feather name="printer" size={18} color="#fff" />
-									<Text style={styles.btnImprimirText}>Imprimir</Text>
-								</TouchableOpacity>
-							) : null}
-
-							<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.2, marginTop: 0, height: 50 }]} onPress={salvarPneu} disabled={isSaving}>
-								{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
-							</TouchableOpacity>
-						</View>
-						<View style={{ height: 40 }} />
-					</ScrollView>
-
-					{fotoAmpliada && (
-						<View style={styles.fullScreenOverlay}>
-							<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}>
-								<Feather name="x-circle" size={36} color="#fff" />
-							</TouchableOpacity>
-							<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
-						</View>
-					)}
-
-					{modalBuscaVisible && renderBuscaDinamica()}
-					{modalCadastroVisible && renderCadastroDinamico()}
-
-				</KeyboardAvoidingView>
+					</KeyboardWrapper>
+				</View>
 			</Modal>
 		</View>
 	);
