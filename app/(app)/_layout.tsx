@@ -157,7 +157,7 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="checklist_avulso"
 				options={{
-					drawerLabel: 'Checklist Avulso',
+					drawerLabel: 'Análise de Sucata',
 					headerTitle: () => (
 						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
 					),

@@ -9,8 +9,6 @@ import LogoSolutires from '../../assets/images/solutires.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
 
-const KeyboardWrapper: any = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
-
 export default function ChecklistAvulsoScreen() {
 	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
@@ -34,12 +32,12 @@ export default function ChecklistAvulsoScreen() {
 	const [checklistAtivo, setChecklistAtivo] = useState<any>(null);
 	const [pneusPilha, setPneusPilha] = useState<any[]>([]);
 
-	const [isSelectionMode, setIsSelectionMode] = useState(false);
+	const [modalConsolidarVisible, setModalConsolidarVisible] = useState(false);
 	const [selectedChecklists, setSelectedChecklists] = useState<number[]>([]);
 
-	const toggleSelectionMode = () => {
-		setIsSelectionMode(!isSelectionMode);
+	const abrirModalConsolidar = () => {
 		setSelectedChecklists([]);
+		setModalConsolidarVisible(true);
 	};
 
 	const toggleChecklistSelection = (id: number) => {
@@ -51,9 +49,13 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const gerarRelatorioConsolidado = () => {
-		const idsStr = selectedChecklists.join(',');
+		if (selectedChecklists.length < 2) {
+			Alert.alert('Atenção', 'Selecione pelo menos duas análises para consolidar.');
+			return;
+		}
 
-		setIsSelectionMode(false);
+		const idsStr = selectedChecklists.join(',');
+		setModalConsolidarVisible(false);
 		setSelectedChecklists([]);
 
 		Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}`);
@@ -86,7 +88,7 @@ export default function ChecklistAvulsoScreen() {
 	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '' });
 
 	const confirmSignOut = () => {
-		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
+		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair da aplicação?', [
 			{ text: 'Cancelar', style: 'cancel' },
 			{ text: 'Sair', style: 'destructive', onPress: signOut },
 		]);
@@ -137,7 +139,6 @@ export default function ChecklistAvulsoScreen() {
 
 		setChecklists([]);
 		setChecklistAtivo(null);
-		setIsSelectionMode(false);
 		setSelectedChecklists([]);
 
 		try {
@@ -148,7 +149,7 @@ export default function ChecklistAvulsoScreen() {
 			const res = await response.json();
 			if (res.success) { setChecklists(res.data); } else { setChecklists([]); }
 		} catch (error) {
-			Alert.alert('Erro', 'Falha ao buscar os checklists.');
+			Alert.alert('Erro', 'Falha ao buscar as análises.');
 		}
 		setIsLoading(false);
 	};
@@ -172,7 +173,7 @@ export default function ChecklistAvulsoScreen() {
 				setPneusPilha([]);
 				setModalNovoVisible(false);
 			} else {
-				Alert.alert('Erro', res.message || 'Falha ao iniciar checklist.');
+				Alert.alert('Erro', res.message || 'Falha ao iniciar análise.');
 			}
 		} catch (error) {
 			Alert.alert('Erro', 'Falha na conexão com o servidor.');
@@ -181,7 +182,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const excluirChecklist = (id: number) => {
-		Alert.alert('Atenção', 'Deseja realmente excluir este Checklist e todos os seus pneus?', [
+		Alert.alert('Atenção', 'Deseja realmente excluir esta Análise e todos os seus pneus?', [
 			{ text: 'Cancelar', style: 'cancel' },
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
@@ -190,7 +191,7 @@ export default function ChecklistAvulsoScreen() {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', id: id })
 						});
-						Alert.alert('Sucesso', 'Checklist excluído.');
+						Alert.alert('Sucesso', 'Análise excluída.');
 						carregarChecklists();
 					} catch (error) {
 						carregarChecklists();
@@ -315,11 +316,11 @@ export default function ChecklistAvulsoScreen() {
 					carregarPneusDoChecklist(checklistAtivo.id);
 					setModalPneuVisible(false);
 				} else {
-					Alert.alert('Erro', 'Servidor retornou uma resposta inválida.');
+					Alert.alert('Erro', 'O servidor retornou uma resposta inválida.');
 				}
 			}
 		} catch (e) {
-			Alert.alert('Aviso', 'API não respondeu. Teste local salvo!');
+			Alert.alert('Aviso', 'A API não respondeu. Teste local salvo!');
 			carregarPneusDoChecklist(checklistAtivo.id);
 			setModalPneuVisible(false);
 		}
@@ -328,7 +329,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const tirarFotoPneu = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmera."); return; }
+		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmara."); return; }
 		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
@@ -460,99 +461,105 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const renderBuscaDinamica = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
-			<View style={styles.modalContentBusca}>
-				<View style={styles.modalHeaderBusca}>
-					<Text style={styles.modalTitleBusca}>Selecionar</Text>
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo'].includes(tipoBusca) && (
-							<TouchableOpacity style={styles.btnInserirBuscaDinamicaMini} onPress={() => abrirModalCadastro(termoComboBusca)}>
-								<Feather name="plus-circle" size={14} color="#28a745" /><Text style={styles.btnInserirBuscaDinamicaTextMini}>Inserir</Text>
-							</TouchableOpacity>
-						)}
-						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
+		<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
+			<View style={styles.modalOverlayBusca}>
+				<View style={styles.modalContentBusca}>
+					<View style={styles.modalHeaderBusca}>
+						<Text style={styles.modalTitleBusca}>Selecionar</Text>
+						<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+							{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo'].includes(tipoBusca) && (
+								<TouchableOpacity style={styles.btnInserirBuscaDinamicaMini} onPress={() => abrirModalCadastro(termoComboBusca)}>
+									<Feather name="plus-circle" size={14} color="#28a745" /><Text style={styles.btnInserirBuscaDinamicaTextMini}>Inserir</Text>
+								</TouchableOpacity>
+							)}
+							<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
+						</View>
 					</View>
+					<View style={styles.inputBuscaContainer}>
+						<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
+					</View>
+					{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
+						<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)} renderItem={({ item }) => (
+							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text></TouchableOpacity>
+						)} />
+					)}
 				</View>
-				<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
-				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)} renderItem={({ item }) => (
-						<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text></TouchableOpacity>
-					)} />
-				)}
 			</View>
-		</View>
+		</Modal>
 	);
 
 	const renderCadastroDinamico = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
-			<View style={styles.modalSmall}>
-				<Text style={styles.modalTitle}>
-					Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : 'Modelo'}
-				</Text>
+		<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
+			<View style={styles.modalOverlayBusca}>
+				<View style={styles.modalSmall}>
+					<Text style={styles.modalTitle}>
+						Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : 'Modelo'}
+					</Text>
 
-				{tipoBusca === 'motivo_laudo' && (
-					<View>
-						<Text style={styles.label}>* Nome do Motivo</Text>
-						<TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: Furo na lateral..." />
-					</View>
-				)}
-
-				{tipoBusca === 'marca_pneu' && (
-					<View>
-						<Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" />
-						<Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." />
-					</View>
-				)}
-
-				{tipoBusca === 'modelo_pneu' && (
-					<View>
-						<Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} />
-						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
-						<Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View>
+					{tipoBusca === 'motivo_laudo' && (
+						<View>
+							<Text style={styles.label}>* Nome do Motivo</Text>
+							<TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: Furo na lateral..." />
 						</View>
-					</View>
-				)}
+					)}
 
-				{tipoBusca === 'referencia_pneu' && (
-					<View>
-						<Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} />
-						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
-						<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View>
-							<View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View>
+					{tipoBusca === 'marca_pneu' && (
+						<View>
+							<Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" />
+							<Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." />
 						</View>
-					</View>
-				)}
+					)}
 
-				{tipoBusca === 'banda' && (
-					<View>
-						<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
-						<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>* Sulco (MM)</Text>
-								<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} />
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Valor (R$)</Text>
-								<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" />
+					{tipoBusca === 'modelo_pneu' && (
+						<View>
+							<Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} />
+							<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
+							<Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View>
 							</View>
 						</View>
-					</View>
-				)}
+					)}
 
-				<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
-					<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
-					<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0 }]} onPress={salvarCadastroDinamico}>
-						{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
-					</TouchableOpacity>
+					{tipoBusca === 'referencia_pneu' && (
+						<View>
+							<Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} />
+							<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
+							<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View>
+							</View>
+						</View>
+					)}
+
+					{tipoBusca === 'banda' && (
+						<View>
+							<Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} />
+							<Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} />
+							<View style={styles.row}>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>* Sulco (MM)</Text>
+									<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} />
+								</View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Valor (R$)</Text>
+									<TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" />
+								</View>
+							</View>
+						</View>
+					)}
+
+					<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
+						<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
+						<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0 }]} onPress={salvarCadastroDinamico}>
+							{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
+						</TouchableOpacity>
+					</View>
 				</View>
 			</View>
-		</View>
+		</Modal>
 	);
 
 	const renderPilhaGrafica = () => {
@@ -601,16 +608,10 @@ export default function ChecklistAvulsoScreen() {
 				<FlatList
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
-
-					extraData={selectedChecklists}
-					removeClippedSubviews={false}
-					initialNumToRender={20}
-					windowSize={10}
-
 					contentContainerStyle={{ paddingBottom: 100 }}
 					ListHeaderComponent={
 						<View style={styles.filterSection}>
-							<Text style={styles.sectionTitle}>Checklist Avulso de Pneus</Text>
+							<Text style={styles.sectionTitle}>Análise de Sucata de Pneus</Text>
 							<View style={styles.row}>
 								<View style={{ width: '48%' }}><Text style={styles.label}>Data Inicial</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataIni} onChangeText={t => handleDataChange(t, setFiltroDataIni)} keyboardType="numeric" maxLength={10} /></View>
 								<View style={{ width: '48%' }}><Text style={styles.label}>Data Final</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataFim} onChangeText={t => handleDataChange(t, setFiltroDataFim)} keyboardType="numeric" maxLength={10} /></View>
@@ -630,36 +631,25 @@ export default function ChecklistAvulsoScreen() {
 									<Text style={styles.btnInserirText}>Inserir</Text>
 								</TouchableOpacity>
 
-								<TouchableOpacity style={[styles.btnConsolidar, isSelectionMode && { backgroundColor: '#E53935' }]} onPress={toggleSelectionMode}>
-									<Feather name={isSelectionMode ? "x-circle" : "layers"} size={18} color="#ffffff" />
-									<Text style={styles.btnInserirText}>{isSelectionMode ? 'Cancelar' : 'Consolidar'}</Text>
+								<TouchableOpacity style={styles.btnConsolidar} onPress={abrirModalConsolidar}>
+									<Feather name="layers" size={18} color="#ffffff" />
+									<Text style={styles.btnInserirText}>Consolidar</Text>
 								</TouchableOpacity>
 							</View>
 							<Text style={[styles.sectionTitle, { marginTop: 25 }]}>Resultados ({checklists.length})</Text>
 						</View>
 					}
-					renderItem={({ item }) => {
-						const isSelected = selectedChecklists.includes(item.id);
-						return (
+					renderItem={({ item }) => (
+						<View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
 							<TouchableOpacity
-								style={[styles.card, isSelected && styles.cardSelected]}
-								onPress={() => {
-									if (isSelectionMode) toggleChecklistSelection(item.id);
-									else abrirChecklist(item);
-								}}
-								activeOpacity={isSelectionMode ? 0.7 : 1}
+								style={[styles.card, { marginHorizontal: 0, marginBottom: 0 }]}
+								onPress={() => abrirChecklist(item)}
+								activeOpacity={0.7}
 							>
 								<View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-
-									{isSelectionMode && (
-										<View style={styles.checkboxContainer}>
-											<Feather name={isSelected ? "check-square" : "square"} size={24} color={isSelected ? "#1967d2" : "#ccc"} />
-										</View>
-									)}
-
 									<View style={{ flex: 1 }}>
 										<View style={styles.cardHeader}>
-											<Text style={styles.cardTitle} numberOfLines={1}>Checklist #{item.id}</Text>
+											<Text style={styles.cardTitle} numberOfLines={1}>Análise #{item.id}</Text>
 											<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}><Text style={[styles.statusText, { color: '#1967d2' }]}>{formatarDataLocal(item.data)}</Text></View>
 										</View>
 										<View style={styles.cardInfoBox}>
@@ -677,50 +667,38 @@ export default function ChecklistAvulsoScreen() {
 											</View>
 										</View>
 
-										{!isSelectionMode && (
-											<View style={styles.cardActions}>
-												<View style={styles.actionButtonsRow}>
-													<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(item.id)}>
-														<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-															<Feather name="printer" size={14} color="#333" />
-															<Text style={styles.btnImprimirHistoricoText}>Imprimir</Text>
-														</View>
-													</TouchableOpacity>
-													<TouchableOpacity style={styles.btnEditarCard} onPress={() => abrirChecklist(item)}>
-														<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-															<Feather name="edit-2" size={14} color="#ffffff" />
-															<Text style={styles.btnEditarCardText}>Modificar</Text>
-														</View>
-													</TouchableOpacity>
-													<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirChecklist(item.id)}>
-														<Feather name="trash-2" size={14} color="#ffffff" />
-													</TouchableOpacity>
-												</View>
+										<View style={styles.cardActions}>
+											<View style={styles.actionButtonsRow}>
+												<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(item.id)}>
+													<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+														<Feather name="printer" size={14} color="#333" />
+														<Text style={styles.btnImprimirHistoricoText}>Imprimir</Text>
+													</View>
+												</TouchableOpacity>
+												<TouchableOpacity style={styles.btnEditarCard} onPress={() => abrirChecklist(item)}>
+													<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+														<Feather name="edit-2" size={14} color="#ffffff" />
+														<Text style={styles.btnEditarCardText}>Modificar</Text>
+													</View>
+												</TouchableOpacity>
+												<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirChecklist(item.id)}>
+													<Feather name="trash-2" size={14} color="#ffffff" />
+												</TouchableOpacity>
 											</View>
-										)}
+										</View>
 									</View>
 								</View>
 							</TouchableOpacity>
-						);
-					}}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum checklist avulso encontrado.</Text> : null}
+						</View>
+					)}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma análise de sucata encontrada.</Text> : null}
 				/>
-			)}
-
-			{isSelectionMode && selectedChecklists.length > 0 && (
-				<TouchableOpacity
-					style={styles.fab}
-					onPress={gerarRelatorioConsolidado}
-				>
-					<Feather name="printer" size={24} color="#fff" />
-					<Text style={styles.fabText}>Gerar Relatório ({selectedChecklists.length})</Text>
-				</TouchableOpacity>
 			)}
 
 			{(checklistAtivo && checklistAtivo.id) && (
 				<View style={{ flex: 1 }}>
 					<View style={styles.headerAtivo}>
-						<Text style={styles.headerAtivoTitle}>Checklist Avulso #{checklistAtivo.id}</Text>
+						<Text style={styles.headerAtivoTitle}>Análise de Sucata #{checklistAtivo.id}</Text>
 
 						<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
 							<Feather name="calendar" size={14} color="#e0e0e0" />
@@ -760,7 +738,7 @@ export default function ChecklistAvulsoScreen() {
 			<Modal visible={modalNovoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalNovoVisible(false)}>
 				<View style={styles.modalOverlayBusca}>
 					<View style={styles.modalSmall}>
-						<Text style={styles.modalTitle}>Novo Checklist Avulso</Text>
+						<Text style={styles.modalTitle}>Nova Análise de Sucata</Text>
 						<Text style={styles.label}>* Data</Text>
 						<TextInput style={styles.inputModal} value={formNovo.data} onChangeText={t => handleDataChange(t, (val) => setFormNovo({ ...formNovo, data: val }))} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
 						<Text style={styles.label}>* Cliente</Text>
@@ -785,7 +763,7 @@ export default function ChecklistAvulsoScreen() {
 
 			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					<KeyboardWrapper behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 						<View style={styles.modalHeaderFullScreen}>
 							<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
 							<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
@@ -967,7 +945,78 @@ export default function ChecklistAvulsoScreen() {
 						{modalBuscaVisible && renderBuscaDinamica()}
 						{modalCadastroVisible && renderCadastroDinamico()}
 
-					</KeyboardWrapper>
+					</KeyboardAvoidingView>
+				</View>
+			</Modal>
+
+			<Modal visible={modalConsolidarVisible} animationType="slide" onRequestClose={() => setModalConsolidarVisible(false)}>
+				<View style={{ flex: 1, backgroundColor: '#f4f6f8' }}>
+
+					<View style={styles.modalHeaderFullScreen}>
+						<TouchableOpacity onPress={() => setModalConsolidarVisible(false)} style={{ padding: 5 }}>
+							<Feather name="arrow-left" size={24} color="#fff" />
+						</TouchableOpacity>
+						<Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Consolidar Análises</Text>
+						<View style={{ width: 30 }} />
+					</View>
+
+					<View style={{ padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#ddd' }}>
+						<Text style={{ fontSize: 15, color: '#666' }}>Selecione as análises que deseja unir em um único relatório PDF.</Text>
+					</View>
+
+					<FlatList
+						data={checklists}
+						keyExtractor={(item) => String(item.id)}
+						contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+						renderItem={({ item }) => {
+							const isSelected = selectedChecklists.includes(item.id);
+							return (
+								<TouchableOpacity
+									style={[
+										styles.card,
+										{ marginHorizontal: 0, flexDirection: 'row', alignItems: 'center', padding: 15 },
+										isSelected && styles.cardSelected
+									]}
+									onPress={() => toggleChecklistSelection(item.id)}
+									activeOpacity={0.7}
+								>
+									<Feather
+										name={isSelected ? "check-square" : "square"}
+										size={24}
+										color={isSelected ? "#1967d2" : "#ccc"}
+										style={{ marginRight: 15 }}
+									/>
+									<View style={{ flex: 1 }}>
+										<Text style={{ fontWeight: 'bold', fontSize: 15, color: '#333' }}>Análise #{item.id}</Text>
+										<Text style={{ fontSize: 13, color: '#666', marginTop: 2 }}>Cliente: {item.cliente}</Text>
+										<Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>Data: {formatarDataLocal(item.data)}</Text>
+									</View>
+								</TouchableOpacity>
+							);
+						}}
+						ListEmptyComponent={
+							<Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma análise disponível para consolidar.</Text>
+						}
+					/>
+
+					<View style={{ padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', gap: 10 }}>
+						<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalConsolidarVisible(false)}>
+							<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							style={[
+								styles.btnSalvar,
+								{ flex: 2, opacity: selectedChecklists.length > 1 ? 1 : 0.5 }
+							]}
+							onPress={gerarRelatorioConsolidado}
+							disabled={selectedChecklists.length < 2}
+						>
+							<Feather name="printer" size={18} color="#fff" style={{ marginRight: 8 }} />
+							<Text style={{ color: '#fff', fontWeight: 'bold' }}>Gerar Relatório ({selectedChecklists.length})</Text>
+						</TouchableOpacity>
+					</View>
+
 				</View>
 			</Modal>
 		</View>
@@ -978,7 +1027,6 @@ const pickerStyles = StyleSheet.create({
 	inputIOS: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#000', marginBottom: 15, paddingRight: 30, minHeight: 48 },
 	inputAndroid: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#000', marginBottom: 15, paddingRight: 30, minHeight: 48 }
 });
-const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />;
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8' },
@@ -1018,9 +1066,6 @@ const styles = StyleSheet.create({
 	btnImprimirHistoricoText: { color: '#333', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
 	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 12 },
 
-	fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#1967d2', borderRadius: 30, paddingVertical: 15, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, zIndex: 100 },
-	fabText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
-
 	headerAtivo: { backgroundColor: '#0c6ead', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 30 },
 	headerAtivoTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 5 },
 	headerAtivoSubText: { color: '#e0e0e0', fontSize: 14, marginLeft: 5 },
@@ -1037,7 +1082,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#0c6ead',
 		paddingHorizontal: 15,
 		paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 65 : (StatusBar.currentHeight ? StatusBar.currentHeight + 15 : 50),
+		paddingTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 24) + 15,
 		elevation: 4,
 	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
