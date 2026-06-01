@@ -127,6 +127,36 @@ export default function ClientesScreen() {
 		} else { Alert.alert('Erro', res?.message || 'Não foi possível carregar os detalhes.'); }
 	};
 
+	const excluirCliente = (id: number, nome: string) => {
+		Alert.alert(
+			'Excluir Cliente',
+			`Tem certeza que deseja excluir o cliente "${nome}"?\n\nEle não aparecerá mais no sistema.`,
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{
+					text: 'Excluir', style: 'destructive', onPress: async () => {
+						try {
+							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_cliente_salvar.php', {
+								method: 'POST', headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ acao: 'excluir', id: id })
+							});
+							const res = await response.json();
+
+							if (res.success) {
+								Alert.alert('Sucesso', 'Cliente excluído com sucesso.');
+								carregarClientes(1);
+							} else {
+								Alert.alert('Erro', res.message || 'Falha ao excluir.');
+							}
+						} catch (error) {
+							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+						}
+					}
+				}
+			]
+		);
+	};
+
 	const adicionarContato = () => setContatos([...contatos, { nome: '', fone1: '', fone2: '', email: '' }]);
 	const removerContato = (index: number) => {
 		const novos = [...contatos];
@@ -265,21 +295,23 @@ export default function ClientesScreen() {
 				<View style={styles.cardActions}>
 					<View style={styles.actionButtonsRow}>
 						<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push({ pathname: '/veiculos', params: { cliente_id: item.id, cliente_nome: item.nome } } as any)}>
-							<Feather name="truck" size={14} color="#333" />
-							<Text style={styles.btnActionTextSecondary}>Veículos</Text>
+							<Feather name="truck" size={12} color="#333" />
+							<Text style={styles.btnActionTextSecondary} numberOfLines={1} adjustsFontSizeToFit>Veículos</Text>
 						</TouchableOpacity>
 
-						<TouchableOpacity
-							style={styles.btnActionSecondary}
-							onPress={() => router.push({ pathname: '/pneus', params: { cliente_id: item.id, cliente_nome: item.nome } } as any)}
-						>
-							<MaterialCommunityIcons name="tire" size={16} color="#333" />
-							<Text style={styles.btnActionTextSecondary}>Pneus</Text>
+						<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push({ pathname: '/pneus', params: { cliente_id: item.id, cliente_nome: item.nome } } as any)}>
+							<MaterialCommunityIcons name="tire" size={13} color="#333" />
+							<Text style={styles.btnActionTextSecondary} numberOfLines={1} adjustsFontSizeToFit>Pneus</Text>
 						</TouchableOpacity>
 
 						<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleActionModificar(item)}>
-							<Feather name="edit-2" size={14} color="#ffffff" />
-							<Text style={styles.btnEditarCardText}>Editar</Text>
+							<Feather name="edit-2" size={12} color="#ffffff" />
+							<Text style={styles.btnEditarCardText} numberOfLines={1} adjustsFontSizeToFit>Editar</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirCliente(item.id, item.nome)}>
+							<Feather name="trash-2" size={12} color="#ffffff" />
+							<Text style={styles.btnExcluirCardText} numberOfLines={1} adjustsFontSizeToFit>Excluir</Text>
 						</TouchableOpacity>
 					</View>
 				</View>
@@ -543,12 +575,17 @@ const styles = StyleSheet.create({
 	cardInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
 	cardInfoText: { fontSize: 13, color: '#666', marginLeft: 8 },
 
-	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
-	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%' },
-	btnActionSecondary: { backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 12, marginRight: 8 },
-	btnActionTextSecondary: { color: '#333', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
-	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
-	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
+	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'center' },
+	actionButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 4 },
+
+	btnActionSecondary: { flex: 1, backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 6, paddingHorizontal: 2 },
+	btnActionTextSecondary: { color: '#333', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
+
+	btnEditarCard: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 6, paddingHorizontal: 2 },
+	btnEditarCardText: { color: '#ffffff', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
+
+	btnExcluirCard: { flex: 1, backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 6, paddingHorizontal: 2 },
+	btnExcluirCardText: { color: '#ffffff', fontSize: 11, fontWeight: 'bold', marginLeft: 4 },
 
 	modalHeaderFullScreen: {
 		flexDirection: 'row',

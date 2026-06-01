@@ -180,6 +180,36 @@ export default function PneusScreen() {
 		setModalVisible(true);
 	};
 
+	const excluirPneu = (id: number, serie: string) => {
+		Alert.alert(
+			'Excluir Pneu',
+			`Tem certeza que deseja excluir o pneu de série "${serie || 'S/N'}"?\n\nEle será removido do sistema.`,
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{
+					text: 'Excluir', style: 'destructive', onPress: async () => {
+						try {
+							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_pneus_salvar.php', {
+								method: 'POST', headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ acao: 'excluir', id: id })
+							});
+							const res = await response.json();
+
+							if (res.success) {
+								Alert.alert('Sucesso', 'Pneu excluído com sucesso.');
+								carregarPneus();
+							} else {
+								Alert.alert('Erro', res.message || 'Falha ao excluir o pneu.');
+							}
+						} catch (error) {
+							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+						}
+					}
+				}
+			]
+		);
+	};
+
 	const tirarFotoPneu = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmera."); return; }
@@ -570,6 +600,11 @@ export default function PneusScreen() {
 										<Feather name="edit-2" size={14} color="#ffffff" />
 										<Text style={styles.btnEditarCardText}>Editar</Text>
 									</TouchableOpacity>
+
+									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirPneu(item.id, item.serie)}>
+										<Feather name="trash-2" size={14} color="#ffffff" />
+										<Text style={styles.btnExcluirCardText}>Excluir</Text>
+									</TouchableOpacity>
 								</View>
 							</View>
 						</View>
@@ -843,8 +878,12 @@ const styles = StyleSheet.create({
 
 	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
 	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%' },
+
 	btnEditarCard: { backgroundColor: '#0c6ead', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
 	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
+
+	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15, marginLeft: 8 },
+	btnExcluirCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
 	modalHeaderFullScreen: {
 		flexDirection: 'row',

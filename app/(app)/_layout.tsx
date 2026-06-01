@@ -25,56 +25,59 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 	};
 
 	return (
-		<DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
-			<View style={styles.drawerHeader}>
-				{user?.foto ? (
-					<Image source={{ uri: `${URL_FOTOS}${user.foto}` }} style={styles.avatar} />
-				) : (
-					<View style={styles.avatarPlaceholder}>
-						<Feather name="user" size={32} color="#fff" />
-					</View>
-				)}
-				<Text style={styles.userName}>{primeiroNome}</Text>
-				<Text style={styles.userLevel}>{user?.nivel || 'Assessor'}</Text>
-			</View>
+		<View style={{ flex: 1 }}>
+			{/* PARTE QUE ROLA (CABEÇALHO + ITENS) */}
+			<DrawerContentScrollView {...props}>
+				<View style={styles.drawerHeader}>
+					{user?.foto ? (
+						<Image source={{ uri: `${URL_FOTOS}${user.foto}` }} style={styles.avatar} />
+					) : (
+						<View style={styles.avatarPlaceholder}>
+							<Feather name="user" size={32} color="#fff" />
+						</View>
+					)}
+					<Text style={styles.userName}>{primeiroNome}</Text>
+					<Text style={styles.userLevel}>{user?.nivel || 'Assessor'}</Text>
+				</View>
 
-			<View style={{ flex: 1, paddingTop: 10 }}>
-				{props.state.routes.map((route, index) => {
-					const { options } = props.descriptors[route.key];
-					const label = options.drawerLabel !== undefined ? options.drawerLabel : options.title !== undefined ? options.title : route.name;
-					const isFocused = props.state.index === index;
+				<View style={{ paddingTop: 10, paddingBottom: 20 }}>
+					{props.state.routes.map((route, index) => {
+						const { options } = props.descriptors[route.key];
+						const label = options.drawerLabel !== undefined ? options.drawerLabel : options.title !== undefined ? options.title : route.name;
+						const isFocused = props.state.index === index;
 
-					if (route.name === 'checklist') {
-						return null;
-					}
+						if (route.name === 'checklist') {
+							return null;
+						}
 
-					return (
-						<DrawerItem
-							key={route.key}
-							label={label as string}
-							icon={options.drawerIcon}
-							focused={isFocused}
-							activeTintColor={options.drawerActiveTintColor}
-							inactiveTintColor={options.drawerInactiveTintColor}
-							activeBackgroundColor={options.drawerActiveBackgroundColor}
-							onPress={() => {
-								const routePath = route.name === 'index' ? '/' : `/${route.name}`;
-								router.replace(routePath as any);
-							}}
-						/>
-					);
-				})}
-			</View>
+						return (
+							<DrawerItem
+								key={route.key}
+								label={label as string}
+								icon={options.drawerIcon}
+								focused={isFocused}
+								activeTintColor={options.drawerActiveTintColor}
+								inactiveTintColor={options.drawerInactiveTintColor}
+								activeBackgroundColor={options.drawerActiveBackgroundColor}
+								onPress={() => {
+									const routePath = route.name === 'index' ? '/' : `/${route.name}`;
+									router.replace(routePath as any);
+								}}
+							/>
+						);
+					})}
+				</View>
+			</DrawerContentScrollView>
 
 			<View style={styles.logoutContainer}>
 				<DrawerItem
 					label="Sair da Conta"
-					icon={({ size }) => <Feather name="log-out" size={size} color="#0c6ead" />}
-					labelStyle={{ color: '#0c6ead', fontWeight: 'bold', marginLeft: -10 }}
+					icon={({ size }) => <Feather name="log-out" size={size} color="#E53935" />}
+					labelStyle={{ color: '#E53935', fontWeight: 'bold', marginLeft: -10 }}
 					onPress={confirmSignOut}
 				/>
 			</View>
-		</DrawerContentScrollView>
+		</View>
 	);
 }
 
@@ -164,6 +167,70 @@ export default function AppLayout() {
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />,
 				}}
 			/>
+
+			<Drawer.Screen
+				name="referencias"
+				options={{
+					drawerLabel: 'Ref. de Pneus',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <Feather name="tag" size={size} color={color} />,
+				}}
+			/>
+
+			<Drawer.Screen
+				name="marcas"
+				options={{
+					drawerLabel: 'Marcas',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <Feather name="bookmark" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="modelos"
+				options={{
+					drawerLabel: 'Modelos',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <Feather name="box" size={size} color={color} />,
+				}}
+			/>
+
+			<Drawer.Screen
+				name="bandas"
+				options={{
+					drawerLabel: 'Bandas de Rodagem',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <Feather name="disc" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="reformadores"
+				options={{
+					drawerLabel: 'Reformadores',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <Feather name="briefcase" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="usuarios"
+				options={{
+					drawerLabel: 'Gerenciar Usuários',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <Feather name="user-plus" size={size} color={color} />,
+				}}
+			/>
+
 			<Drawer.Screen
 				name="checklist"
 				options={{
@@ -175,6 +242,7 @@ export default function AppLayout() {
 					drawerItemStyle: { display: 'none' },
 				}}
 			/>
+
 			<Drawer.Screen
 				name="perfil"
 				options={{
@@ -195,5 +263,5 @@ const styles = StyleSheet.create({
 	avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
 	userName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
 	userLevel: { fontSize: 14, color: '#666', marginTop: 4 },
-	logoutContainer: { borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingBottom: 20, paddingTop: 10 },
+	logoutContainer: { borderTopWidth: 1, borderTopColor: '#eee', paddingBottom: Platform.OS === 'ios' ? 30 : 20, paddingTop: 10, backgroundColor: '#fff' },
 });

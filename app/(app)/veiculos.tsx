@@ -206,6 +206,37 @@ export default function VeiculosScreen() {
 		setModalVisible(true);
 	};
 
+	const excluirVeiculo = (id: number) => {
+		Alert.alert(
+			'Excluir Veículo',
+			'Tem certeza que deseja excluir este veículo do sistema?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{
+					text: 'Excluir', style: 'destructive', onPress: async () => {
+						try {
+							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ acao: 'excluir', id: id })
+							});
+							const res = await response.json();
+
+							if (res.success) {
+								Alert.alert('Sucesso', 'Veículo excluído com sucesso.');
+								carregarVeiculos();
+							} else {
+								Alert.alert('Erro', res.message || 'Falha ao excluir.');
+							}
+						} catch (error) {
+							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+						}
+					}
+				}
+			]
+		);
+	};
+
 	const tirarFoto = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Você precisa permitir o acesso à câmera."); return; }
@@ -573,6 +604,15 @@ export default function VeiculosScreen() {
 									<Feather name="edit-2" size={14} color="#ffffff" />
 									<Text style={styles.btnEditarCardText}>Editar</Text>
 								</TouchableOpacity>
+
+								<TouchableOpacity
+									style={styles.btnExcluirCard}
+									onPress={() => excluirVeiculo(item.id)}
+								>
+									<Feather name="trash-2" size={14} color="#ffffff" />
+									<Text style={styles.btnExcluirCardText}>Excluir</Text>
+								</TouchableOpacity>
+
 							</View>
 						</View>
 					</View>
@@ -628,8 +668,19 @@ export default function VeiculosScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Código Interno</Text><TextInput style={styles.input} value={form.codigo} onChangeText={t => setForm({ ...form, codigo: t })} keyboardType="numeric" /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>* Placa</Text><TextInput style={styles.input} value={form.placa} onChangeText={(t) => setForm({ ...form, placa: formatarPlaca(t) })} autoCapitalize="characters" maxLength={8} /></View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Código Interno</Text>
+									<TextInput
+										style={styles.input}
+										value={form.codigo}
+										onChangeText={t => setForm({ ...form, codigo: t })}
+										autoCapitalize="characters"
+									/>
+								</View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>* Placa</Text>
+									<TextInput style={styles.input} value={form.placa} onChangeText={(t) => setForm({ ...form, placa: formatarPlaca(t) })} autoCapitalize="characters" maxLength={8} />
+								</View>
 							</View>
 
 							<View style={styles.row}>
@@ -859,6 +910,9 @@ const styles = StyleSheet.create({
 
 	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
 	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
+
+	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15, marginLeft: 8 },
+	btnExcluirCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
 	modalHeaderFull: {
 		flexDirection: 'row',
