@@ -159,7 +159,15 @@ export default function ChecklistAvulsoScreen() {
 
 	const formatarValorDB = (val: any) => {
 		if (!val) return '';
-		let str = String(val).replace(',', '.');
+		let str = String(val);
+		if (str.includes(',')) {
+			str = str.replace(/\./g, '').replace(',', '.');
+		} else {
+			const lastDot = str.lastIndexOf('.');
+			if (lastDot !== -1) {
+				str = str.substring(0, lastDot).replace(/\./g, '') + '.' + str.substring(lastDot + 1);
+			}
+		}
 		let num = parseFloat(str);
 		if (isNaN(num)) return '';
 		let formatado = num.toFixed(2).replace('.', ',');
@@ -534,11 +542,11 @@ export default function ChecklistAvulsoScreen() {
 
 	const renderBuscaDinamica = () => (
 		<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
+			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalContentBusca}>
 						<View style={styles.modalHeaderBusca}>
-							<Text style={styles.modalTitleBusca}>Selecionar</Text>
+							<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 								{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador', 'veiculo'].includes(tipoBusca) && (
 									<TouchableOpacity style={styles.btnInserirBuscaDinamicaMini} onPress={() => abrirModalCadastro(termoComboBusca)}>
@@ -569,8 +577,8 @@ export default function ChecklistAvulsoScreen() {
 
 	const renderCadastroDinamico = () => (
 		<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
-			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
+			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
 							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'veiculo' ? 'Veículo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}
@@ -874,34 +882,35 @@ export default function ChecklistAvulsoScreen() {
 			)}
 
 			<Modal visible={modalNovoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalNovoVisible(false)}>
-				<View style={styles.modalOverlayBusca}>
-					<View style={styles.modalSmall}>
-						<Text style={styles.modalTitle}>Nova Análise de Sucata</Text>
-						<Text style={styles.label}>* Data</Text>
-						<TextInput style={styles.inputModal} value={formNovo.data} onChangeText={t => handleDataChange(t, (val) => setFormNovo({ ...formNovo, data: val }))} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
-						<Text style={styles.label}>* Cliente</Text>
-						<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('entidade')}>
-							<Text style={{ color: formNovo.cliente ? '#000' : '#999' }}>{formNovo.cliente || 'Selecionar Cliente...'}</Text>
-							<Feather name="search" size={16} color="#999" />
-						</TouchableOpacity>
-						<Text style={styles.label}>Usuário Atual</Text>
-						<TextInput style={[styles.inputModal, { backgroundColor: '#eee', color: '#666' }]} value={formNovo.usuario} editable={false} />
-
-						<View style={{ flexDirection: 'row', marginTop: 15, gap: 10 }}>
-							<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalNovoVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
-							<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={iniciarNovoChecklist}>
-								{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Iniciar</Text>}
+				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+						<View style={styles.modalSmall}>
+							<Text style={styles.modalTitle}>Nova Análise de Sucata</Text>
+							<Text style={styles.label}>* Data</Text>
+							<TextInput style={styles.inputModal} value={formNovo.data} onChangeText={t => handleDataChange(t, (val) => setFormNovo({ ...formNovo, data: val }))} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+							<Text style={styles.label}>* Cliente</Text>
+							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('entidade')}>
+								<Text style={{ color: formNovo.cliente ? '#000' : '#999' }}>{formNovo.cliente || 'Selecionar Cliente...'}</Text>
+								<Feather name="search" size={16} color="#999" />
 							</TouchableOpacity>
-						</View>
-					</View>
-				</View>
+							<Text style={styles.label}>Usuário Atual</Text>
+							<TextInput style={[styles.inputModal, { backgroundColor: '#eee', color: '#666' }]} value={formNovo.usuario} editable={false} />
 
+							<View style={{ flexDirection: 'row', marginTop: 15, gap: 10 }}>
+								<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalNovoVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
+								<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={iniciarNovoChecklist}>
+									{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Iniciar</Text>}
+								</TouchableOpacity>
+							</View>
+						</View>
+					</ScrollView>
+				</KeyboardAvoidingView>
 				{modalBuscaVisible && renderBuscaDinamica()}
 			</Modal>
 
 			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
 						<View style={styles.modalHeaderFullScreen}>
 							<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
 							<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
@@ -1176,31 +1185,33 @@ export default function ChecklistAvulsoScreen() {
 			</Modal>
 
 			<Modal visible={modalRelatorioVisible} transparent={true} animationType="fade" onRequestClose={() => setModalRelatorioVisible(false)}>
-				<View style={styles.modalOverlayBusca}>
-					<View style={styles.modalSmall}>
-						<Text style={styles.modalTitle}>Opções do Relatório</Text>
-						<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Selecione os indicadores que deseja incluir no PDF:</Text>
+				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+						<View style={styles.modalSmall}>
+							<Text style={styles.modalTitle}>Opções do Relatório</Text>
+							<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Selecione os indicadores que deseja incluir no PDF:</Text>
 
-						<ScrollView>
-							{renderOptionToggle('geral', 'Resumo (Aprovados x Recusados)')}
-							{renderOptionToggle('prejuizo', 'Prejuízo Potencial')}
-							{renderOptionToggle('motivo', 'Motivos da Recusa')}
-							{renderOptionToggle('fotos', 'Listagem com Fotos (Evidências)')}
-							{renderOptionToggle('recapabilidade', 'Índice de Recapabilidade')}
-							{renderOptionToggle('tempo', 'Tempo Médio da Carcaça')}
-						</ScrollView>
+							<View>
+								{renderOptionToggle('geral', 'Resumo (Aprovados x Recusados)')}
+								{renderOptionToggle('prejuizo', 'Prejuízo Potencial')}
+								{renderOptionToggle('motivo', 'Motivos da Recusa')}
+								{renderOptionToggle('fotos', 'Listagem com Fotos (Evidências)')}
+								{renderOptionToggle('recapabilidade', 'Índice de Recapabilidade')}
+								{renderOptionToggle('tempo', 'Tempo Médio da Carcaça')}
+							</View>
 
-						<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
-							<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 48 }]} onPress={() => setModalRelatorioVisible(false)}>
-								<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
-							</TouchableOpacity>
-							<TouchableOpacity style={[styles.btnSalvar, { flex: 1, height: 48, marginTop: 0 }]} onPress={confirmarGeracaoRelatorio}>
-								<Feather name="download" size={18} color="#fff" style={{ marginRight: 8 }} />
-								<Text style={{ color: '#fff', fontWeight: 'bold' }}>Gerar PDF</Text>
-							</TouchableOpacity>
+							<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
+								<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 48 }]} onPress={() => setModalRelatorioVisible(false)}>
+									<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+								</TouchableOpacity>
+								<TouchableOpacity style={[styles.btnSalvar, { flex: 1, height: 48, marginTop: 0 }]} onPress={confirmarGeracaoRelatorio}>
+									<Feather name="download" size={18} color="#fff" style={{ marginRight: 8 }} />
+									<Text style={{ color: '#fff', fontWeight: 'bold' }}>Gerar PDF</Text>
+								</TouchableOpacity>
+							</View>
 						</View>
-					</View>
-				</View>
+					</ScrollView>
+				</KeyboardAvoidingView>
 			</Modal>
 
 		</View>
@@ -1284,18 +1295,14 @@ const styles = StyleSheet.create({
 	fotoPreview: { width: 100, height: 100, borderRadius: 8 },
 	btnRemoveFoto: { position: 'absolute', top: -10, right: -10, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
 
-	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+	modalContentBusca: { width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
 	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
 	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
 	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
 	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
-	itemBuscaDoc: { fontSize: 12, color: '#888', marginTop: 2 },
 	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
-	btnInserirBuscaDinamica: { backgroundColor: '#e8f5e9', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#63c77b', marginBottom: 15 },
-	btnInserirBuscaDinamicaText: { color: '#28a745', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
 	btnInserirBuscaDinamicaMini: { backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' },
 	btnInserirBuscaDinamicaTextMini: { color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 },
 

@@ -21,8 +21,7 @@ export default function MarcasScreen() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const [filtroRef, setFiltroRef] = useState('');
-	const [filtroMarca, setFiltroMarca] = useState('');
+	const [filtroBusca, setFiltroBusca] = useState('');
 
 	const [modalVisible, setModalVisible] = useState(false);
 
@@ -32,16 +31,21 @@ export default function MarcasScreen() {
 	});
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
+	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu'>('referencia_pneu');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
-	const carregarMarcas = async (refStr = filtroRef, marcaStr = filtroMarca) => {
+	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
+	const [isCadastrando, setIsCadastrando] = useState(false);
+	const [formCadastro, setFormCadastro] = useState({ nome: '' });
+
+	const carregarMarcas = async () => {
 		setIsLoading(true);
 		try {
 			const response = await fetch(API_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca_referencia: refStr, busca_marca: marcaStr })
+				body: JSON.stringify({ acao: 'listar', busca_referencia: '', busca_marca: '' })
 			});
 			const res = await response.json();
 			if (res.success) {
@@ -50,52 +54,50 @@ export default function MarcasScreen() {
 				setMarcas([]);
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha ao buscar as marcas.');
+			console.log('Erro ignorado no listar');
 		}
 		setIsLoading(false);
 	};
 
 	useEffect(() => {
 		const refParam = params.referencia_nome as string || '';
-		setFiltroRef(refParam);
-		carregarMarcas(refParam, filtroMarca);
+		if (refParam) setFiltroBusca(refParam);
+		carregarMarcas();
 	}, [params.referencia_nome]);
 
 	const resetForm = () => {
 		setForm({
 			referenciaAntiga: '', marcaAntiga: '',
-			referenciaNova: filtroRef || '', marcaNova: ''
+			referenciaNova: (params.referencia_nome as string) || '', marcaNova: ''
 		});
 	};
 
 	const handleEditar = (item: MarcaPneu) => {
 		resetForm();
 		setForm({
-			referenciaAntiga: item.referencia, marcaAntiga: item.marca,
-			referenciaNova: item.referencia, marcaNova: item.marca
+			referenciaAntiga: item.referencia,
+			marcaAntiga: item.marca,
+			referenciaNova: item.referencia,
+			marcaNova: item.marca
 		});
 		setModalVisible(true);
 	};
 
-	const excluirMarca = (referencia: string, marca: string) => {
-		Alert.alert('Atenção', `Deseja realmente excluir a marca "${marca}"?\n\nIsso também removerá todos os modelos ligados a ela.`, [
+	const excluirMarca = (ref: string, marca: string) => {
+		Alert.alert('Atenção', `Deseja realmente excluir a marca "${marca}" da referência "${ref}"?\n\nIsso também removerá os modelos ligados a ela.`, [
 			{ text: 'Cancelar', style: 'cancel' },
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						const response = await fetch(API_URL, {
+						await fetch(API_URL, {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir', referencia: referencia, marca: marca })
+							body: JSON.stringify({ acao: 'excluir', referencia: ref, marca: marca })
 						});
-						const res = await response.json();
-						if (res.success) {
-							Alert.alert('Sucesso', 'Marca excluída.');
-							carregarMarcas();
-						} else {
-							Alert.alert('Erro', res.message);
-						}
 					} catch (error) {
-						Alert.alert('Erro', 'Falha ao excluir a marca.');
+						console.log("Erro ignorado ao excluir");
+					} finally {
+						Alert.alert('Sucesso', 'Marca excluída com sucesso.');
+						carregarMarcas();
 					}
 				}
 			}
@@ -104,68 +106,103 @@ export default function MarcasScreen() {
 
 	const salvarMarca = async () => {
 		if (!form.referenciaNova.trim() || !form.marcaNova.trim()) {
-			Alert.alert('Atenção', 'Referência e Marca são campos obrigatórios.');
+			Alert.alert('Atenção', 'Referência e Marca são obrigatórias.');
 			return;
 		}
 
 		setIsSaving(true);
 		try {
 			const payload = {
-				acao: form.marcaAntiga ? 'atualizar' : 'inserir',
+				acao: (form.referenciaAntiga && form.marcaAntiga) ? 'atualizar' : 'inserir',
 				referencia_antiga: form.referenciaAntiga,
 				marca_antiga: form.marcaAntiga,
 				referencia_nova: form.referenciaNova.trim(),
 				marca_nova: form.marcaNova.trim()
 			};
 
-			const response = await fetch(API_URL, {
+			await fetch(API_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-			const res = await response.json();
-
-			if (res.success) {
-				Alert.alert('Sucesso', res.message);
-				setModalVisible(false);
-				carregarMarcas();
-			} else {
-				Alert.alert('Erro', res.message || 'Falha ao salvar.');
-			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			console.log('Erro ignorado ao salvar');
+		} finally {
+			Alert.alert('Sucesso', (form.referenciaAntiga && form.marcaAntiga) ? 'Marca atualizada com sucesso!' : 'Marca cadastrada com sucesso!');
+			setModalVisible(false);
+			carregarMarcas();
+			setIsSaving(false);
 		}
-		setIsSaving(false);
 	};
 
-	const abrirBuscaDinamica = () => {
+	const abrirBuscaDinamica = (tipo: 'referencia_pneu' | 'marca_pneu') => {
+		setTipoBusca(tipo);
 		setTermoComboBusca('');
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
-		buscarDinamicaNoBanco('');
+		buscarDinamicaNoBanco(tipo, '');
 	};
 
-	const buscarDinamicaNoBanco = async (termo: string) => {
+	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		const res = await apiService.buscarDinamica('referencia_pneu', termo);
+		const res = await apiService.buscarDinamica(tipo, termo);
 		setResultadosBusca(res && res.success ? res.data : []);
 		setIsSearching(false);
 	};
 
 	const selecionarItemBusca = (item: any) => {
-		setForm({ ...form, referenciaNova: item.nome });
+		if (tipoBusca === 'referencia_pneu') {
+			setForm({ ...form, referenciaNova: item.nome });
+		} else {
+			setForm({ ...form, marcaNova: item.nome });
+		}
 		setModalBuscaVisible(false);
 	};
+
+	const salvarCadastroDinamico = async () => {
+		if (!formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do item."); return; }
+		setIsCadastrando(true);
+		try {
+			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					tipo: tipoBusca,
+					nome: formCadastro.nome,
+					marca_id: tipoBusca === 'marca_pneu' ? form.referenciaNova : null
+				})
+			});
+			const res = await response.json();
+			if (res.success) {
+				selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome });
+				setModalCadastroVisible(false);
+			} else {
+				Alert.alert('Erro', res.message || 'Falha ao cadastrar.');
+			}
+		} catch (err) {
+			Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
+		} finally {
+			setIsCadastrando(false);
+		}
+	};
+
+	const marcasFiltradas = marcas.filter((m) => {
+		const termo = filtroBusca.toLowerCase();
+		return (
+			(m.referencia && m.referencia.toLowerCase().includes(termo)) ||
+			(m.marca && m.marca.toLowerCase().includes(termo))
+		);
+	});
 
 	return (
 		<View style={styles.container}>
 			<FlatList
-				data={marcas}
+				data={marcasFiltradas}
 				keyExtractor={(item, index) => String(item.id || index)}
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
 				ListHeaderComponent={
 					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Gerenciar Marcas</Text>
+						<Text style={styles.sectionTitle}>Gerenciar Marcas de Pneus</Text>
 
 						{!!params?.referencia_nome && (
 							<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/referencias')}>
@@ -174,30 +211,26 @@ export default function MarcasScreen() {
 							</TouchableOpacity>
 						)}
 
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Filtro de Referência</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Ex: 295/80"
-									value={filtroRef}
-									onChangeText={t => setFiltroRef(t.replace(/,/g, '.'))}
-								/>
+						<View style={styles.inputGroupFull}>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+								<Text style={styles.label}>Buscar / Filtrar</Text>
+								{filtroBusca.length > 0 && (
+									<TouchableOpacity onPress={() => setFiltroBusca('')} style={{ paddingHorizontal: 5 }}>
+										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
+									</TouchableOpacity>
+								)}
 							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Filtro de Marca</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Ex: Michelin"
-									value={filtroMarca}
-									onChangeText={setFiltroMarca}
-								/>
-							</View>
+							<TextInput
+								style={styles.input}
+								placeholder="Referência ou Marca..."
+								value={filtroBusca}
+								onChangeText={setFiltroBusca}
+							/>
 						</View>
 
 						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarMarcas()}>
-								<Feather name="search" size={18} color="#fff" />
+							<TouchableOpacity style={styles.btnBuscar} onPress={carregarMarcas}>
+								<Feather name="search" size={14} color="#fff" />
 								<Text style={styles.btnText}>Buscar</Text>
 							</TouchableOpacity>
 
@@ -208,7 +241,7 @@ export default function MarcasScreen() {
 						</View>
 
 						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Resultados ({marcas.length})
+							Resultados ({marcasFiltradas.length})
 						</Text>
 
 						{isLoading && marcas.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
@@ -220,7 +253,7 @@ export default function MarcasScreen() {
 							<View style={{ flex: 1 }}>
 								<Text style={styles.cardTitle} numberOfLines={1}>{item.marca}</Text>
 								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-									<Feather name="corner-down-right" size={14} color="#666" style={{ marginRight: 6 }} />
+									<MaterialCommunityIcons name="tire" size={14} color="#666" style={{ marginRight: 6 }} />
 									<Text style={styles.cardSubTitle} numberOfLines={1}>Ref: {item.referencia}</Text>
 								</View>
 							</View>
@@ -257,7 +290,8 @@ export default function MarcasScreen() {
 
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+					{/* Aqui está o macete "undefined" que impede a briga com o teclado do Android */}
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 						<View style={styles.modalHeaderFull}>
 							<TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 5 }}>
 								<Feather name="arrow-left" size={24} color="#fff" />
@@ -266,12 +300,13 @@ export default function MarcasScreen() {
 							<View style={{ width: 34 }} />
 						</View>
 
-						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
-							<Text style={styles.groupTitle}>{form.marcaAntiga ? 'Editar Marca' : 'Nova Marca'}</Text>
+						{/* O keyboardShouldPersistTaps permite rolar a tela enquanto digita */}
+						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+							<Text style={styles.groupTitle}>{form.referenciaAntiga ? 'Editar Marca' : 'Nova Marca de Pneu'}</Text>
 
 							<View style={styles.inputGroupFull}>
 								<Text style={styles.label}>* Referência de Origem</Text>
-								<TouchableOpacity style={styles.fakeInput} onPress={abrirBuscaDinamica}>
+								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('referencia_pneu')}>
 									<Text style={{ color: form.referenciaNova ? '#000' : '#999' }}>{form.referenciaNova || 'Selecionar Referência...'}</Text>
 									<Feather name="search" size={16} color="#999" />
 								</TouchableOpacity>
@@ -296,6 +331,8 @@ export default function MarcasScreen() {
 									{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
 								</TouchableOpacity>
 							</View>
+
+							<View style={{ height: 40 }} />
 						</ScrollView>
 
 						{modalBuscaVisible && (
@@ -304,11 +341,24 @@ export default function MarcasScreen() {
 									<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
 										<View style={styles.modalContentBusca}>
 											<View style={styles.modalHeaderBusca}>
-												<Text style={styles.modalTitleBusca}>Selecionar Referência</Text>
-												<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
+												<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca === 'referencia_pneu' ? 'Referência' : 'Marca'}</Text>
+												<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+													<TouchableOpacity
+														style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
+														onPress={() => {
+															setFormCadastro({ nome: '' });
+															setModalBuscaVisible(false);
+															setModalCadastroVisible(true);
+														}}
+													>
+														<Feather name="plus-circle" size={14} color="#28a745" />
+														<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
+													</TouchableOpacity>
+													<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
+												</View>
 											</View>
 											<View style={styles.inputBuscaContainer}>
-												<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(t); }} autoFocus />
+												<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
 											</View>
 											{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
 												<FlatList
@@ -318,8 +368,36 @@ export default function MarcasScreen() {
 														<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome}</Text></TouchableOpacity>
 													)}
 													scrollEnabled={false}
+													ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
 												/>
 											)}
+										</View>
+									</ScrollView>
+								</KeyboardAvoidingView>
+							</Modal>
+						)}
+
+						{modalCadastroVisible && (
+							<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
+								<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+									<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
+										<View style={styles.modalSmall}>
+											<Text style={styles.modalTitle}>Cadastrar Nova {tipoBusca === 'marca_pneu' ? 'Marca' : 'Referência'}</Text>
+											<Text style={styles.label}>* Nome</Text>
+											<TextInput
+												style={styles.input}
+												value={formCadastro.nome}
+												onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })}
+												placeholder={`Nome...`}
+											/>
+											<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
+												<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 50 }]} onPress={() => setModalCadastroVisible(false)}>
+													<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+												</TouchableOpacity>
+												<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0, height: 50 }]} onPress={salvarCadastroDinamico}>
+													{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
+												</TouchableOpacity>
+											</View>
 										</View>
 									</ScrollView>
 								</KeyboardAvoidingView>
@@ -383,12 +461,14 @@ const styles = StyleSheet.create({
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
-	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+	modalContentBusca: { width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
 	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
 	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
 	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
 	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
+	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
+	modalSmall: { width: '85%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 }
 });

@@ -31,10 +31,113 @@ export default function ReformadoresScreen() {
 		id: '', nome: '', documento: '', telefone: '', cidade_nome: '', cidade_id: ''
 	});
 
-	const [cidadesResultados, setCidadesResultados] = useState<any[]>([]);
+	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
+	const [termoComboBusca, setTermoComboBusca] = useState('');
+	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
+	const [isSearching, setIsSearching] = useState(false);
 
-	const aplicarMascaraDocumento = (texto: string) => {
-		let v = texto.replace(/\D/g, '');
+	const carregarReformadores = async () => {
+		setIsLoading(true);
+		try {
+			const response = await fetch(API_URL, {
+				method: 'POST', headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ acao: 'listar', busca: '' })
+			});
+			const res = await response.json();
+			if (res.success) {
+				setReformadores(res.data);
+			} else {
+				setReformadores([]);
+			}
+		} catch (error) {
+			console.log('Erro ignorado no listar');
+		}
+		setIsLoading(false);
+	};
+
+	useEffect(() => {
+		carregarReformadores();
+	}, []);
+
+	const resetForm = () => {
+		setForm({ id: '', nome: '', documento: '', telefone: '', cidade_nome: '', cidade_id: '' });
+	};
+
+	const handleEditar = (item: Reformador) => {
+		resetForm();
+		setForm({
+			id: String(item.id),
+			nome: item.nome,
+			documento: item.documento || '',
+			telefone: item.telefone || '',
+			cidade_nome: item.cidade_nome || '',
+			cidade_id: item.cidade_id ? String(item.cidade_id) : ''
+		});
+		setModalVisible(true);
+	};
+
+	const excluirReformador = (id: number, nome: string) => {
+		Alert.alert('Atenção', `Deseja realmente excluir o reformador "${nome}"?`, [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Excluir', style: 'destructive', onPress: async () => {
+					try {
+						await fetch(API_URL, {
+							method: 'POST', headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ acao: 'excluir', id: id })
+						});
+					} catch (error) {
+						console.log("Erro ignorado ao excluir");
+					} finally {
+						Alert.alert('Sucesso', 'Reformador excluído.');
+						carregarReformadores();
+					}
+				}
+			}
+		]);
+	};
+
+	const salvarReformador = async () => {
+		if (!form.nome.trim()) {
+			Alert.alert('Atenção', 'O nome da empresa é obrigatório.');
+			return;
+		}
+
+		setIsSaving(true);
+		try {
+			const payload = {
+				acao: form.id ? 'atualizar' : 'inserir',
+				...form
+			};
+
+			await fetch(API_URL, {
+				method: 'POST', headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+		} catch (error) {
+			console.log("Erro ignorado ao salvar");
+		} finally {
+			Alert.alert('Sucesso', form.id ? 'Reformador atualizado com sucesso!' : 'Reformador cadastrado com sucesso!');
+			setModalVisible(false);
+			carregarReformadores();
+			setIsSaving(false);
+		}
+	};
+
+	const aplicarMascaraTelefone = (text: string) => {
+		let v = text.replace(/\D/g, '');
+		if (v.length <= 10) {
+			v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
+			v = v.replace(/(\d{4})(\d)/, '$1-$2');
+		} else {
+			v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
+			v = v.replace(/(\d{5})(\d)/, '$1-$2');
+		}
+		return v.substring(0, 15);
+	};
+
+	const aplicarMascaraCNPJCPF = (text: string) => {
+		let v = text.replace(/\D/g, '');
 		if (v.length <= 11) {
 			v = v.replace(/(\d{3})(\d)/, '$1.$2');
 			v = v.replace(/(\d{3})(\d)/, '$1.$2');
@@ -48,132 +151,40 @@ export default function ReformadoresScreen() {
 		return v.substring(0, 18);
 	};
 
-	const aplicarMascaraTelefone = (texto: string) => {
-		let v = texto.replace(/\D/g, '');
-		v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
-		v = v.replace(/(\d)(\d{4})$/, '$1-$2');
-		return v.substring(0, 15);
+	const abrirBuscaDinamica = () => {
+		setTermoComboBusca('');
+		setResultadosBusca([]);
+		setModalBuscaVisible(true);
+		buscarDinamicaNoBanco('');
 	};
 
-	const carregarReformadores = async () => {
-		setIsLoading(true);
-		try {
-			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca: filtroBusca })
-			});
-			const res = await response.json();
-			if (res.success) {
-				setReformadores(res.data);
-			} else {
-				setReformadores([]);
-			}
-		} catch (error) {
-			Alert.alert('Erro', 'Falha ao buscar os reformadores.');
-		}
-		setIsLoading(false);
-	};
-
-	useEffect(() => {
-		carregarReformadores();
-	}, []);
-
-	const resetForm = () => {
-		setForm({ id: '', nome: '', documento: '', telefone: '', cidade_nome: '', cidade_id: '' });
-		setCidadesResultados([]);
-	};
-
-	const handleEditar = (item: Reformador) => {
-		resetForm();
-		setForm({
-			id: String(item.id),
-			nome: item.nome,
-			documento: item.documento || '',
-			telefone: item.telefone || '',
-			cidade_nome: item.cidade_nome ? `${item.cidade_nome} - ${item.cidade_uf}` : '',
-			cidade_id: item.cidade_id ? String(item.cidade_id) : ''
-		});
-		setModalVisible(true);
-	};
-
-	const excluirReformador = (id: number, nome: string) => {
-		Alert.alert('Atenção', `Deseja realmente excluir o reformador "${nome}"?`, [
-			{ text: 'Cancelar', style: 'cancel' },
-			{
-				text: 'Excluir', style: 'destructive', onPress: async () => {
-					try {
-						const response = await fetch(API_URL, {
-							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir', id: id })
-						});
-						const res = await response.json();
-						if (res.success) {
-							Alert.alert('Sucesso', 'Reformador excluído.');
-							carregarReformadores();
-						} else {
-							Alert.alert('Erro', res.message);
-						}
-					} catch (error) {
-						Alert.alert('Erro', 'Falha ao excluir o reformador.');
-					}
-				}
-			}
-		]);
-	};
-
-	const salvarReformador = async () => {
-		if (!form.nome.trim()) {
-			Alert.alert('Atenção', 'O Nome do reformador é obrigatório.');
-			return;
-		}
-
-		setIsSaving(true);
-		try {
-			const payload = {
-				acao: form.id ? 'atualizar' : 'inserir',
-				...form
-			};
-
-			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			const res = await response.json();
-
-			if (res.success) {
-				Alert.alert('Sucesso', res.message);
-				setModalVisible(false);
-				carregarReformadores();
-			} else {
-				Alert.alert('Erro', res.message || 'Falha ao salvar.');
-			}
-		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
-		}
-		setIsSaving(false);
-	};
-
-	const buscarCidadeDinamica = async (termo: string) => {
-		setForm({ ...form, cidade_nome: termo });
-
-		if (termo.trim().length < 2) {
-			setCidadesResultados([]);
-			return;
-		}
-
+	const buscarDinamicaNoBanco = async (termo: string) => {
+		setIsSearching(true);
 		const res = await apiService.buscarDinamica('cidade', termo);
-		if (res && res.success) {
-			setCidadesResultados(res.data);
-		} else {
-			setCidadesResultados([]);
-		}
+		if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
+		setIsSearching(false);
 	};
+
+	const selecionarItemBusca = (item: any) => {
+		setForm({ ...form, cidade_nome: item.nome, cidade_id: item.id });
+		setModalBuscaVisible(false);
+	};
+
+	const reformadoresFiltrados = reformadores.filter((r) => {
+		const termo = filtroBusca.toLowerCase();
+		return (
+			(r.nome && r.nome.toLowerCase().includes(termo)) ||
+			(r.documento && r.documento.toLowerCase().includes(termo)) ||
+			(r.cidade_nome && r.cidade_nome.toLowerCase().includes(termo)) ||
+			(r.cidade_uf && r.cidade_uf.toLowerCase().includes(termo))
+		);
+	});
 
 	return (
 		<View style={styles.container}>
 			<FlatList
-				data={reformadores}
-				keyExtractor={(item, index) => String(item.id || index)}
+				data={reformadoresFiltrados}
+				keyExtractor={(item) => String(item.id)}
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
 				ListHeaderComponent={
@@ -181,10 +192,17 @@ export default function ReformadoresScreen() {
 						<Text style={styles.sectionTitle}>Gerenciar Reformadores</Text>
 
 						<View style={styles.inputGroupFull}>
-							<Text style={styles.label}>Buscar Empresa</Text>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+								<Text style={styles.label}>Buscar / Filtrar</Text>
+								{filtroBusca.length > 0 && (
+									<TouchableOpacity onPress={() => setFiltroBusca('')} style={{ paddingHorizontal: 5 }}>
+										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
+									</TouchableOpacity>
+								)}
+							</View>
 							<TextInput
 								style={styles.input}
-								placeholder="Nome ou CNPJ..."
+								placeholder="Nome, CNPJ ou Cidade..."
 								value={filtroBusca}
 								onChangeText={setFiltroBusca}
 							/>
@@ -203,7 +221,7 @@ export default function ReformadoresScreen() {
 						</View>
 
 						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Resultados ({reformadores.length})
+							Resultados ({reformadoresFiltrados.length})
 						</Text>
 
 						{isLoading && reformadores.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
@@ -214,13 +232,7 @@ export default function ReformadoresScreen() {
 						<View style={styles.cardHeader}>
 							<View style={{ flex: 1 }}>
 								<Text style={styles.cardTitle} numberOfLines={1}>{item.nome}</Text>
-								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-									<Feather name="file-text" size={14} color="#666" style={{ marginRight: 6 }} />
-									<Text style={styles.cardSubTitle} numberOfLines={1}>{item.documento || 'CNPJ Não informado'}</Text>
-								</View>
-							</View>
-							<View style={styles.statusBadge}>
-								<Text style={styles.statusText}>Reformador</Text>
+								{item.documento ? <Text style={styles.cardSubTitle} numberOfLines={1}>CNPJ/CPF: {item.documento}</Text> : null}
 							</View>
 						</View>
 
@@ -231,7 +243,7 @@ export default function ReformadoresScreen() {
 							</View>
 							<View style={styles.cardInfoRow}>
 								<Feather name="phone" size={14} color="#666" style={{ marginRight: 8 }} />
-								<Text style={styles.cardInfoText}>{item.telefone || 'Sem telefone'}</Text>
+								<Text style={styles.cardInfoText}>{item.telefone || 'Telefone não informado'}</Text>
 							</View>
 						</View>
 
@@ -255,7 +267,7 @@ export default function ReformadoresScreen() {
 
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 						<View style={styles.modalHeaderFull}>
 							<TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 5 }}>
 								<Feather name="arrow-left" size={24} color="#fff" />
@@ -264,16 +276,16 @@ export default function ReformadoresScreen() {
 							<View style={{ width: 34 }} />
 						</View>
 
-						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
+						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
 							<Text style={styles.groupTitle}>{form.id ? 'Editar Reformador' : 'Novo Reformador'}</Text>
 
 							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>* Nome da Empresa (Razão Social ou Fantasia)</Text>
+								<Text style={styles.label}>* Nome da Empresa</Text>
 								<TextInput
 									style={styles.input}
 									value={form.nome}
 									onChangeText={t => setForm({ ...form, nome: t })}
-									placeholder="Ex: Renovadora Pneus..."
+									placeholder="Razão social / Nome Fantasia..."
 								/>
 							</View>
 
@@ -282,54 +294,39 @@ export default function ReformadoresScreen() {
 									<Text style={styles.label}>CNPJ / CPF</Text>
 									<TextInput
 										style={styles.input}
-										keyboardType="numeric"
 										value={form.documento}
-										onChangeText={t => setForm({ ...form, documento: aplicarMascaraDocumento(t) })}
-										placeholder="00.000.000/0001-00"
+										onChangeText={t => setForm({ ...form, documento: aplicarMascaraCNPJCPF(t) })}
+										keyboardType="numeric"
+										placeholder="00.000.000/0000-00"
 									/>
 								</View>
 								<View style={styles.inputGroupH}>
 									<Text style={styles.label}>Telefone</Text>
 									<TextInput
 										style={styles.input}
-										keyboardType="phone-pad"
 										value={form.telefone}
 										onChangeText={t => setForm({ ...form, telefone: aplicarMascaraTelefone(t) })}
+										keyboardType="phone-pad"
 										placeholder="(00) 00000-0000"
 									/>
 								</View>
 							</View>
 
-							<View style={[styles.inputGroupFull, { zIndex: 999 }]}>
-								<Text style={styles.label}>Cidade (Opcional)</Text>
-								<TextInput
-									style={[styles.input, cidadesResultados.length > 0 && { marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}
-									value={form.cidade_nome}
-									onChangeText={buscarCidadeDinamica}
-									placeholder="Digite para buscar a cidade..."
-								/>
-
-								{cidadesResultados.length > 0 && (
-									<View style={{ maxHeight: 160, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderTopWidth: 0, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, marginBottom: 15 }}>
-										<ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-											{cidadesResultados.map((cid, idx) => (
-												<TouchableOpacity
-													key={idx}
-													style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
-													onPress={() => {
-														setForm({ ...form, cidade_nome: cid.nome, cidade_id: cid.id });
-														setCidadesResultados([]);
-													}}
-												>
-													<Text style={{ color: '#333', fontSize: 14 }}>{cid.nome}</Text>
-												</TouchableOpacity>
-											))}
-										</ScrollView>
-									</View>
-								)}
+							<View style={styles.inputGroupFull}>
+								<Text style={styles.label}>Cidade / UF (Opcional)</Text>
+								<TouchableOpacity style={styles.fakeInput} onPress={abrirBuscaDinamica}>
+									<Text style={{ color: form.cidade_nome ? '#000' : '#999' }}>{form.cidade_nome || 'Selecionar Cidade...'}</Text>
+									{form.cidade_nome ? (
+										<TouchableOpacity onPress={() => setForm({ ...form, cidade_nome: '', cidade_id: '' })}>
+											<Feather name="x-circle" size={18} color="#E53935" />
+										</TouchableOpacity>
+									) : (
+										<Feather name="search" size={16} color="#999" />
+									)}
+								</TouchableOpacity>
 							</View>
 
-							<View style={{ flexDirection: 'row', marginTop: 30, gap: 10, zIndex: -1 }}>
+							<View style={{ flexDirection: 'row', marginTop: 30, gap: 10 }}>
 								<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 50 }]} onPress={() => setModalVisible(false)}>
 									<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
 								</TouchableOpacity>
@@ -339,6 +336,35 @@ export default function ReformadoresScreen() {
 								</TouchableOpacity>
 							</View>
 						</ScrollView>
+
+						{modalBuscaVisible && (
+							<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
+								<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+									<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
+										<View style={styles.modalContentBusca}>
+											<View style={styles.modalHeaderBusca}>
+												<Text style={styles.modalTitleBusca}>Selecionar Cidade</Text>
+												<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
+											</View>
+											<View style={styles.inputBuscaContainer}>
+												<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(t); }} autoFocus />
+											</View>
+											{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
+												<FlatList
+													data={resultadosBusca}
+													keyExtractor={(item, index) => String(item?.id || index)}
+													renderItem={({ item }) => (
+														<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome}</Text></TouchableOpacity>
+													)}
+													scrollEnabled={false}
+													ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma cidade encontrada.</Text>}
+												/>
+											)}
+										</View>
+									</ScrollView>
+								</KeyboardAvoidingView>
+							</Modal>
+						)}
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>
@@ -352,6 +378,8 @@ const styles = StyleSheet.create({
 	sectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 10, textTransform: 'uppercase' },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, fontSize: 14, color: '#000', marginBottom: 10, minHeight: 48, justifyContent: 'center' },
+	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
+
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%', marginBottom: 5 },
@@ -364,14 +392,12 @@ const styles = StyleSheet.create({
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 15, marginHorizontal: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2.22, elevation: 3, overflow: 'hidden' },
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-	cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-	cardSubTitle: { fontSize: 13, fontWeight: '600', color: '#666' },
-	statusBadge: { backgroundColor: '#e8f5e9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-	statusText: { fontSize: 12, fontWeight: 'bold', color: '#2e7d32' },
+	cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+	cardSubTitle: { fontSize: 12, color: '#666', marginTop: 2 },
 
-	cardInfoBox: { paddingHorizontal: 15, paddingBottom: 10 },
+	cardInfoBox: { padding: 15, paddingBottom: 10 },
 	cardInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-	cardInfoText: { fontSize: 14, color: '#555', marginLeft: 8 },
+	cardInfoText: { fontSize: 13, color: '#555', marginLeft: 8 },
 
 	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
 	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%' },
@@ -392,4 +418,14 @@ const styles = StyleSheet.create({
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+
+	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
+	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
+	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
+	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
+	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' }
 });

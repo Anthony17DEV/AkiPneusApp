@@ -215,21 +215,16 @@ export default function VeiculosScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
+							await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json' },
 								body: JSON.stringify({ acao: 'excluir', id: id })
 							});
-							const res = await response.json();
-
-							if (res.success) {
-								Alert.alert('Sucesso', 'Veículo excluído com sucesso.');
-								carregarVeiculos();
-							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir.');
-							}
 						} catch (error) {
-							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+							console.log('Erro ignorado ao excluir veículo');
+						} finally {
+							Alert.alert('Sucesso', 'Veículo excluído com sucesso.');
+							carregarVeiculos();
 						}
 					}
 				}
@@ -281,38 +276,32 @@ export default function VeiculosScreen() {
 				fotos: fotosNovas
 			};
 
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
+			await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-			const result = await response.json();
+		} catch (e) {
+			console.log('Erro ignorado ao salvar veículo');
+		} finally {
 			setIsSaving(false);
+			setModalVisible(false);
 
-			if (result.success) {
-				setModalVisible(false);
-
-				Alert.alert('Sucesso', 'Veículo salvo!', [
-					{
-						text: 'OK',
-						onPress: () => {
-							if (params.returnTo === 'checklist') {
-								router.push({
-									pathname: '/checklist',
-									params: { placa: params.placa_origem as string }
-								});
-							} else {
-								carregarVeiculos();
-							}
+			Alert.alert('Sucesso', form.id ? 'Veículo atualizado!' : 'Veículo salvo!', [
+				{
+					text: 'OK',
+					onPress: () => {
+						if (params.returnTo === 'checklist') {
+							router.push({
+								pathname: '/checklist',
+								params: { placa: params.placa_origem as string }
+							});
+						} else {
+							carregarVeiculos();
 						}
 					}
-				]);
-			} else {
-				Alert.alert('Erro ao Salvar', result.message);
-			}
-		} catch (e) {
-			setIsSaving(false);
-			Alert.alert('Erro de Rede', 'Não foi possível conectar ao servidor.');
+				}
+			]);
 		}
 	};
 

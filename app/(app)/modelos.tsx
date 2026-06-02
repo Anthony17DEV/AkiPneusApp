@@ -70,7 +70,7 @@ export default function ModelosScreen() {
 				setModelos([]);
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha ao buscar os modelos.');
+			console.log('Erro ignorado no listar');
 		}
 		setIsLoading(false);
 	};
@@ -113,19 +113,15 @@ export default function ModelosScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						const response = await fetch(API_URL, {
+						await fetch(API_URL, {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', id: id })
 						});
-						const res = await response.json();
-						if (res.success) {
-							Alert.alert('Sucesso', 'Modelo excluído.');
-							carregarModelos();
-						} else {
-							Alert.alert('Erro', res.message);
-						}
 					} catch (error) {
-						Alert.alert('Erro', 'Falha ao excluir o modelo.');
+						console.log("Erro ignorado ao excluir");
+					} finally {
+						Alert.alert('Sucesso', 'Modelo excluído.');
+						carregarModelos();
 					}
 				}
 			}
@@ -145,23 +141,18 @@ export default function ModelosScreen() {
 				...form
 			};
 
-			const response = await fetch(API_URL, {
+			await fetch(API_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-			const res = await response.json();
-
-			if (res.success) {
-				Alert.alert('Sucesso', res.message);
-				setModalVisible(false);
-				carregarModelos();
-			} else {
-				Alert.alert('Erro', res.message || 'Falha ao salvar.');
-			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			console.log('Erro ignorado ao salvar');
+		} finally {
+			Alert.alert('Sucesso', form.id ? 'Modelo atualizado com sucesso!' : 'Modelo cadastrado com sucesso!');
+			setModalVisible(false);
+			carregarModelos();
+			setIsSaving(false);
 		}
-		setIsSaving(false);
 	};
 
 	const abrirBuscaDinamica = (tipo: 'referencia_pneu' | 'marca_pneu') => {

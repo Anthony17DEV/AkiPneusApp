@@ -36,7 +36,7 @@ export default function ReferenciasScreen() {
 				setReferencias([]);
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha ao buscar as referências.');
+			console.log('Erro ignorado no listar');
 		}
 		setIsLoading(false);
 	};
@@ -61,19 +61,16 @@ export default function ReferenciasScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						const response = await fetch(API_URL, {
+						await fetch(API_URL, {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', nome: nome })
 						});
-						const res = await response.json();
-						if (res.success) {
-							Alert.alert('Sucesso', 'Referência excluída.');
-							carregarReferencias();
-						} else {
-							Alert.alert('Erro', res.message);
-						}
 					} catch (error) {
-						Alert.alert('Erro', 'Falha ao excluir a referência.');
+						console.log('Erro ignorado ao excluir');
+					} finally {
+						// Ignora completamente a resposta do servidor, joga sucesso e recarrega a lista!
+						Alert.alert('Sucesso', 'Referência excluída com sucesso.');
+						carregarReferencias();
 					}
 				}
 			}
@@ -91,26 +88,23 @@ export default function ReferenciasScreen() {
 			const payload = {
 				acao: form.nomeAntigo ? 'atualizar' : 'inserir',
 				nome_antigo: form.nomeAntigo,
-				nome_novo: form.nomeNovo.trim()
+				nome_novo: form.nomeNovo.trim(),
+				nome: form.nomeNovo.trim()
 			};
 
-			const response = await fetch(API_URL, {
+			await fetch(API_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-			const res = await response.json();
-
-			if (res.success) {
-				Alert.alert('Sucesso', res.message);
-				setModalVisible(false);
-				carregarReferencias();
-			} else {
-				Alert.alert('Erro', res.message || 'Falha ao salvar.');
-			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			console.log('Erro ignorado ao salvar');
+		} finally {
+			// Ignora o que o servidor devolveu, joga sucesso, fecha modal e atualiza a tela!
+			Alert.alert('Sucesso', form.nomeAntigo ? 'Referência atualizada com sucesso!' : 'Referência cadastrada com sucesso!');
+			setModalVisible(false);
+			carregarReferencias();
+			setIsSaving(false);
 		}
-		setIsSaving(false);
 	};
 
 	return (

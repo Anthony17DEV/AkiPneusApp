@@ -727,7 +727,7 @@ export default function ChecklistScreen() {
 			</Modal>
 
 			<Modal visible={modalPneuVisible} animationType="slide" onRequestClose={() => setModalPneuVisible(false)}>
-				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
+				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: '#fff' }}>
 
 					<View style={styles.modalHeaderFullScreen}>
 						<TouchableOpacity onPress={() => setModalPneuVisible(false)} style={{ padding: 5 }}>
@@ -741,7 +741,7 @@ export default function ChecklistScreen() {
 						</TouchableOpacity>
 					</View>
 
-					<ScrollView contentContainerStyle={{ padding: 20 }}>
+					<ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
 
 						<Text style={styles.groupTitle}>Identificação do Pneu</Text>
 						<View style={styles.row}>

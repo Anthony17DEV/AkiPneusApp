@@ -615,7 +615,7 @@ export default function PneusScreen() {
 
 			<Modal visible={modalVisible} animationType="slide" transparent={false}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 						<View style={styles.modalHeaderFullScreen}>
 							<TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 5 }}><Feather name="arrow-left" size={24} color="#fff" /></TouchableOpacity>
 
@@ -626,7 +626,7 @@ export default function PneusScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
+						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
 
 							<Text style={styles.groupTitle}>Veículo / Associação</Text>
 
