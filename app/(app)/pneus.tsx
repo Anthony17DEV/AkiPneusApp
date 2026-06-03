@@ -795,8 +795,27 @@ export default function PneusScreen() {
 								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.milimetros} onChangeText={t => setForm({ ...form, milimetros: t.replace(',', '.') })} /></View>
 							</View>
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.pressao_padrao} onChangeText={t => setForm({ ...form, pressao_padrao: t })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.pressao} onChangeText={t => setForm({ ...form, pressao: t })} /></View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>Calib. Padrão (Lbs)</Text>
+									<TextInput style={styles.inputModal} keyboardType="numeric" value={form.pressao_padrao} onChangeText={t => setForm({ ...form, pressao_padrao: t })} />
+								</View>
+								<View style={styles.inputGroupH}>
+									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+										<Text style={[styles.label, { marginBottom: 0 }]}>Calib. Atual</Text>
+										<TouchableOpacity onPress={() => setForm({ ...form, pressao: form.pressao === 'N/M' ? '' : 'N/M' })}>
+											<Text style={{ fontSize: 11, color: form.pressao === 'N/M' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
+												{form.pressao === 'N/M' ? 'LIMPAR' : 'INDISPONÍVEL'}
+											</Text>
+										</TouchableOpacity>
+									</View>
+									<TextInput
+										style={[styles.inputModal, form.pressao === 'N/M' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
+										keyboardType={form.pressao === 'N/M' ? 'default' : 'numeric'}
+										value={form.pressao}
+										onChangeText={t => setForm({ ...form, pressao: t })}
+										placeholder="Lbs"
+									/>
+								</View>
 							</View>
 
 							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>

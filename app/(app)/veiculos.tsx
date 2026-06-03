@@ -104,12 +104,19 @@ export default function VeiculosScreen() {
 	useEffect(() => {
 		const paramId = (params.cliente_id as string) || '';
 		const paramNome = (params.cliente_nome as string) || '';
+		const paramMarca = (params.busca_marca as string) || '';
 
 		setFiltroClienteId(paramId);
 		setFiltroCliente(paramNome);
 
-		buscarVeiculosNaApi(filtroBusca, filtroTipo, paramNome, paramId);
-	}, [params.cliente_id, params.cliente_nome]);
+		let buscaFinal = filtroBusca;
+		if (paramMarca) {
+			setFiltroBusca(paramMarca);
+			buscaFinal = paramMarca;
+		}
+
+		buscarVeiculosNaApi(buscaFinal, filtroTipo, paramNome, paramId);
+	}, [params.cliente_id, params.cliente_nome, params.busca_marca]);
 
 	const buscarVeiculosNaApi = async (buscaStr: string, tipoStr: string, cliNomeStr: string, cliIdStr: string) => {
 		setIsLoading(true);
