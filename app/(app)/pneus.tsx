@@ -12,6 +12,7 @@ import { apiService } from '../../src/services/apiService';
 interface Pneu {
 	id: number; referencia: string; marca: string; modelo: string; dot: string; serie: string; ferro: string;
 	tipo: string; qtde_reforma: string | number; banda: string; placa_associada: string | null;
+	reformador?: string; reformador_id?: string;
 	valor?: string | number; mm_original?: string; milimetros?: string; pressao_padrao?: string; pressao?: string;
 	observacao?: string; referencia_id?: string; marca_id?: string; modelo_id?: string; banda_id?: string; veiculo_id?: string;
 	foto?: string; pneu_tx_foto?: string; motivo_recusa?: string; laud_tx_motivo?: string;
@@ -40,7 +41,7 @@ export default function PneusScreen() {
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
-	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo' | 'entidade' | 'motivo_laudo'>('referencia_pneu');
+	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo' | 'entidade' | 'motivo_laudo' | 'reformador'>('referencia_pneu');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
@@ -54,7 +55,7 @@ export default function PneusScreen() {
 
 	const [form, setForm] = useState({
 		id: '', referencia: '', referencia_id: '', marca: '', marca_id: '', modelo: '', modelo_id: '',
-		valor: '', dot: '', serie: '', ferro: '', tipo: '', grau: '', banda: '', banda_id: '',
+		valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo', grau: '', banda: '', banda_id: '', reformador: '', reformador_id: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
 		placa_associada: '', veiculo_id: '', motivo_recusa: '',
 		ref_mm_original: '', ref_valor: '',
@@ -135,7 +136,7 @@ export default function PneusScreen() {
 
 		setForm({
 			id: '', referencia: '', referencia_id: '', marca: '', marca_id: '', modelo: '', modelo_id: '',
-			valor: '', dot: '', serie: '', ferro: '', tipo: '', grau: '', banda: '', banda_id: '',
+			valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo', grau: '', banda: '', banda_id: '', reformador: '', reformador_id: '',
 			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
 			placa_associada: '', veiculo_id: '', motivo_recusa: '',
 			ref_mm_original: '', ref_valor: '',
@@ -155,8 +156,9 @@ export default function PneusScreen() {
 			valor: item.valor ? formatarValorDB(item.valor) : '',
 			ref_valor: item.valor ? formatarValorDB(item.valor) : '',
 			dot: item.dot || '', serie: item.serie || '', ferro: item.ferro || '',
-			tipo: item.tipo || '', grau: item.qtde_reforma ? item.qtde_reforma.toString() : '',
+			tipo: item.tipo || 'Novo', grau: item.qtde_reforma ? item.qtde_reforma.toString() : '',
 			banda: item.banda || '', banda_id: item.banda_id || '',
+			reformador: item.reformador || '', reformador_id: item.reformador_id || '',
 			mm_original: item.mm_original || '', milimetros: item.milimetros || '',
 			pressao_padrao: item.pressao_padrao || '', pressao: item.pressao || '',
 			observacao: item.observacao || '',
@@ -193,16 +195,24 @@ export default function PneusScreen() {
 								method: 'POST', headers: { 'Content-Type': 'application/json' },
 								body: JSON.stringify({ acao: 'excluir', id: id })
 							});
-							const res = await response.json();
 
-							if (res.success) {
-								Alert.alert('Sucesso', 'Pneu excluído com sucesso.');
-								carregarPneus();
-							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir o pneu.');
+							const textRes = await response.text();
+							let res;
+							try {
+								res = JSON.parse(textRes);
+							} catch (e) {
+								res = { success: true, message: textRes };
 							}
+
+							if (res.success || res.status === 'success' || (res.message && res.message.toLowerCase().includes('sucesso'))) {
+								Alert.alert('Sucesso', 'Pneu excluído com sucesso.');
+							} else {
+								Alert.alert('Aviso', res.message || 'Comando enviado. Verifique se o pneu foi removido da lista.');
+							}
+							carregarPneus();
 						} catch (error) {
 							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+							carregarPneus();
 						}
 					}
 				}
@@ -237,6 +247,11 @@ export default function PneusScreen() {
 				Alert.alert('Atenção', 'As duas primeiras posições do DOT representam a semana de fabricação e devem estar entre 01 e 53.');
 				return;
 			}
+		}
+
+		if (!form.tipo) {
+			Alert.alert('Atenção', 'O campo Tipo (Novo/Reformado) é obrigatório.');
+			return;
 		}
 
 		setIsSaving(true);
@@ -305,10 +320,11 @@ export default function PneusScreen() {
 			}
 		} else {
 			const extras: any = {};
-			if (tipo === 'modelo_pneu') {
-				extras.referencia_id = form.referencia_id;
-				extras.marca_atual = form.marca;
+			if (tipo === 'modelo_pneu' || tipo === 'marca_pneu') {
+				extras.referencia_id = form.referencia_id || form.referencia;
+				if (tipo === 'modelo_pneu') extras.marca_atual = form.marca;
 			}
+
 			const res = await apiService.buscarDinamica(tipo, termo, extras);
 			if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
 		}
@@ -321,6 +337,9 @@ export default function PneusScreen() {
 		}
 		else if (tipoBusca === 'motivo_laudo') {
 			setForm({ ...form, motivo_recusa: item.nome });
+		}
+		else if (tipoBusca === 'reformador') {
+			setForm({ ...form, reformador: item.nome, reformador_id: item.id });
 		}
 		else if (tipoBusca === 'referencia_pneu') {
 			setForm({
@@ -380,7 +399,7 @@ export default function PneusScreen() {
 
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
-			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' ? termoDigitado.trim() : (form.referencia || ''))),
+			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (form.referencia || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (form.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
 			mmOriginal: '', valor: '', sulco: ''
@@ -391,6 +410,7 @@ export default function PneusScreen() {
 
 	const salvarCadastroDinamico = async () => {
 		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
+		if (tipoBusca === 'reformador' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do reformador."); return; }
 		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
 		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
 		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha Referência, Marca, Modelo e o MM Original."); return; }
@@ -405,7 +425,7 @@ export default function PneusScreen() {
 			});
 			const res = await response.json();
 			if (res.success) {
-				if (tipoBusca === 'motivo_laudo') {
+				if (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, isNewModel: true });
 				} else if (tipoBusca === 'referencia_pneu') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true });
@@ -433,7 +453,7 @@ export default function PneusScreen() {
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo'].includes(tipoBusca) && (
+						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador'].includes(tipoBusca) && (
 							<TouchableOpacity
 								style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
 								onPress={() => {
@@ -471,34 +491,38 @@ export default function PneusScreen() {
 
 	const renderCadastroDinamico = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
-			<View style={styles.modalSmall}>
-				<Text style={styles.modalTitle}>
-					Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : 'Modelo'}
-				</Text>
+			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, width: '100%' }}>
+				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+					<View style={styles.modalSmall}>
+						<Text style={styles.modalTitle}>
+							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}
+						</Text>
 
-				{tipoBusca === 'motivo_laudo' && (
-					<><Text style={styles.label}>* Nome do Motivo</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: Furo na lateral..." /></>
-				)}
+						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') && (
+							<><Text style={styles.label}>* Nome</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder={tipoBusca === 'motivo_laudo' ? "Ex: Furo na lateral..." : "Ex: Reformadora Silva..."} /></>
+						)}
 
-				{tipoBusca === 'marca_pneu' && (
-					<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" /><Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." /></>
-				)}
-				{tipoBusca === 'modelo_pneu' && (
-					<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
-				)}
-				{tipoBusca === 'referencia_pneu' && (
-					<><Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
-				)}
-				{tipoBusca === 'banda' && (
-					<><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><Text style={styles.label}>* Sulco (MM)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t })} /></>
-				)}
-				<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
-					<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
-					<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={salvarCadastroDinamico}>
-						{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
-					</TouchableOpacity>
-				</View>
-			</View>
+						{tipoBusca === 'marca_pneu' && (
+							<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" /><Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." /></>
+						)}
+						{tipoBusca === 'modelo_pneu' && (
+							<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t.replace(',', '.') })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
+						)}
+						{tipoBusca === 'referencia_pneu' && (
+							<><Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t.replace(',', '.') })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
+						)}
+						{tipoBusca === 'banda' && (
+							<><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><Text style={styles.label}>* Sulco (MM)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.sulco} onChangeText={t => setFormCadastro({ ...formCadastro, sulco: t.replace(',', '.') })} /></>
+						)}
+						<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
+							<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}><Text style={{ fontWeight: 'bold' }}>Cancelar</Text></TouchableOpacity>
+							<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={salvarCadastroDinamico}>
+								{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
+							</TouchableOpacity>
+						</View>
+					</View>
+				</ScrollView>
+			</KeyboardAvoidingView>
 		</View>
 	);
 
@@ -626,7 +650,7 @@ export default function PneusScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 150 }} keyboardShouldPersistTaps="handled">
 
 							<Text style={styles.groupTitle}>Veículo / Associação</Text>
 
@@ -676,7 +700,7 @@ export default function PneusScreen() {
 									</TouchableOpacity>
 								</View>
 								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Tipo</Text>
+									<Text style={styles.label}>Tipo *</Text>
 									<RNPickerSelect
 										placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
 										value={form.tipo}
@@ -684,7 +708,7 @@ export default function PneusScreen() {
 											if (v !== 'Reformado') {
 												setForm({
 													...form,
-													tipo: v, grau: '', banda: '', banda_id: '',
+													tipo: v || 'Novo', grau: '', banda: '', banda_id: '', reformador: '', reformador_id: '',
 													mm_original: form.ref_mm_original || form.mm_original,
 													valor: form.ref_valor || form.valor
 												});
@@ -718,18 +742,34 @@ export default function PneusScreen() {
 							</View>
 
 							{form.tipo === 'Reformado' && (
-								<View style={[styles.row, { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginBottom: 15 }]}>
-									<View style={styles.inputGroupH}>
-										<Text style={styles.label}>Recapagem</Text>
-										<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={form.grau} onValueChange={v => setForm({ ...form, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, backgroundColor: '#fff' }, inputAndroid: { ...pickerStyles.inputAndroid, backgroundColor: '#fff' } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+								<>
+									<View style={[styles.row, { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginBottom: 15 }]}>
+										<View style={styles.inputGroupH}>
+											<Text style={styles.label}>Recapagem</Text>
+											<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={form.grau} onValueChange={v => setForm({ ...form, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, backgroundColor: '#fff' }, inputAndroid: { ...pickerStyles.inputAndroid, backgroundColor: '#fff' } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+										</View>
+										<View style={styles.inputGroupH}>
+											<Text style={styles.label}>Banda</Text>
+											<TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}>
+												<Text style={{ color: form.banda ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{form.banda || 'Buscar...'}</Text>
+											</TouchableOpacity>
+										</View>
 									</View>
-									<View style={styles.inputGroupH}>
-										<Text style={styles.label}>Banda</Text>
-										<TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}>
-											<Text style={{ color: form.banda ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{form.banda || 'Buscar...'}</Text>
+
+									<View style={{ width: '100%', marginBottom: 15 }}>
+										<Text style={styles.label}>Reformador</Text>
+										<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('reformador')}>
+											<Text style={{ color: form.reformador ? '#000' : '#999' }}>{form.reformador || 'Selecionar Reformador...'}</Text>
+											{form.reformador ? (
+												<TouchableOpacity onPress={() => setForm({ ...form, reformador: '', reformador_id: '' })}>
+													<Feather name="x-circle" size={18} color="#E53935" />
+												</TouchableOpacity>
+											) : (
+												<Feather name="search" size={16} color="#999" />
+											)}
 										</TouchableOpacity>
 									</View>
-								</View>
+								</>
 							)}
 
 							<Text style={styles.groupTitle}>Especificações</Text>
@@ -751,8 +791,8 @@ export default function PneusScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={form.mm_original} onChangeText={t => setForm({ ...form, mm_original: t })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.milimetros} onChangeText={t => setForm({ ...form, milimetros: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={form.mm_original} onChangeText={t => setForm({ ...form, mm_original: t.replace(',', '.') })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.milimetros} onChangeText={t => setForm({ ...form, milimetros: t.replace(',', '.') })} /></View>
 							</View>
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.pressao_padrao} onChangeText={t => setForm({ ...form, pressao_padrao: t })} /></View>

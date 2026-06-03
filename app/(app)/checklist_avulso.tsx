@@ -108,7 +108,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const [formPneu, setFormPneu] = useState({
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
-		valor: '', dot: '', serie: '', ferro: '', tipo: '',
+		valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '',
 		grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: '',
 		veiculo_id: '', placa: '', reformador_id: '', reformador_nome: '',
@@ -308,7 +308,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const resetFormPneu = () => {
 		setFormPneu({
-			id: '', referencia: '', referencia_nome: '', marca: '', modelo: '', valor: '', dot: '', serie: '', ferro: '', tipo: '',
+			id: '', referencia: '', referencia_nome: '', marca: '', modelo: '', valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo',
 			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: '',
 			veiculo_id: '', placa: '', reformador_id: '', reformador_nome: '', ref_mm_original: '', ref_valor: ''
 		});
@@ -323,6 +323,7 @@ export default function ChecklistAvulsoScreen() {
 		setFormPneu({
 			...formPneu,
 			...pneuMock,
+			tipo: pneuMock.tipo || 'Novo',
 			motivo_recusa: pneuMock.motivo_recusa || '',
 			ref_mm_original: pneuMock.mm_original || '',
 			veiculo_id: pneuMock.veiculo_id || '',
@@ -345,6 +346,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarPneu = async () => {
+		if (!formPneu.tipo) { Alert.alert('Atenção', 'O campo Tipo (Novo/Reformado) é obrigatório.'); return; }
 		if (!formPneu.serie || !formPneu.milimetros) { Alert.alert('Atenção', 'Série e Sulco são obrigatórios.'); return; }
 
 		if (formPneu.dot) {
@@ -442,7 +444,11 @@ export default function ChecklistAvulsoScreen() {
 				setResultadosBusca([]);
 			}
 		} else {
-			const extras = { referencia_id: formPneu.referencia, marca_atual: formPneu.marca };
+			const extras: any = {};
+			if (tipo === 'modelo_pneu' || tipo === 'marca_pneu') {
+				extras.referencia_id = formPneu.referencia;
+				if (tipo === 'modelo_pneu') extras.marca_atual = formPneu.marca;
+			}
 			const res = await apiService.buscarDinamica(tipo, termo, extras);
 			setResultadosBusca(res && res.success ? res.data : []);
 		}
@@ -542,7 +548,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const renderBuscaDinamica = () => (
 		<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
 				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalContentBusca}>
 						<View style={styles.modalHeaderBusca}>
@@ -577,7 +583,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const renderCadastroDinamico = () => (
 		<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
-			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
 				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
@@ -917,7 +923,7 @@ export default function ChecklistAvulsoScreen() {
 							<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}><Feather name="power" size={22} color="#fff" /></TouchableOpacity>
 						</View>
 
-						<ScrollView contentContainerStyle={{ padding: 20 }}>
+						<ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 150 }}>
 							<Text style={styles.groupTitle}>Identificação do Pneu</Text>
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}>
@@ -936,7 +942,7 @@ export default function ChecklistAvulsoScreen() {
 											if (v !== 'Reformado') {
 												setFormPneu({
 													...formPneu,
-													tipo: v, grau: '', banda: '', banda_nome: '', reformador_id: '', reformador_nome: '',
+													tipo: v || 'Novo', grau: '', banda: '', banda_nome: '', reformador_id: '', reformador_nome: '',
 													mm_original: formPneu.ref_mm_original || formPneu.mm_original,
 													valor: formPneu.ref_valor || formPneu.valor
 												});
@@ -1026,8 +1032,8 @@ export default function ChecklistAvulsoScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t.replace(',', '.') })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t.replace(',', '.') })} /></View>
 							</View>
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} /></View>

@@ -26,7 +26,6 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 
 	return (
 		<View style={{ flex: 1 }}>
-			{/* PARTE QUE ROLA (CABEÇALHO + ITENS) */}
 			<DrawerContentScrollView {...props}>
 				<View style={styles.drawerHeader}>
 					{user?.foto ? (
@@ -145,6 +144,16 @@ export default function AppLayout() {
 						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
 					),
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="truck-outline" size={size} color={color} />,
+				}}
+			/>
+			<Drawer.Screen
+				name="marcas_veiculos"
+				options={{
+					drawerLabel: 'Marca de Veículos',
+					headerTitle: () => (
+						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
+					),
+					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="car" size={size} color={color} />,
 				}}
 			/>
 			<Drawer.Screen
