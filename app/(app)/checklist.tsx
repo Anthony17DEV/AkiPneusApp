@@ -252,7 +252,7 @@ export default function ChecklistScreen() {
 			banda: dbData.pneu_tx_banda || '',
 			banda_nome: dbData.banda_nome || dbData.pneu_tx_banda || '',
 			reformador: dbData.reformador || dbData.pneu_tx_reformador || '',
-			reformador_id: dbData.reformador_id || '',
+			reformador_id: dbData.reformador_id || dbData.pneu_nb_reformador || '',
 			observacao: dbData.pneu_tx_observacao || '',
 			motivo_recusa: dbData.motivo_recusa || dbData.laud_tx_motivo || '',
 			pressao_padrao: dbData.pneu_tx_pressaoPadrao?.toString() || veiculo?.calibragem_padrao || '',
@@ -310,7 +310,11 @@ export default function ChecklistScreen() {
 
 		const dadosParaSalvar = {
 			...formPneu,
+			motivo_recusa: formPneu.motivo_recusa,
 			laud_tx_motivo: formPneu.motivo_recusa,
+			reformador_id: formPneu.reformador_id,
+			reformador_nome: formPneu.reformador,
+			pneu_tx_reformador: formPneu.reformador,
 			valor: formPneu.valor.replace(/\./g, ''),
 			veiculo_id: veiculo?.id,
 			checklist_id: idChecklistAtivo,
@@ -387,21 +391,12 @@ export default function ChecklistScreen() {
 			setFormPneu({ ...formPneu, reformador: item.nome, reformador_id: item.id });
 		}
 		else if (tipoBusca === 'referencia_pneu') {
-			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || '');
-			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '');
-
 			setFormPneu({
 				...formPneu,
 				referencia: item.id || item.refe_nb_id,
 				referencia_nome: item.nome || item.refe_tx_nome,
-
 				marca: item.isNewModel ? (formCadastro.marca || '') : '',
 				modelo: item.isNewModel ? (formCadastro.modelo || '') : '',
-
-				ref_mm_original: refMm,
-				ref_valor: refVal,
-				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
-				valor: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.valor : refVal
 			});
 		}
 		else if (tipoBusca === 'marca_pneu') {
@@ -410,8 +405,6 @@ export default function ChecklistScreen() {
 				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
 				marca: item.nome || item.refe_tx_marca,
 				modelo: '',
-				mm_original: '',
-				valor: ''
 			});
 		}
 		else if (tipoBusca === 'modelo_pneu') {
@@ -466,7 +459,14 @@ export default function ChecklistScreen() {
 
 		setIsCadastrando(true);
 		try {
-			const dadosCadastro = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
+			const dadosCadastro = {
+				tipo: tipoBusca,
+				...formCadastro,
+				nome: formCadastro.nome.toUpperCase(),
+				marca: formCadastro.marca.toUpperCase(),
+				modelo: formCadastro.modelo.toUpperCase(),
+				valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : ''
+			};
 
 			const response = await fetch(API_CADASTRO_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosCadastro)
@@ -783,8 +783,8 @@ export default function ChecklistScreen() {
 											setFormPneu({
 												...formPneu,
 												tipo: v || 'Novo', grau: '', banda: '', banda_nome: '', reformador: '', reformador_id: '',
-												mm_original: formPneu.ref_mm_original || formPneu.mm_original,
-												valor: formPneu.ref_valor || formPneu.valor
+												mm_original: (formPneu.modelo || formPneu.banda) ? (formPneu.ref_mm_original || formPneu.mm_original) : '',
+												valor: (formPneu.modelo || formPneu.banda) ? (formPneu.ref_valor || formPneu.valor) : ''
 											});
 										} else {
 											setFormPneu({ ...formPneu, tipo: v });
@@ -883,7 +883,7 @@ export default function ChecklistScreen() {
 									<Text style={[styles.label, { marginBottom: 0 }]}>Calib. Atual</Text>
 									<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, pressao: formPneu.pressao === 'N/M' ? '' : 'N/M' })}>
 										<Text style={{ fontSize: 11, color: formPneu.pressao === 'N/M' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
-											{formPneu.pressao === 'N/M' ? 'LIMPAR' : 'INDISPONÍVEL'}
+											{formPneu.pressao === 'N/M' ? 'LIMPAR' : 'NÃO MEDIDA'}
 										</Text>
 									</TouchableOpacity>
 								</View>

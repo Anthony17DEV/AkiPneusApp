@@ -1,8 +1,10 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -61,6 +63,40 @@ export default function PneusScreen() {
 		ref_mm_original: '', ref_valor: '',
 		cliente: '', cliente_id: ''
 	});
+
+	const baixarECompartilharPDF = async (url: string, nomeArquivo: string) => {
+		try {
+			// @ts-ignore - Ignora o erro de tipagem falso do VS Code/TypeScript
+			const dir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+
+			if (!dir) {
+				Alert.alert('Erro', 'O Expo Go não conseguiu acessar a pasta do celular.');
+				return;
+			}
+
+			const fileUri = `${dir}${nomeArquivo}.pdf`;
+
+			const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+
+			if (downloadResult.status === 200) {
+				const canShare = await Sharing.isAvailableAsync();
+
+				if (canShare) {
+					await Sharing.shareAsync(downloadResult.uri, {
+						mimeType: 'application/pdf',
+						dialogTitle: 'Enviar PDF para...',
+						UTI: 'com.adobe.pdf'
+					});
+				} else {
+					Alert.alert('Aviso', 'A função de compartilhar está bloqueada neste aparelho.');
+				}
+			} else {
+				Alert.alert('Erro de Servidor', `O arquivo não pôde ser baixado (Status: ${downloadResult.status}).`);
+			}
+		} catch (error: any) {
+			Alert.alert('Erro Fatal', error.message || 'Ocorreu um erro desconhecido.');
+		}
+	};
 
 	const confirmSignOut = () => {
 		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
@@ -264,7 +300,10 @@ export default function PneusScreen() {
 
 		const dadosParaSalvar = {
 			...form,
-			valor: form.valor.replace(/\./g, ''),
+			reformador_id: form.reformador_id,
+			reformador_nome: form.reformador,
+			pneu_tx_reformador: form.reformador,
+			valor: form.valor ? String(form.valor).replace(/\./g, '') : '',
 			user_id: user?.id,
 			cliente_id: form.cliente_id || params?.cliente_id || filtroClienteId,
 			fotos_novas: fotosNovas,
@@ -349,9 +388,7 @@ export default function PneusScreen() {
 				marca: item.isNewModel ? (formCadastro.marca || '') : '',
 				marca_id: item.isNewModel ? '' : '',
 				modelo: item.isNewModel ? (formCadastro.modelo || '') : '',
-				modelo_id: item.isNewModel ? '' : '',
-				mm_original: item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || ''),
-				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '')
+				modelo_id: item.isNewModel ? '' : ''
 			});
 		} else if (tipoBusca === 'marca_pneu') {
 			setForm({
@@ -709,8 +746,8 @@ export default function PneusScreen() {
 												setForm({
 													...form,
 													tipo: v || 'Novo', grau: '', banda: '', banda_id: '', reformador: '', reformador_id: '',
-													mm_original: form.ref_mm_original || form.mm_original,
-													valor: form.ref_valor || form.valor
+													mm_original: (form.modelo || form.banda) ? (form.ref_mm_original || form.mm_original) : '',
+													valor: (form.modelo || form.banda) ? (form.ref_valor || form.valor) : ''
 												});
 											} else {
 												setForm({ ...form, tipo: v });
@@ -868,7 +905,7 @@ export default function PneusScreen() {
 								</TouchableOpacity>
 
 								{form.id ? (
-									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`)}>
+									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => baixarECompartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`, `Ficha_Pneu_${form.id}`)}>
 										<Feather name="printer" size={18} color="#fff" />
 										<Text style={styles.btnImprimirText}>Imprimir</Text>
 									</TouchableOpacity>
