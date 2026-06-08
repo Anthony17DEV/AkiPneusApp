@@ -1,10 +1,8 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -63,40 +61,6 @@ export default function PneusScreen() {
 		ref_mm_original: '', ref_valor: '',
 		cliente: '', cliente_id: ''
 	});
-
-	const baixarECompartilharPDF = async (url: string, nomeArquivo: string) => {
-		try {
-			// @ts-ignore - Ignora o erro de tipagem falso do VS Code/TypeScript
-			const dir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
-
-			if (!dir) {
-				Alert.alert('Erro', 'O Expo Go não conseguiu acessar a pasta do celular.');
-				return;
-			}
-
-			const fileUri = `${dir}${nomeArquivo}.pdf`;
-
-			const downloadResult = await FileSystem.downloadAsync(url, fileUri);
-
-			if (downloadResult.status === 200) {
-				const canShare = await Sharing.isAvailableAsync();
-
-				if (canShare) {
-					await Sharing.shareAsync(downloadResult.uri, {
-						mimeType: 'application/pdf',
-						dialogTitle: 'Enviar PDF para...',
-						UTI: 'com.adobe.pdf'
-					});
-				} else {
-					Alert.alert('Aviso', 'A função de compartilhar está bloqueada neste aparelho.');
-				}
-			} else {
-				Alert.alert('Erro de Servidor', `O arquivo não pôde ser baixado (Status: ${downloadResult.status}).`);
-			}
-		} catch (error: any) {
-			Alert.alert('Erro Fatal', error.message || 'Ocorreu um erro desconhecido.');
-		}
-	};
 
 	const confirmSignOut = () => {
 		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
@@ -905,7 +869,7 @@ export default function PneusScreen() {
 								</TouchableOpacity>
 
 								{form.id ? (
-									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => baixarECompartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`, `Ficha_Pneu_${form.id}`)}>
+									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`)}>
 										<Feather name="printer" size={18} color="#fff" />
 										<Text style={styles.btnImprimirText}>Imprimir</Text>
 									</TouchableOpacity>
