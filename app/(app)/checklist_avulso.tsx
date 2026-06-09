@@ -1,8 +1,11 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -65,8 +68,13 @@ export default function ChecklistAvulsoScreen() {
 			Alert.alert('Atenção', 'Selecione pelo menos duas análises para consolidar.');
 			return;
 		}
-		setRelatorioTarget('consolidado');
-		setModalRelatorioVisible(true);
+
+		setModalConsolidarVisible(false);
+
+		setTimeout(() => {
+			setRelatorioTarget('consolidado');
+			setModalRelatorioVisible(true);
+		}, 300);
 	};
 
 	const abrirOpcoesRelatorioSingle = (id: number) => {
@@ -75,14 +83,53 @@ export default function ChecklistAvulsoScreen() {
 		setModalRelatorioVisible(true);
 	};
 
-	const confirmarGeracaoRelatorio = () => {
+	const compartilharPDF = async (url: string, nomeDoArquivo: string) => {
+		try {
+			Alert.alert('Aguarde', 'Gerando os gráficos e preparando o PDF...');
+
+			const resposta = await fetch(url);
+			const htmlConteudo = await resposta.text();
+
+			const { uri } = await Print.printToFileAsync({
+				html: htmlConteudo
+			});
+
+			// @ts-ignore
+			const diretorio = FileSystem.documentDirectory;
+			const fileUriLocal = `${diretorio}${nomeDoArquivo}.pdf`;
+
+			await FileSystem.deleteAsync(fileUriLocal, { idempotent: true });
+			await FileSystem.moveAsync({
+				from: uri,
+				to: fileUriLocal
+			});
+
+			const isAvailable = await Sharing.isAvailableAsync();
+			if (isAvailable) {
+				await Sharing.shareAsync(fileUriLocal, {
+					mimeType: 'application/pdf',
+					dialogTitle: 'Enviar PDF',
+					UTI: 'com.adobe.pdf'
+				});
+			} else {
+				Alert.alert('Aviso', 'O compartilhamento não está disponível no seu aparelho.');
+			}
+		} catch (error) {
+			console.error("Erro ao gerar PDF:", error);
+			Alert.alert('Erro', 'Não foi possível gerar ou enviar o PDF.');
+		}
+	};
+
+	const confirmarGeracaoRelatorio = async () => {
 		const qp = `p_geral=${opcoesRelatorio.geral ? 1 : 0}&p_prejuizo=${opcoesRelatorio.prejuizo ? 1 : 0}&p_motivo=${opcoesRelatorio.motivo ? 1 : 0}&p_fotos=${opcoesRelatorio.fotos ? 1 : 0}&p_recap=${opcoesRelatorio.recapabilidade ? 1 : 0}&p_tempo=${opcoesRelatorio.tempo ? 1 : 0}`;
 
 		if (relatorioTarget === 'single' && relatorioTargetId) {
-			Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}`);
+			const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}`;
+			await compartilharPDF(url, `Relatorio_Analise_${relatorioTargetId}`);
 		} else if (relatorioTarget === 'consolidado') {
 			const idsStr = selectedChecklists.join(',');
-			Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}`);
+			const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}`;
+			await compartilharPDF(url, `Relatorio_Consolidado_${Date.now()}`);
 
 			setModalConsolidarVisible(false);
 			setSelectedChecklists([]);
@@ -1109,9 +1156,18 @@ export default function ChecklistAvulsoScreen() {
 								</TouchableOpacity>
 
 								{formPneu.id ? (
-									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`)}>
-										<Feather name="printer" size={18} color="#fff" />
-										<Text style={styles.btnImprimirText}>Imprimir</Text>
+									<TouchableOpacity
+										style={[styles.btnImprimir, { flex: 1.2, height: 50, paddingHorizontal: 2 }]}
+										onPress={() => compartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`, `Laudo_Pneu_${formPneu.id}`)}
+									>
+										<Feather name="printer" size={16} color="#fff" />
+										<Text
+											style={[styles.btnImprimirText, { fontSize: 13, marginLeft: 5 }]}
+											numberOfLines={1}
+											adjustsFontSizeToFit
+										>
+											Imprimir
+										</Text>
 									</TouchableOpacity>
 								) : null}
 

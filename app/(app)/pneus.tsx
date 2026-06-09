@@ -1,8 +1,11 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -75,6 +78,43 @@ export default function PneusScreen() {
 		v = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
 		v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 		return v;
+	};
+
+	const compartilharPDF = async (url: string, nomeDoArquivo: string) => {
+		try {
+			Alert.alert('Aguarde', 'Gerando documento e preparando o envio...');
+
+			const resposta = await fetch(url);
+			const htmlConteudo = await resposta.text();
+
+			const { uri } = await Print.printToFileAsync({
+				html: htmlConteudo
+			});
+
+			// @ts-ignore
+			const diretorio = FileSystem.documentDirectory;
+			const fileUriLocal = `${diretorio}${nomeDoArquivo}.pdf`;
+
+			await FileSystem.deleteAsync(fileUriLocal, { idempotent: true });
+			await FileSystem.moveAsync({
+				from: uri,
+				to: fileUriLocal
+			});
+
+			const isAvailable = await Sharing.isAvailableAsync();
+			if (isAvailable) {
+				await Sharing.shareAsync(fileUriLocal, {
+					mimeType: 'application/pdf',
+					dialogTitle: 'Enviar PDF',
+					UTI: 'com.adobe.pdf'
+				});
+			} else {
+				Alert.alert('Aviso', 'O compartilhamento não está disponível no seu aparelho.');
+			}
+		} catch (error) {
+			console.error("Erro ao gerar PDF:", error);
+			Alert.alert('Erro', 'Não foi possível gerar ou enviar o PDF.');
+		}
 	};
 
 	const formatarValorDB = (val: any) => {
@@ -869,9 +909,18 @@ export default function PneusScreen() {
 								</TouchableOpacity>
 
 								{form.id ? (
-									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`)}>
-										<Feather name="printer" size={18} color="#fff" />
-										<Text style={styles.btnImprimirText}>Imprimir</Text>
+									<TouchableOpacity
+										style={[styles.btnImprimir, { flex: 1.2, height: 50, paddingHorizontal: 2 }]}
+										onPress={() => compartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`, `Laudo_Pneu_${form.id}`)}
+									>
+										<Feather name="printer" size={16} color="#fff" />
+										<Text
+											style={[styles.btnImprimirText, { fontSize: 13, marginLeft: 5 }]}
+											numberOfLines={1}
+											adjustsFontSizeToFit
+										>
+											Imprimir
+										</Text>
 									</TouchableOpacity>
 								) : null}
 
