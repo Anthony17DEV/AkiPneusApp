@@ -5,7 +5,7 @@ import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -68,13 +68,8 @@ export default function ChecklistAvulsoScreen() {
 			Alert.alert('Atenção', 'Selecione pelo menos duas análises para consolidar.');
 			return;
 		}
-
-		setModalConsolidarVisible(false);
-
-		setTimeout(() => {
-			setRelatorioTarget('consolidado');
-			setModalRelatorioVisible(true);
-		}, 300);
+		setRelatorioTarget('consolidado');
+		setModalRelatorioVisible(true);
 	};
 
 	const abrirOpcoesRelatorioSingle = (id: number) => {
@@ -83,60 +78,50 @@ export default function ChecklistAvulsoScreen() {
 		setModalRelatorioVisible(true);
 	};
 
-	const compartilharPDF = async (url: string, nomeDoArquivo: string) => {
-		try {
-			Alert.alert('Aguarde', 'Gerando os gráficos e preparando o PDF...');
-
-			const resposta = await fetch(url);
-			const htmlConteudo = await resposta.text();
-
-			const { uri } = await Print.printToFileAsync({
-				html: htmlConteudo
-			});
-
-			// @ts-ignore
-			const diretorio = FileSystem.documentDirectory;
-			const fileUriLocal = `${diretorio}${nomeDoArquivo}.pdf`;
-
-			await FileSystem.deleteAsync(fileUriLocal, { idempotent: true });
-			await FileSystem.moveAsync({
-				from: uri,
-				to: fileUriLocal
-			});
-
-			const isAvailable = await Sharing.isAvailableAsync();
-			if (isAvailable) {
-				await Sharing.shareAsync(fileUriLocal, {
-					mimeType: 'application/pdf',
-					dialogTitle: 'Enviar PDF',
-					UTI: 'com.adobe.pdf'
-				});
-			} else {
-				Alert.alert('Aviso', 'O compartilhamento não está disponível no seu aparelho.');
-			}
-		} catch (error) {
-			console.error("Erro ao gerar PDF:", error);
-			Alert.alert('Erro', 'Não foi possível gerar ou enviar o PDF.');
-		}
-	};
-
-	const confirmarGeracaoRelatorio = async () => {
+	const confirmarGeracaoRelatorio = () => {
 		const qp = `p_geral=${opcoesRelatorio.geral ? 1 : 0}&p_prejuizo=${opcoesRelatorio.prejuizo ? 1 : 0}&p_motivo=${opcoesRelatorio.motivo ? 1 : 0}&p_fotos=${opcoesRelatorio.fotos ? 1 : 0}&p_recap=${opcoesRelatorio.recapabilidade ? 1 : 0}&p_tempo=${opcoesRelatorio.tempo ? 1 : 0}`;
 
+		let urlApi = '';
 		if (relatorioTarget === 'single' && relatorioTargetId) {
-			const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}`;
-			await compartilharPDF(url, `Relatorio_Analise_${relatorioTargetId}`);
+			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}`;
 		} else if (relatorioTarget === 'consolidado') {
 			const idsStr = selectedChecklists.join(',');
-			const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}`;
-			await compartilharPDF(url, `Relatorio_Consolidado_${Date.now()}`);
-
+			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}`;
 			setModalConsolidarVisible(false);
 			setSelectedChecklists([]);
 			setTimeout(() => { carregarChecklists(); }, 1500);
 		}
 
 		setModalRelatorioVisible(false);
+		if (urlApi) {
+			gerarRelatorioPDFApp(urlApi);
+		}
+	};
+
+	const gerarRelatorioPDFApp = async (url: string) => {
+		setIsLoading(true);
+		try {
+			const resHTML = await fetch(url);
+			const htmlContent = await resHTML.text();
+
+			const { uri } = await Print.printToFileAsync({
+				html: htmlContent,
+				base64: false
+			});
+
+			const pdfName = `Relatorio_Sucata_${new Date().getTime()}.pdf`;
+			const newUri = FileSystem.documentDirectory + pdfName;
+			await FileSystem.moveAsync({ from: uri, to: newUri });
+
+			if (await Sharing.isAvailableAsync()) {
+				await Sharing.shareAsync(newUri);
+			} else {
+				Alert.alert('Sucesso', 'PDF gerado, mas o compartilhamento não é suportado neste dispositivo.');
+			}
+		} catch (error) {
+			Alert.alert('Erro', 'Falha ao gerar o relatório em PDF.');
+		}
+		setIsLoading(false);
 	};
 
 	const renderOptionToggle = (key: keyof typeof opcoesRelatorio, label: string) => (
@@ -155,7 +140,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const [formPneu, setFormPneu] = useState({
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
-		valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo',
+		valor: '', dot: '', serie: '', ferro: '', tipo: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '',
 		grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: '',
 		veiculo_id: '', placa: '', reformador_id: '', reformador_nome: '',
@@ -242,6 +227,11 @@ export default function ChecklistAvulsoScreen() {
 	const getDataHojeFormatada = () => {
 		const hoje = new Date();
 		return `${hoje.getDate().toString().padStart(2, '0')}/${(hoje.getMonth() + 1).toString().padStart(2, '0')}/${hoje.getFullYear()}`;
+	};
+
+	const getIsoHoje = () => {
+		const hoje = new Date();
+		return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 	};
 
 	const carregarChecklists = async () => {
@@ -355,7 +345,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const resetFormPneu = () => {
 		setFormPneu({
-			id: '', referencia: '', referencia_nome: '', marca: '', modelo: '', valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo',
+			id: '', referencia: '', referencia_nome: '', marca: '', modelo: '', valor: '', dot: '', serie: '', ferro: '', tipo: '',
 			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', grau: '', banda: '', banda_nome: '', observacao: '', motivo_recusa: '',
 			veiculo_id: '', placa: '', reformador_id: '', reformador_nome: '', ref_mm_original: '', ref_valor: ''
 		});
@@ -370,7 +360,6 @@ export default function ChecklistAvulsoScreen() {
 		setFormPneu({
 			...formPneu,
 			...pneuMock,
-			tipo: pneuMock.tipo || 'Novo',
 			motivo_recusa: pneuMock.motivo_recusa || '',
 			ref_mm_original: pneuMock.mm_original || '',
 			veiculo_id: pneuMock.veiculo_id || '',
@@ -393,7 +382,6 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarPneu = async () => {
-		if (!formPneu.tipo) { Alert.alert('Atenção', 'O campo Tipo (Novo/Reformado) é obrigatório.'); return; }
 		if (!formPneu.serie || !formPneu.milimetros) { Alert.alert('Atenção', 'Série e Sulco são obrigatórios.'); return; }
 
 		if (formPneu.dot) {
@@ -491,11 +479,7 @@ export default function ChecklistAvulsoScreen() {
 				setResultadosBusca([]);
 			}
 		} else {
-			const extras: any = {};
-			if (tipo === 'modelo_pneu' || tipo === 'marca_pneu') {
-				extras.referencia_id = formPneu.referencia;
-				if (tipo === 'modelo_pneu') extras.marca_atual = formPneu.marca;
-			}
+			const extras = { referencia_id: formPneu.referencia, marca_atual: formPneu.marca };
 			const res = await apiService.buscarDinamica(tipo, termo, extras);
 			setResultadosBusca(res && res.success ? res.data : []);
 		}
@@ -919,12 +903,15 @@ export default function ChecklistAvulsoScreen() {
 								<Text style={styles.btnVoltarBrancoText}>Voltar</Text>
 							</View>
 						</TouchableOpacity>
-						<TouchableOpacity style={styles.btnNovoChecklist} onPress={abrirModalNovoPneu}>
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<Feather name="plus-circle" size={18} color="#fff" />
-								<Text style={styles.btnNovoChecklistText}>Inserir Pneu</Text>
-							</View>
-						</TouchableOpacity>
+
+						{checklistAtivo.data === getIsoHoje() && (
+							<TouchableOpacity style={styles.btnNovoChecklist} onPress={abrirModalNovoPneu}>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<Feather name="plus-circle" size={18} color="#fff" />
+									<Text style={styles.btnNovoChecklistText}>Inserir Pneu</Text>
+								</View>
+							</TouchableOpacity>
+						)}
 					</View>
 
 					<ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
@@ -970,7 +957,7 @@ export default function ChecklistAvulsoScreen() {
 							<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}><Feather name="power" size={22} color="#fff" /></TouchableOpacity>
 						</View>
 
-						<ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 150 }}>
+						<ScrollView contentContainerStyle={{ padding: 20 }}>
 							<Text style={styles.groupTitle}>Identificação do Pneu</Text>
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}>
@@ -989,7 +976,7 @@ export default function ChecklistAvulsoScreen() {
 											if (v !== 'Reformado') {
 												setFormPneu({
 													...formPneu,
-													tipo: v || 'Novo', grau: '', banda: '', banda_nome: '', reformador_id: '', reformador_nome: '',
+													tipo: v, grau: '', banda: '', banda_nome: '', reformador_id: '', reformador_nome: '',
 													mm_original: formPneu.ref_mm_original || formPneu.mm_original,
 													valor: formPneu.ref_valor || formPneu.valor
 												});
@@ -1079,31 +1066,12 @@ export default function ChecklistAvulsoScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t.replace(',', '.') })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t.replace(',', '.') })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
 							</View>
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Calib. Padrão (Lbs)</Text>
-									<TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} />
-								</View>
-								<View style={styles.inputGroupH}>
-									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-										<Text style={[styles.label, { marginBottom: 0 }]}>Calib. Atual</Text>
-										<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, pressao: formPneu.pressao === 'N/M' ? '' : 'N/M' })}>
-											<Text style={{ fontSize: 11, color: formPneu.pressao === 'N/M' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
-												{formPneu.pressao === 'N/M' ? 'LIMPAR' : 'INDISPONÍVEL'}
-											</Text>
-										</TouchableOpacity>
-									</View>
-									<TextInput
-										style={[styles.inputModal, formPneu.pressao === 'N/M' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
-										keyboardType={formPneu.pressao === 'N/M' ? 'default' : 'numeric'}
-										value={formPneu.pressao}
-										onChangeText={t => setFormPneu({ ...formPneu, pressao: t })}
-										placeholder="Lbs"
-									/>
-								</View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
 							</View>
 
 							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
@@ -1156,18 +1124,9 @@ export default function ChecklistAvulsoScreen() {
 								</TouchableOpacity>
 
 								{formPneu.id ? (
-									<TouchableOpacity
-										style={[styles.btnImprimir, { flex: 1.2, height: 50, paddingHorizontal: 2 }]}
-										onPress={() => compartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`, `Laudo_Pneu_${formPneu.id}`)}
-									>
-										<Feather name="printer" size={16} color="#fff" />
-										<Text
-											style={[styles.btnImprimirText, { fontSize: 13, marginLeft: 5 }]}
-											numberOfLines={1}
-											adjustsFontSizeToFit
-										>
-											Imprimir
-										</Text>
+									<TouchableOpacity style={[styles.btnImprimir, { flex: 1, height: 50 }]} onPress={() => Linking.openURL(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`)}>
+										<Feather name="printer" size={18} color="#fff" />
+										<Text style={styles.btnImprimirText}>Imprimir</Text>
 									</TouchableOpacity>
 								) : null}
 
