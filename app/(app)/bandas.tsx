@@ -6,6 +6,7 @@ import LogoSolutires from '../../assets/images/solutires.png';
 
 interface Banda {
 	id: number;
+	referencia: string;
 	marca: string;
 	modelo: string;
 	sulco: string;
@@ -15,6 +16,7 @@ interface Banda {
 export default function BandasScreen() {
 	const router = useRouter();
 	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_bandas.php';
+	const API_BUSCA_URL = 'https://sistemascactus.com/apicactus/akipneus/api_busca_dinamica.php';
 
 	const [bandas, setBandas] = useState<Banda[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -25,8 +27,13 @@ export default function BandasScreen() {
 
 	const [modalVisible, setModalVisible] = useState(false);
 
+	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
+	const [termoComboBusca, setTermoComboBusca] = useState('');
+	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
+	const [isSearching, setIsSearching] = useState(false);
+
 	const [form, setForm] = useState({
-		id: '', marca: '', modelo: '', sulco: '', valor: ''
+		id: '', referencia: '', marca: '', modelo: '', sulco: '', valor: ''
 	});
 
 	const formatarMoeda = (text: string) => {
@@ -70,13 +77,14 @@ export default function BandasScreen() {
 	}, []);
 
 	const resetForm = () => {
-		setForm({ id: '', marca: '', modelo: '', sulco: '', valor: '' });
+		setForm({ id: '', referencia: '', marca: '', modelo: '', sulco: '', valor: '' });
 	};
 
 	const handleEditar = (item: Banda) => {
 		resetForm();
 		setForm({
 			id: String(item.id),
+			referencia: item.referencia || '',
 			marca: item.marca,
 			modelo: item.modelo,
 			sulco: String(item.sulco),
@@ -98,7 +106,6 @@ export default function BandasScreen() {
 					} catch (error) {
 						console.log("Erro ignorado ao excluir");
 					} finally {
-						// Ignora completamente a resposta, joga sucesso e recarrega a lista!
 						Alert.alert('Sucesso', 'Banda excluída.');
 						carregarBandas();
 					}
@@ -108,8 +115,8 @@ export default function BandasScreen() {
 	};
 
 	const salvarBanda = async () => {
-		if (!form.marca.trim() || !form.modelo.trim() || !form.sulco.trim()) {
-			Alert.alert('Atenção', 'Marca, Modelo e Sulco são campos obrigatórios.');
+		if (!form.referencia.trim() || !form.marca.trim() || !form.modelo.trim() || !form.sulco.trim()) {
+			Alert.alert('Atenção', 'Referência, Marca, Modelo e Sulco são campos obrigatórios.');
 			return;
 		}
 
@@ -127,13 +134,80 @@ export default function BandasScreen() {
 		} catch (error) {
 			console.log("Erro ignorado ao salvar");
 		} finally {
-			// Ignora o que o servidor devolveu, joga sucesso, fecha modal e atualiza!
 			Alert.alert('Sucesso', form.id ? 'Banda atualizada com sucesso!' : 'Banda cadastrada com sucesso!');
 			setModalVisible(false);
 			carregarBandas();
 			setIsSaving(false);
 		}
 	};
+
+	const abrirBuscaDinamica = () => {
+		setTermoComboBusca('');
+		setResultadosBusca([]);
+		setModalBuscaVisible(true);
+		buscarDinamicaNoBanco('');
+	};
+
+	const buscarDinamicaNoBanco = async (termo: string) => {
+		setIsSearching(true);
+		try {
+			const res = await fetch(API_BUSCA_URL, {
+				method: 'POST', headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tipo: 'referencia_pneu', busca: termo })
+			});
+			const data = await res.json();
+			if (data.success) {
+				setResultadosBusca(data.data);
+			} else {
+				setResultadosBusca([]);
+			}
+		} catch (e) {
+			setResultadosBusca([]);
+		}
+		setIsSearching(false);
+	};
+
+	const selecionarItemBusca = (item: any) => {
+		setForm({ ...form, referencia: item.nome });
+		setModalBuscaVisible(false);
+	};
+
+	const renderBuscaDinamica = () => (
+		<Modal visible={modalBuscaVisible} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
+			<View style={styles.modalOverlayBusca}>
+				<View style={styles.modalContentBusca}>
+					<View style={styles.modalHeaderBusca}>
+						<Text style={styles.modalTitleBusca}>Pesquisar Referência</Text>
+						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}>
+							<Feather name="x" size={24} color="#333" />
+						</TouchableOpacity>
+					</View>
+					<View style={styles.inputBuscaContainer}>
+						<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
+						<TextInput
+							style={styles.inputBuscaInterno2}
+							placeholder="Buscar Referência..."
+							value={termoComboBusca}
+							onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(t); }}
+							autoFocus={true}
+						/>
+					</View>
+					{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
+						<FlatList
+							data={resultadosBusca}
+							keyExtractor={(item, index) => String(item?.id || index)}
+							renderItem={({ item }) => (
+								<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
+									<Text style={styles.itemBuscaNome}>{item.nome}</Text>
+								</TouchableOpacity>
+							)}
+							ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
+						/>
+					)}
+				</View>
+			</View>
+		</Modal>
+	);
 
 	return (
 		<View style={styles.container}>
@@ -193,7 +267,7 @@ export default function BandasScreen() {
 								<Text style={styles.cardTitle} numberOfLines={1}>{item.marca}</Text>
 								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
 									<MaterialCommunityIcons name="tire" size={14} color="#666" style={{ marginRight: 6 }} />
-									<Text style={styles.cardSubTitle} numberOfLines={1}>Mod: {item.modelo}</Text>
+									<Text style={styles.cardSubTitle} numberOfLines={1}>{item.referencia ? `Ref: ${item.referencia} | ` : ''}Mod: {item.modelo}</Text>
 								</View>
 							</View>
 							<View style={{ alignItems: 'flex-end' }}>
@@ -239,12 +313,21 @@ export default function BandasScreen() {
 							<Text style={styles.groupTitle}>{form.id ? 'Editar Banda' : 'Nova Banda de Rodagem'}</Text>
 
 							<View style={styles.inputGroupFull}>
+								<Text style={styles.label}>* Referência da Banda</Text>
+								<TouchableOpacity style={styles.fakeInput} onPress={abrirBuscaDinamica}>
+									<Text style={{ color: form.referencia ? '#000' : '#999', fontSize: 14 }}>{form.referencia || 'Selecionar Referência...'}</Text>
+									<Feather name="search" size={16} color="#999" />
+								</TouchableOpacity>
+							</View>
+
+							<View style={styles.inputGroupFull}>
 								<Text style={styles.label}>* Marca da Banda</Text>
 								<TextInput
 									style={styles.input}
 									value={form.marca}
 									onChangeText={t => setForm({ ...form, marca: t })}
 									placeholder="Ex: Vipal, Drebor..."
+									autoCapitalize="characters"
 								/>
 							</View>
 
@@ -255,6 +338,7 @@ export default function BandasScreen() {
 									value={form.modelo}
 									onChangeText={t => setForm({ ...form, modelo: t })}
 									placeholder="Ex: VRT3, D-902..."
+									autoCapitalize="characters"
 								/>
 							</View>
 
@@ -291,6 +375,9 @@ export default function BandasScreen() {
 								</TouchableOpacity>
 							</View>
 						</ScrollView>
+
+						{renderBuscaDinamica()}
+
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>
@@ -304,6 +391,7 @@ const styles = StyleSheet.create({
 	sectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 10, textTransform: 'uppercase' },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, fontSize: 14, color: '#000', marginBottom: 10, minHeight: 48, justifyContent: 'center' },
+	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%', marginBottom: 5 },
@@ -340,4 +428,14 @@ const styles = StyleSheet.create({
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+
+	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
+	inputBuscaInterno2: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
+	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
+	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
+	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
 });
