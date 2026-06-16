@@ -1,4 +1,4 @@
-﻿import { Feather, FontAwesome5 } from '@expo/vector-icons';
+﻿import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -16,8 +16,6 @@ export default function DashboardScreen() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 
-	const [veiculosHoje, setVeiculosHoje] = useState(0);
-	const [pneusHoje, setPneusHoje] = useState(0);
 	const [ultimasInspecoes, setUltimasInspecoes] = useState<Inspecao[]>([]);
 
 	const [termoBusca, setTermoBusca] = useState('');
@@ -29,8 +27,6 @@ export default function DashboardScreen() {
 	const carregarDashboard = async () => {
 		const res = await apiService.buscarDashboard(user?.id);
 		if (res && res.success && res.data) {
-			setVeiculosHoje(res.data.veiculosHoje || 0);
-			setPneusHoje(res.data.pneusHoje || 0);
 			setUltimasInspecoes(res.data.ultimasInspecoes || []);
 		}
 		setIsLoading(false);
@@ -134,16 +130,23 @@ export default function DashboardScreen() {
 			</View>
 
 			<View style={styles.rowCards}>
-				<View style={[styles.statCard, { borderLeftColor: '#0c6ead', borderLeftWidth: 4 }]}>
-					<Feather name="truck" size={24} color="#0c6ead" />
-					<Text style={styles.statValue}>{veiculosHoje}</Text>
-					<Text style={styles.statLabel}>Veículos Hoje</Text>
-				</View>
-				<View style={[styles.statCard, { borderLeftColor: '#333', borderLeftWidth: 4 }]}>
-					<Feather name="disc" size={24} color="#333" />
-					<Text style={styles.statValue}>{pneusHoje}</Text>
-					<Text style={styles.statLabel}>Pneus Aferidos</Text>
-				</View>
+				<TouchableOpacity
+					style={[styles.actionCard, { borderLeftColor: '#0c6ead' }]}
+					onPress={() => router.push('/veiculos')}
+				>
+					<MaterialCommunityIcons name="truck-outline" size={32} color="#0c6ead" />
+					<Text style={styles.actionTitle}>Check-list</Text>
+					<Text style={styles.actionDesc}>Veículos da Frota</Text>
+				</TouchableOpacity>
+
+				<TouchableOpacity
+					style={[styles.actionCard, { borderLeftColor: '#E53935' }]}
+					onPress={() => router.push('/checklist_avulso')}
+				>
+					<MaterialCommunityIcons name="clipboard-list-outline" size={32} color="#E53935" />
+					<Text style={styles.actionTitle}>Análise</Text>
+					<Text style={styles.actionDesc}>De Sucata</Text>
+				</TouchableOpacity>
 			</View>
 
 			<View style={styles.section}>
@@ -195,9 +198,9 @@ const styles = StyleSheet.create({
 	btnPlay: { backgroundColor: '#28a745', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
 
 	rowCards: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-	statCard: { flex: 1, backgroundColor: '#fff', padding: 15, borderRadius: 10, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2, marginHorizontal: 5 },
-	statValue: { fontSize: 24, fontWeight: 'bold', color: '#333', marginTop: 10 },
-	statLabel: { fontSize: 12, color: '#888', marginTop: 5 },
+	actionCard: { flex: 1, backgroundColor: '#fff', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2, marginHorizontal: 5, borderLeftWidth: 4 },
+	actionTitle: { fontSize: 14, fontWeight: 'bold', color: '#333', marginTop: 8, textAlign: 'center' },
+	actionDesc: { fontSize: 11, color: '#888', marginTop: 2, textAlign: 'center' },
 
 	section: { marginBottom: 30 },
 	emptyBox: { backgroundColor: '#fff', padding: 20, borderRadius: 10, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc' },

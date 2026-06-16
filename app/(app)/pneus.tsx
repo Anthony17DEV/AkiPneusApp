@@ -35,6 +35,8 @@ export default function PneusScreen() {
 	const [filtroPlaca, setFiltroPlaca] = useState('');
 	const [filtroCliente, setFiltroCliente] = useState('');
 	const [filtroClienteId, setFiltroClienteId] = useState('');
+	const [filtroFerro, setFiltroFerro] = useState('');
+	const [filtroId, setFiltroId] = useState('');
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
@@ -145,17 +147,19 @@ export default function PneusScreen() {
 		const paramNome = (params.cliente_nome as string) || '';
 		setFiltroClienteId(paramId);
 		setFiltroCliente(paramNome);
-		buscarPneusNaApi(filtroSerie, filtroDot, filtroPlaca, paramNome, paramId);
+		buscarPneusNaApi(filtroSerie, filtroDot, filtroPlaca, paramNome, paramId, filtroFerro, filtroId);
 	}, [params.cliente_id, params.cliente_nome]);
 
-	const buscarPneusNaApi = async (serieStr: string, dotStr: string, placaStr: string, cliNomeStr: string, cliIdStr: string) => {
+	const buscarPneusNaApi = async (serieStr: string, dotStr: string, placaStr: string, cliNomeStr: string, cliIdStr: string, ferroStr: string, idStr: string) => {
 		setIsLoading(true);
 		const res = await apiService.buscarPneusGrid({
 			serie: serieStr,
 			dot: dotStr,
 			placa: placaStr,
 			cliente: cliNomeStr,
-			cliente_id: cliIdStr
+			cliente_id: cliIdStr,
+			ferro: ferroStr,
+			id: idStr
 		});
 
 		if (res && res.success) {
@@ -167,7 +171,7 @@ export default function PneusScreen() {
 	};
 
 	const carregarPneus = () => {
-		buscarPneusNaApi(filtroSerie, filtroDot, filtroPlaca, filtroCliente, filtroClienteId);
+		buscarPneusNaApi(filtroSerie, filtroDot, filtroPlaca, filtroCliente, filtroClienteId, filtroFerro, filtroId);
 	};
 
 	const resetForm = () => {
@@ -587,9 +591,14 @@ export default function PneusScreen() {
 						)}
 
 						<View style={styles.row}>
-							<View style={{ width: '31%' }}><Text style={styles.label}>Série</Text><TextInput style={styles.input} placeholder="Série" value={filtroSerie} onChangeText={setFiltroSerie} /></View>
-							<View style={{ width: '31%' }}><Text style={styles.label}>DOT</Text><TextInput style={styles.input} placeholder="DOT" value={filtroDot} onChangeText={setFiltroDot} /></View>
-							<View style={{ width: '31%' }}><Text style={styles.label}>Placa</Text><TextInput style={styles.input} placeholder="ABC-1234" value={filtroPlaca} onChangeText={setFiltroPlaca} autoCapitalize="characters" /></View>
+							<View style={{ width: '23%' }}><Text style={styles.label}>ID</Text><TextInput style={styles.input} placeholder="ID" value={filtroId} onChangeText={setFiltroId} keyboardType="numeric" /></View>
+							<View style={{ width: '35%' }}><Text style={styles.label}>Série</Text><TextInput style={styles.input} placeholder="Série" value={filtroSerie} onChangeText={setFiltroSerie} /></View>
+							<View style={{ width: '35%' }}><Text style={styles.label}>Ferro</Text><TextInput style={styles.input} placeholder="Ferro" value={filtroFerro} onChangeText={setFiltroFerro} /></View>
+						</View>
+
+						<View style={styles.row}>
+							<View style={{ width: '48%' }}><Text style={styles.label}>DOT</Text><TextInput style={styles.input} placeholder="DOT" value={filtroDot} onChangeText={setFiltroDot} /></View>
+							<View style={{ width: '48%' }}><Text style={styles.label}>Placa</Text><TextInput style={styles.input} placeholder="ABC-1234" value={filtroPlaca} onChangeText={setFiltroPlaca} autoCapitalize="characters" /></View>
 						</View>
 
 						<View style={styles.inputGroupFull}>
@@ -625,7 +634,7 @@ export default function PneusScreen() {
 					return (
 						<View style={styles.card}>
 							<View style={styles.cardHeader}>
-								<Text style={styles.cardTitle} numberOfLines={1}>Série: {item.serie || 'N/A'}</Text>
+								<Text style={styles.cardTitle} numberOfLines={1}>ID: #{item.id} | Série: {item.serie || 'N/A'}</Text>
 								<View style={[styles.statusBadge, { backgroundColor: isAvulso ? '#fff3cd' : '#e8f5e9' }]}>
 									<Text style={[styles.statusText, { color: isAvulso ? '#856404' : '#28a745' }]}>
 										{isAvulso ? 'AVULSO' : `PLACA: ${item.placa_associada}`}
@@ -644,7 +653,7 @@ export default function PneusScreen() {
 								</View>
 								<View style={styles.cardInfoRow}>
 									<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>DOT:</Text> {item.dot}  •  <Text style={{ fontWeight: 'bold' }}>Ferro:</Text> {item.ferro}</Text>
+									<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>DOT:</Text> {item.dot}  •  <Text style={{ fontWeight: 'bold' }}>Ferro:</Text> {item.ferro || 'S/N'}</Text>
 								</View>
 								<View style={styles.cardInfoRow}>
 									<Feather name="layers" size={14} color="#666" style={{ marginRight: 8 }} />
@@ -721,7 +730,7 @@ export default function PneusScreen() {
 									<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('veiculo')}>
 										<Text style={{ color: form.placa_associada ? '#000' : '#999' }}>{form.placa_associada || 'Pneu Avulso...'}</Text>
 										{form.placa_associada ? (
-											<TouchableOpacity onPress={() => setForm({ ...form, placa_associada: '', veiculo_id: '', cliente: (params?.cliente_id ? form.cliente : ''), cliente_id: (params?.cliente_id ? form.cliente_id : '') })}>
+											<TouchableOpacity onPress={() => setForm({ ...form, placa_associada: '', veiculo_id: '' })}>
 												<Feather name="x-circle" size={18} color="#E53935" />
 											</TouchableOpacity>
 										) : (
@@ -911,7 +920,15 @@ export default function PneusScreen() {
 								{form.id ? (
 									<TouchableOpacity
 										style={[styles.btnImprimir, { flex: 1.2, height: 50, paddingHorizontal: 2 }]}
-										onPress={() => compartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`, `Laudo_Pneu_${form.id}`)}
+										onPress={() => {
+											const dataHj = new Date();
+											const strData = `${dataHj.getDate().toString().padStart(2, '0')}${(dataHj.getMonth() + 1).toString().padStart(2, '0')}${dataHj.getFullYear()}`;
+											const nomeClienteFormatado = (form.cliente || 'AVULSO').replace(/[^A-Za-z0-9]/g, '');
+											const codigoFormatado = (form.placa_associada || form.id).replace(/[^A-Za-z0-9]/g, '');
+											const nomeArquivoPdf = `LAUDO-${nomeClienteFormatado}-${strData}-${codigoFormatado}`.toUpperCase();
+
+											compartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`, nomeArquivoPdf);
+										}}
 									>
 										<Feather name="printer" size={16} color="#fff" />
 										<Text
