@@ -741,9 +741,11 @@ export default function ChecklistAvulsoScreen() {
 			return <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>Nenhum pneu inserido nesta pilha ainda.</Text>;
 		}
 
+		const pneusOrdenados = [...pneusPilha].sort((a, b) => Number(a.id) - Number(b.id));
+
 		return (
 			<View style={styles.pilhaGraficaContainer}>
-				{pneusPilha.map((pneu, index) => (
+				{pneusOrdenados.map((pneu, index) => (
 					<View key={`pilha_${pneu.id || index}`} style={{ width: '85%', position: 'relative' }}>
 						<TouchableOpacity
 							style={[styles.pneuStackedItem, { width: '100%' }]}
@@ -760,7 +762,7 @@ export default function ChecklistAvulsoScreen() {
 									</Text>
 								)}
 								<Text style={styles.stackedPneuStatus}>
-									Série: {pneu.serie || 'S/N'} | S: {pneu.milimetros}mm | L: {pneu.pressao || '--'}Lbs
+									Série: {pneu.serie || 'S/N'} | S: {pneu.milimetros}mm
 								</Text>
 							</View>
 							<MaterialCommunityIcons name="tire" size={28} color="#aaa" style={styles.stackedPneuIcon} />
@@ -1068,10 +1070,6 @@ export default function ChecklistAvulsoScreen() {
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
 								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
-							</View>
-							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Padrão (Lbs)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Calib. Atual (Lbs)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao} onChangeText={t => setFormPneu({ ...formPneu, pressao: t })} /></View>
 							</View>
 
 							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
