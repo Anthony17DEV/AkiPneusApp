@@ -75,28 +75,31 @@ export default function ChecklistScreen() {
 	});
 
 	useEffect(() => {
-		if (params.placa) {
+		if (params.veiculo_id || params.placa) {
 			setImplementos([]);
 			setHistorico([]);
 			setIdChecklistAtivo(null);
 			setDadosPneus({});
-			buscarVeiculoDireto(params.placa as string);
+			buscarVeiculoDireto(params.veiculo_id as string, params.placa as string);
 		}
-	}, [params.placa]);
+	}, [params.veiculo_id, params.placa]);
 
-	const buscarVeiculoDireto = async (placa: string) => {
+	const buscarVeiculoDireto = async (vId: string, placaStr: string) => {
 		setIsLoading(true);
-		const res = await apiService.buscarVeiculo({ busca: placa });
+		const res = await apiService.buscarVeiculo({ id: vId, busca: placaStr });
 		setIsLoading(false);
+
 		if (res && res.success && res.data && res.data.length > 0) {
 			const v = res.data[0];
 			const veiculoFormatado = {
 				...v,
-				placa: v.placa || v.veic_tx_placa,
+				placa: v.placa || v.veic_tx_placa || 'S/ PLACA',
 				cor: v.cor || v.veic_tx_cor
 			};
 			setVeiculo(veiculoFormatado);
 			carregarHistorico(veiculoFormatado.id);
+		} else {
+			Alert.alert('Atenção', 'Não foi possível carregar os dados deste equipamento.');
 		}
 	};
 

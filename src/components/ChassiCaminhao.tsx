@@ -75,10 +75,10 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 				<View key={`eixo_${eixoNum}`} style={styles.eixoHorizontalWrapper}>
 					<View style={styles.barraEixoHorizontal} />
 					<View style={styles.grupoPneusEsquerda}>
-						{renderPneu(ee, styles.pneu)}
+						{renderPneu(ee, styles.pneu, `${eixoNum}E`)}
 					</View>
 					<View style={styles.grupoPneusDireita}>
-						{renderPneu(ed, styles.pneu)}
+						{renderPneu(ed, styles.pneu, `${eixoNum}D`)}
 					</View>
 				</View>
 			);

@@ -24,10 +24,10 @@ interface Veiculo {
 const UFS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'];
 
 const TIPOS_VEICULOS = [
-	{ label: 'Caminhão', value: 'Caminhão', color: '#000' },
-	{ label: 'Cavalo', value: 'Cavalo', color: '#000' },
-	{ label: 'Carreta', value: 'Carreta', color: '#000' },
-	{ label: 'Dolly', value: 'Dolly', color: '#000' },
+	{ label: 'Caminhão', value: 'CAMINHÃO', color: '#000' },
+	{ label: 'Cavalo', value: 'CAVALO', color: '#000' },
+	{ label: 'Carreta', value: 'CARRETA', color: '#000' },
+	{ label: 'Dolly', value: 'DOLLY', color: '#000' },
 ];
 
 export default function VeiculosScreen() {
@@ -145,22 +145,34 @@ export default function VeiculosScreen() {
 	};
 
 	useEffect(() => {
-		const r = form.tipoRodado;
-		if (['3/4', 'Toco', '2 Eixos'].includes(r)) {
+		const r = form.tipoRodado?.toUpperCase();
+		if (['3/4', 'TOCO', '2 EIXOS'].includes(r)) {
 			setForm(f => ({ ...f, eixos: '2' }));
-		} else if (['Truck', '3 Eixos'].includes(r)) {
+		} else if (['TRUCK', '3 EIXOS'].includes(r)) {
 			setForm(f => ({ ...f, eixos: '3' }));
-		} else if (['Bi-truck', '4 Eixos'].includes(r)) {
+		} else if (['BI-TRUCK', '4 EIXOS'].includes(r)) {
 			setForm(f => ({ ...f, eixos: '4' }));
 		}
 	}, [form.tipoRodado]);
 
 	const getRodadoOptions = () => {
-		if (form.tipo === 'Caminhão') return [{ label: '3/4 (2 Eixos)', value: '3/4', color: '#000' }, { label: 'Toco (2 Eixos)', value: 'Toco', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'Truck', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'Bi-truck', color: '#000' }];
-		if (form.tipo === 'Cavalo') return [{ label: 'Toco (2 Eixos)', value: 'Toco', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'Truck', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'Bi-truck', color: '#000' }];
-		if (form.tipo === 'Carreta') return [{ label: '2 Eixos', value: '2 Eixos', color: '#000' }, { label: '3 Eixos', value: '3 Eixos', color: '#000' }, { label: '4 Eixos', value: '4 Eixos', color: '#000' }];
-		if (form.tipo === 'Dolly') return [{ label: '2 Eixos', value: '2 Eixos', color: '#000' }];
-		return [{ label: 'Selecione o Tipo de Veículo primeiro', value: '', color: '#000' }];
+		const t = form.tipo?.toUpperCase();
+		if (t === 'CAMINHÃO') return [{ label: '3/4 (2 Eixos)', value: '3/4', color: '#000' }, { label: 'Toco (2 Eixos)', value: 'TOCO', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'TRUCK', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'BI-TRUCK', color: '#000' }];
+		if (t === 'CAVALO') return [{ label: 'Toco (2 Eixos)', value: 'TOCO', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'TRUCK', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'BI-TRUCK', color: '#000' }];
+		if (t === 'CARRETA') return [{ label: '2 Eixos', value: '2 EIXOS', color: '#000' }, { label: '3 Eixos', value: '3 EIXOS', color: '#000' }, { label: '4 Eixos', value: '4 EIXOS', color: '#000' }];
+		if (t === 'DOLLY') return [{ label: '2 Eixos', value: '2 EIXOS', color: '#000' }];
+
+		// Se for um equipamento ou não tiver tipo, libera uma lista geral
+		return [
+			{ label: '3/4', value: '3/4', color: '#000' },
+			{ label: 'Toco', value: 'TOCO', color: '#000' },
+			{ label: 'Truck', value: 'TRUCK', color: '#000' },
+			{ label: 'Bi-truck', value: 'BI-TRUCK', color: '#000' },
+			{ label: '2 Eixos', value: '2 EIXOS', color: '#000' },
+			{ label: '3 Eixos', value: '3 EIXOS', color: '#000' },
+			{ label: '4 Eixos', value: '4 EIXOS', color: '#000' },
+			{ label: 'Outro / Sem Rodado', value: 'N/A', color: '#000' }
+		];
 	};
 
 	const formatarData = (dataDb: string) => {
@@ -275,6 +287,11 @@ export default function VeiculosScreen() {
 	const removerFotoNova = (index: number) => { setFotosNovas(fotosNovas.filter((_, i) => i !== index)); };
 
 	const salvarVeiculo = async () => {
+
+		if (!form.marca_id || !form.tipoRodado) {
+			Alert.alert('Atenção', 'Os campos Marca e Tipo de Rodado são obrigatórios.');
+			return;
+		}
 		setIsSaving(true);
 		try {
 			const payload = {
@@ -644,7 +661,7 @@ export default function VeiculosScreen() {
 							<Text style={styles.groupTitle}>1. Informações do Veículo</Text>
 
 							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>* Cliente</Text>
+								<Text style={styles.label}>Cliente</Text>
 								<View style={styles.inputWithIcon}>
 									<TextInput
 										style={[styles.inputFlex, params.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
@@ -674,7 +691,7 @@ export default function VeiculosScreen() {
 									/>
 								</View>
 								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>* Placa</Text>
+									<Text style={styles.label}>Placa</Text>
 									<TextInput style={styles.input} value={form.placa} onChangeText={(t) => setForm({ ...form, placa: formatarPlaca(t) })} autoCapitalize="characters" maxLength={8} />
 								</View>
 							</View>
@@ -693,7 +710,7 @@ export default function VeiculosScreen() {
 							</View>
 
 							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>* Modelo</Text>
+								<Text style={styles.label}>Modelo</Text>
 								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('modelo')}>
 									<Text style={{ color: form.modelo ? '#000' : '#999' }}>{form.modelo || 'Selecionar...'}</Text>
 									<Feather name="search" size={16} color="#999" />
@@ -755,7 +772,7 @@ export default function VeiculosScreen() {
 							<Text style={styles.groupTitle}>2. Informações da Carga</Text>
 
 							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>* Tipo Veículo</Text>
+								<Text style={styles.label}>Tipo Veículo</Text>
 								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v, tipoRodado: '' })} items={TIPOS_VEICULOS} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 							</View>
 
