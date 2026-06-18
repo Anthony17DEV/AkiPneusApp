@@ -728,14 +728,14 @@ export default function VeiculosScreen() {
 									<Text style={styles.label}>Combustível</Text>
 									<RNPickerSelect
 										placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
-										value={form.combustivel}
+										value={form.combustivel?.toUpperCase()}
 										onValueChange={v => setForm({ ...form, combustivel: v })}
 										items={[
-											{ label: 'Gasolina', value: 'Gasolina', color: '#000' },
-											{ label: 'Etanol', value: 'Etanol', color: '#000' },
-											{ label: 'Flex', value: 'Flex', color: '#000' },
-											{ label: 'Diesel', value: 'Diesel', color: '#000' },
-											{ label: 'Elétrico', value: 'Elétrico', color: '#000' }
+											{ label: 'Gasolina', value: 'GASOLINA', color: '#000' },
+											{ label: 'Etanol', value: 'ETANOL', color: '#000' },
+											{ label: 'Flex', value: 'FLEX', color: '#000' },
+											{ label: 'Diesel', value: 'DIESEL', color: '#000' },
+											{ label: 'Elétrico', value: 'ELÉTRICO', color: '#000' }
 										]}
 										style={pickerStyles}
 										useNativeAndroidPickerStyle={false}
