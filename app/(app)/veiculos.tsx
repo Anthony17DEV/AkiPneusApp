@@ -28,6 +28,7 @@ const TIPOS_VEICULOS = [
 	{ label: 'Cavalo', value: 'CAVALO', color: '#000' },
 	{ label: 'Carreta', value: 'CARRETA', color: '#000' },
 	{ label: 'Dolly', value: 'DOLLY', color: '#000' },
+	{ label: 'Outros', value: 'OUTROS', color: '#000' },
 ];
 
 export default function VeiculosScreen() {

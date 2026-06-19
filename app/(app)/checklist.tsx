@@ -2,9 +2,9 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -74,15 +74,17 @@ export default function ChecklistScreen() {
 		ref_mm_original: '', ref_valor: ''
 	});
 
-	useEffect(() => {
-		if (params.veiculo_id || params.placa) {
-			setImplementos([]);
-			setHistorico([]);
-			setIdChecklistAtivo(null);
-			setDadosPneus({});
-			buscarVeiculoDireto(params.veiculo_id as string, params.placa as string);
-		}
-	}, [params.veiculo_id, params.placa]);
+	useFocusEffect(
+		React.useCallback(() => {
+			if (params.veiculo_id || params.placa) {
+				setImplementos([]);
+				setHistorico([]);
+				setIdChecklistAtivo(null);
+				setDadosPneus({});
+				buscarVeiculoDireto(params.veiculo_id as string, params.placa as string);
+			}
+		}, [params.veiculo_id, params.placa])
+	);
 
 	const buscarVeiculoDireto = async (vId: string, placaStr: string) => {
 		setIsLoading(true);
@@ -399,7 +401,7 @@ export default function ChecklistScreen() {
 				if (tipo === 'implemento') {
 					listaVeiculos = listaVeiculos.filter((v: any) => {
 						const tipoTratado = String(v.tipo || v.veic_tx_tipo || '').toLowerCase();
-						return tipoTratado.includes('carreta') || tipoTratado.includes('dolly') || tipoTratado.includes('implemento') || tipoTratado.includes('reboque');
+						return tipoTratado.includes('carreta') || tipoTratado.includes('dolly') || tipoTratado.includes('implemento') || tipoTratado.includes('reboque') || tipoTratado.includes('equipamento') || tipoTratado.includes('outros');
 					});
 				}
 

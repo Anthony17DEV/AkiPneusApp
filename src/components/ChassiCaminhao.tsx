@@ -11,8 +11,11 @@ interface VeiculoComposicao {
 	placa?: string;
 	veic_tx_placa?: string;
 	tipo?: string;
+	veic_tx_tipo?: string;
 	eixos?: string | number;
+	veic_tx_eixos?: string | number;
 	rodado?: string;
+	veic_tx_tipoRodado?: string;
 	estepe?: string | number;
 	cor?: string;
 	veic_tx_cor?: string;
@@ -30,7 +33,7 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 
 	const getColorHex = (corNome?: string) => {
 		if (!corNome) return '#dcdcdc';
-		const c = String(corNome).toLowerCase();
+		const c = String(corNome).toLowerCase().trim();
 		if (c.includes('branc')) return '#f8f9fa';
 		if (c.includes('pret')) return '#222222';
 		if (c.includes('vermelh')) return '#e53935';
@@ -60,19 +63,22 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 				onPress={() => onPneuPress(posicao)}
 			>
 				<Text style={styles.pneuText}>{customText || posicao}</Text>
-
 				{pneu.mm ? <Text style={styles.pneuMmText}>{pneu.mm}mm</Text> : null}
 				{pneu.pressao ? <Text style={styles.pneuMmText}>{pneu.pressao}Lbs</Text> : null}
 			</TouchableOpacity>
 		);
 	};
 
-	const renderAxle = (eixoNum: number, isSingle: boolean) => {
+	const renderAxle = (eixoNum: number, isSingle: boolean, isDolly: boolean = false, isCarreta: boolean = false, isFirstCarretaAxle: boolean = false) => {
+		const marginB = isDolly ? 15 : 35;
+
+		const marginT = isFirstCarretaAxle ? 70 : 0;
+
 		if (isSingle) {
 			const ee = `${eixoNum}EE`;
 			const ed = `${eixoNum}ED`;
 			return (
-				<View key={`eixo_${eixoNum}`} style={styles.eixoHorizontalWrapper}>
+				<View key={`eixo_${eixoNum}`} style={[styles.eixoHorizontalWrapper, { marginBottom: marginB, marginTop: marginT }]}>
 					<View style={styles.barraEixoHorizontal} />
 					<View style={styles.grupoPneusEsquerda}>
 						{renderPneu(ee, styles.pneu, `${eixoNum}E`)}
@@ -88,7 +94,7 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 			const di = `${eixoNum}DI`;
 			const de = `${eixoNum}DE`;
 			return (
-				<View key={`eixo_${eixoNum}`} style={styles.eixoHorizontalWrapper}>
+				<View key={`eixo_${eixoNum}`} style={[styles.eixoHorizontalWrapper, { marginBottom: marginB, marginTop: marginT }]}>
 					<View style={styles.barraEixoHorizontal} />
 					<View style={styles.grupoPneusEsquerda}>
 						{renderPneu(ee, styles.pneu)}
@@ -110,11 +116,24 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 		<View style={styles.chassiMaster}>
 			{veiculos && veiculos.length > 0 ? (
 				veiculos.map((v, vIndex) => {
-					const numEixos = parseInt(v.eixos as string) || parseInt(qtdEixos as any) || 2;
+					const tipoTratado = String(v.tipo || v.veic_tx_tipo || '').toUpperCase().trim();
+					const rodadoTratado = String(v.rodado || v.veic_tx_tipoRodado || '').toUpperCase().trim();
+
+					let numEixos = parseInt(v.eixos as string) || parseInt(qtdEixos as any) || 2;
+
+					if (['3/4', 'TOCO', '2 EIXOS'].includes(rodadoTratado)) {
+						numEixos = 2;
+					} else if (['TRUCK', '3 EIXOS'].includes(rodadoTratado)) {
+						numEixos = 3;
+					} else if (['BI-TRUCK', 'BITRUCK', '4 EIXOS'].includes(rodadoTratado)) {
+						numEixos = 4;
+					}
+
 					const numEstepes = parseInt(v.estepe as string) || 0;
 
-					const isCarreta = v.tipo === 'Carreta' || v.tipo === 'Dolly' || v.tipo === 'Implemento' || v.tipo?.toLowerCase().includes('reboque');
-					const isBitruck = v.rodado === 'Bi-truck' || v.rodado === 'Bitruck';
+					const isCarreta = tipoTratado.includes('CARRETA') || tipoTratado.includes('IMPLEMENTO') || tipoTratado.includes('EQUIPAMENTO') || tipoTratado.includes('OUTROS') || tipoTratado.includes('REBOQUE');
+					const isDolly = tipoTratado.includes('DOLLY');
+					const isBitruck = rodadoTratado.includes('BI-TRUCK') || rodadoTratado.includes('BITRUCK');
 
 					const placaCorreta = v.placa || v.veic_tx_placa || 'N/A';
 					const corCorreta = v.cor || v.veic_tx_cor;
@@ -123,16 +142,15 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 					for (let i = 0; i < numEixos; i++) {
 						const eixoNum = globalAxleIndex++;
 						let isSingle = false;
-						if (!isCarreta) {
-							isSingle = (i === 0 || (i === 1 && isBitruck));
-						}
-						axles.push(renderAxle(eixoNum, isSingle));
+						if (!isCarreta && !isDolly) { isSingle = (i === 0 || (i === 1 && isBitruck)); }
+
+						const isFirstCarretaAxle = (isCarreta && !isDolly && i === 0);
+
+						axles.push(renderAxle(eixoNum, isSingle, isDolly, isCarreta, isFirstCarretaAxle));
 					}
 
 					const estepesLocal = [];
-					for (let i = 0; i < numEstepes; i++) {
-						estepesLocal.push(globalEstepeIndex++);
-					}
+					for (let i = 0; i < numEstepes; i++) { estepesLocal.push(globalEstepeIndex++); }
 
 					const cabineBg = getColorHex(corCorreta);
 					const cabineTextCol = getTextColor(cabineBg);
@@ -147,7 +165,7 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 								</View>
 							)}
 
-							{(vIndex === 0 && !isCarreta) ? (
+							{(!isCarreta && !isDolly) ? (
 								<View style={[styles.cabineShape, { backgroundColor: cabineBg }]}>
 									<View style={styles.paraChoque} />
 									<View style={styles.paraBrisa} />
@@ -157,9 +175,13 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 									</View>
 								</View>
 							) : (
-								<View style={styles.implementoHeader}>
-									<Text style={styles.veiculoTitle}>[ IMPLEMENTO ]</Text>
-									<Text style={styles.implementoPlaca}>{placaCorreta}</Text>
+								<View style={{ alignItems: 'center', marginBottom: 5, marginTop: 10, zIndex: 10 }}>
+									<Text style={{ fontSize: 13, fontWeight: 'bold', color: '#666', letterSpacing: 1 }}>
+										[ {tipoTratado || 'IMPLEMENTO'} ]
+									</Text>
+									<Text style={{ fontSize: 16, fontWeight: '900', color: '#111', marginTop: 4 }}>
+										{placaCorreta}
+									</Text>
 								</View>
 							)}
 
@@ -172,7 +194,7 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 							{estepesLocal.length > 0 && (
 								<View style={styles.estepesWrapperLocal}>
 									<Text style={styles.estepeTitleLocal}>
-										[ ESTEPES {(vIndex === 0 && !isCarreta) ? 'DO CAVALO' : 'DO IMPLEMENTO'} ]
+										[ ESTEPES {(vIndex === 0 && !isCarreta && !isDolly) ? 'DO CAVALO' : `DA ${tipoTratado || 'CARRETA'}`} ]
 									</Text>
 									<View style={styles.estepesContainer}>
 										{estepesLocal.map(num => {
@@ -228,13 +250,10 @@ const styles = StyleSheet.create({
 	cabineShape: { width: 120, height: 90, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, borderWidth: 2, borderColor: '#222', alignItems: 'center', marginBottom: 10, zIndex: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, overflow: 'hidden' },
 	paraChoque: { width: '90%', height: 6, backgroundColor: '#333', marginTop: 2, borderRadius: 4 },
 	paraBrisa: { width: '85%', height: 22, backgroundColor: '#1a1a1a', marginTop: 6, borderTopLeftRadius: 15, borderTopRightRadius: 15, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, borderWidth: 1, borderColor: '#000' },
+
 	tetoCabine: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' },
 	cabineText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 4 },
 	cabinePlaca: { fontSize: 13, fontWeight: '900', color: '#111', backgroundColor: '#fff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, overflow: 'hidden', borderWidth: 1, borderColor: '#aaa' },
-
-	implementoHeader: { alignItems: 'center', backgroundColor: '#e2e8f0', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', marginBottom: 10, zIndex: 10 },
-	veiculoTitle: { fontSize: 11, fontWeight: 'bold', color: '#666', letterSpacing: 1 },
-	implementoPlaca: { fontSize: 16, fontWeight: '900', color: '#111', marginTop: 2 },
 
 	engateContainer: { alignItems: 'center', justifyContent: 'center', height: 35, width: '100%', zIndex: 0, marginBottom: 5 },
 	barraEngate: { width: 8, height: 40, backgroundColor: '#2d2d2d' },
@@ -245,7 +264,7 @@ const styles = StyleSheet.create({
 	longarinaEsquerda: { position: 'absolute', top: 0, bottom: 0, left: '50%', marginLeft: -14, width: 8, backgroundColor: '#2d2d2d', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#111', zIndex: 0 },
 	longarinaDireita: { position: 'absolute', top: 0, bottom: 0, left: '50%', marginLeft: 6, width: 8, backgroundColor: '#2d2d2d', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#111', zIndex: 0 },
 
-	eixoHorizontalWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: 300, height: 70, marginBottom: 35, position: 'relative' },
+	eixoHorizontalWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: 300, height: 70, position: 'relative' },
 	barraEixoHorizontal: { position: 'absolute', left: 20, right: 20, height: 16, backgroundColor: '#444', borderWidth: 1, borderColor: '#222', borderRadius: 2, zIndex: 1 },
 
 	grupoPneusEsquerda: { position: 'absolute', left: 0, flexDirection: 'row', gap: 4, zIndex: 3 },
