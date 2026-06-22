@@ -163,7 +163,6 @@ export default function VeiculosScreen() {
 		if (t === 'CARRETA') return [{ label: '2 Eixos', value: '2 EIXOS', color: '#000' }, { label: '3 Eixos', value: '3 EIXOS', color: '#000' }, { label: '4 Eixos', value: '4 EIXOS', color: '#000' }];
 		if (t === 'DOLLY') return [{ label: '2 Eixos', value: '2 EIXOS', color: '#000' }];
 
-		// Se for um equipamento ou não tiver tipo, libera uma lista geral
 		return [
 			{ label: '3/4', value: '3/4', color: '#000' },
 			{ label: 'Toco', value: 'TOCO', color: '#000' },
@@ -288,7 +287,6 @@ export default function VeiculosScreen() {
 	const removerFotoNova = (index: number) => { setFotosNovas(fotosNovas.filter((_, i) => i !== index)); };
 
 	const salvarVeiculo = async () => {
-
 		if (!form.marca_id || !form.tipoRodado) {
 			Alert.alert('Atenção', 'Os campos Marca e Tipo de Rodado são obrigatórios.');
 			return;
@@ -301,32 +299,38 @@ export default function VeiculosScreen() {
 				fotos: fotosNovas
 			};
 
-			await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
+			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-		} catch (e) {
-			console.log('Erro ignorado ao salvar veículo');
-		} finally {
-			setIsSaving(false);
-			setModalVisible(false);
 
-			Alert.alert('Sucesso', form.id ? 'Veículo atualizado!' : 'Veículo salvo!', [
-				{
-					text: 'OK',
-					onPress: () => {
-						if (params.returnTo === 'checklist') {
-							router.push({
-								pathname: '/checklist',
-								params: { placa: params.placa_origem as string }
-							});
-						} else {
-							carregarVeiculos();
+			const res = await response.json();
+
+			if (res.success) {
+				setModalVisible(false);
+				Alert.alert('Sucesso', form.id ? 'Veículo atualizado!' : 'Veículo salvo!', [
+					{
+						text: 'OK',
+						onPress: () => {
+							if (params.returnTo === 'checklist') {
+								router.push({
+									pathname: '/checklist',
+									params: { placa: params.placa_origem as string }
+								});
+							} else {
+								carregarVeiculos();
+							}
 						}
 					}
-				}
-			]);
+				]);
+			} else {
+				Alert.alert('Erro ao Salvar', res.message || 'Falha ao salvar. Verifique se a placa já existe.');
+			}
+		} catch (e) {
+			Alert.alert('Erro de Conexão', 'Falha ao conectar com o servidor.');
+		} finally {
+			setIsSaving(false);
 		}
 	};
 

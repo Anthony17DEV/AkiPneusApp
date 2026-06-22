@@ -14,6 +14,7 @@ import { apiService } from '../../src/services/apiService';
 
 interface Pneu {
 	id: number; referencia: string; marca: string; modelo: string; dot: string; serie: string; ferro: string;
+	placa?: string;
 	tipo: string; qtde_reforma: string | number; banda: string; placa_associada: string | null;
 	reformador?: string; reformador_id?: string;
 	valor?: string | number; mm_original?: string; milimetros?: string; pressao_padrao?: string; pressao?: string;
@@ -67,6 +68,56 @@ export default function PneusScreen() {
 		cliente: '', cliente_id: ''
 	});
 
+	const [modalPreviewVisible, setModalPreviewVisible] = useState(false);
+	const [previewData, setPreviewData] = useState({ url: '', nome: '', tipo: '', subtitulo: '' });
+	const [htmlDoc, setHtmlDoc] = useState('');
+	const [isCarregandoPreview, setIsCarregandoPreview] = useState(false);
+
+	const abrirModalPreview = async (url: string, nomeDoArquivo: string, tipoDoc: string, subtituloDoc: string) => {
+		setPreviewData({ url, nome: nomeDoArquivo, tipo: tipoDoc, subtitulo: subtituloDoc });
+		setModalPreviewVisible(true);
+		setIsCarregandoPreview(true);
+		setHtmlDoc('');
+		try {
+			const resposta = await fetch(url);
+			const txt = await resposta.text();
+			setHtmlDoc(txt);
+		} catch (e) {
+			Alert.alert('Erro', 'Não foi possível gerar o documento.');
+		}
+		setIsCarregandoPreview(false);
+	};
+
+	const visualizarPDFNativo = async () => {
+		if (!htmlDoc) { Alert.alert('Aguarde', 'Documento ainda carregando...'); return; }
+		try { await Print.printAsync({ html: htmlDoc }); } catch (e) { console.log(e); }
+	};
+
+	const compartilharDocumentoPDF = async () => {
+		if (!htmlDoc) { Alert.alert('Aguarde', 'Documento ainda carregando...'); return; }
+		try {
+			setIsCarregandoPreview(true);
+			const { uri } = await Print.printToFileAsync({ html: htmlDoc });
+			// @ts-ignore
+			const diretorio = FileSystem.documentDirectory;
+			const fileUriLocal = `${diretorio}${previewData.nome}.pdf`;
+
+			await FileSystem.deleteAsync(fileUriLocal, { idempotent: true });
+			await FileSystem.moveAsync({ from: uri, to: fileUriLocal });
+
+			const isAvailable = await Sharing.isAvailableAsync();
+			if (isAvailable) {
+				await Sharing.shareAsync(fileUriLocal, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Enviar PDF' });
+			} else {
+				Alert.alert('Aviso', 'A partilha não está disponível no seu telemóvel.');
+			}
+		} catch (e) {
+			Alert.alert('Erro', 'Falha ao processar o PDF.');
+		} finally {
+			setIsCarregandoPreview(false);
+		}
+	};
+
 	const confirmSignOut = () => {
 		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
 			{ text: 'Cancelar', style: 'cancel' },
@@ -80,43 +131,6 @@ export default function PneusScreen() {
 		v = (parseInt(v, 10) / 100).toFixed(2).replace('.', ',');
 		v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 		return v;
-	};
-
-	const compartilharPDF = async (url: string, nomeDoArquivo: string) => {
-		try {
-			Alert.alert('Aguarde', 'Gerando documento e preparando o envio...');
-
-			const resposta = await fetch(url);
-			const htmlConteudo = await resposta.text();
-
-			const { uri } = await Print.printToFileAsync({
-				html: htmlConteudo
-			});
-
-			// @ts-ignore
-			const diretorio = FileSystem.documentDirectory;
-			const fileUriLocal = `${diretorio}${nomeDoArquivo}.pdf`;
-
-			await FileSystem.deleteAsync(fileUriLocal, { idempotent: true });
-			await FileSystem.moveAsync({
-				from: uri,
-				to: fileUriLocal
-			});
-
-			const isAvailable = await Sharing.isAvailableAsync();
-			if (isAvailable) {
-				await Sharing.shareAsync(fileUriLocal, {
-					mimeType: 'application/pdf',
-					dialogTitle: 'Enviar PDF',
-					UTI: 'com.adobe.pdf'
-				});
-			} else {
-				Alert.alert('Aviso', 'O compartilhamento não está disponível no seu aparelho.');
-			}
-		} catch (error) {
-			console.error("Erro ao gerar PDF:", error);
-			Alert.alert('Erro', 'Não foi possível gerar ou enviar o PDF.');
-		}
 	};
 
 	const formatarValorDB = (val: any) => {
@@ -281,7 +295,7 @@ export default function PneusScreen() {
 	const removerFoto = (index: number) => { setFotosPneu(fotosPneu.filter((_, i) => i !== index)); };
 
 	const salvarPneu = async () => {
-		if (form.dot) {
+		if (form.dot && form.dot !== 'S/A') {
 			if (form.dot.length !== 4) {
 				Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.');
 				return;
@@ -345,7 +359,7 @@ export default function PneusScreen() {
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
 		if (tipo === 'veiculo') {
-			const res = await apiService.buscarVeiculo({ busca: termo });
+			const res = await apiService.buscarVeiculo({ busca: termo, origem: 'associacao' });
 			if (res && res.success) {
 				const veiculosFormatados = res.data.map((v: any) => ({
 					id: v.id, nome: v.placa, placa: v.placa,
@@ -444,7 +458,7 @@ export default function PneusScreen() {
 
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
-			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (form.referencia || ''))),
+			nome: tipoBusca === 'veiculo' ? termoDigitado.trim() : (tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (form.referencia || '')))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (form.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
 			mmOriginal: '', valor: '', sulco: ''
@@ -456,6 +470,7 @@ export default function PneusScreen() {
 	const salvarCadastroDinamico = async () => {
 		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
 		if (tipoBusca === 'reformador' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do reformador."); return; }
+		if (tipoBusca === 'veiculo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha a placa ou código do veículo."); return; }
 		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
 		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
 		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha Referência, Marca, Modelo e o MM Original."); return; }
@@ -463,15 +478,23 @@ export default function PneusScreen() {
 
 		setIsCadastrando(true);
 		try {
-			const dadosCadastro = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
+			let url = API_CADASTRO_URL;
+			let dadosCadastro: any = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
 
-			const response = await fetch(API_CADASTRO_URL, {
+			if (tipoBusca === 'veiculo') {
+				url = 'https://sistemascactus.com/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
+				dadosCadastro = { tipo: 'veiculo_incompleto', nome: formCadastro.nome };
+			}
+
+			const response = await fetch(url, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosCadastro)
 			});
 			const res = await response.json();
 			if (res.success) {
 				if (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, isNewModel: true });
+				} else if (tipoBusca === 'veiculo') {
+					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, placa: res.nome || formCadastro.nome, isNewModel: true });
 				} else if (tipoBusca === 'referencia_pneu') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true });
 				} else if (tipoBusca === 'marca_pneu') {
@@ -492,13 +515,60 @@ export default function PneusScreen() {
 		}
 	};
 
+	const renderPreviewContent = () => (
+		<View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 999999, elevation: 999999 }]}>
+			<View style={{ width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }}>
+				<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+					<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Exportar Documento</Text>
+					<TouchableOpacity onPress={() => setModalPreviewVisible(false)}>
+						<Feather name="x" size={24} color="#333" />
+					</TouchableOpacity>
+				</View>
+
+				<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
+					<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
+					<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
+					<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
+					<Text style={{ fontSize: 11, color: '#999', marginTop: 15, textAlign: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+						{previewData.nome}.pdf
+					</Text>
+				</View>
+
+				{isCarregandoPreview ? (
+					<View style={{ alignItems: 'center', paddingVertical: 20 }}>
+						<ActivityIndicator size="large" color="#0c6ead" />
+						<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A gerar documento em alta qualidade...</Text>
+					</View>
+				) : (
+					<View style={{ gap: 12, width: '100%' }}>
+						<TouchableOpacity
+							style={{ backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+							onPress={visualizarPDFNativo}
+						>
+							<Feather name="eye" size={20} color="#fff" />
+							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Visualizar Documento</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							style={{ backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+							onPress={compartilharDocumentoPDF}
+						>
+							<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
+							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar / Partilhar</Text>
+						</TouchableOpacity>
+					</View>
+				)}
+			</View>
+		</View>
+	);
+
 	const renderBuscaDinamica = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalContentBusca}>
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador'].includes(tipoBusca) && (
+						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador', 'veiculo'].includes(tipoBusca) && (
 							<TouchableOpacity
 								style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
 								onPress={() => {
@@ -540,11 +610,11 @@ export default function PneusScreen() {
 				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
-							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}
+							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : tipoBusca === 'veiculo' ? 'Placa ou Código' : 'Modelo'}
 						</Text>
 
-						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') && (
-							<><Text style={styles.label}>* Nome</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder={tipoBusca === 'motivo_laudo' ? "Ex: Furo na lateral..." : "Ex: Reformadora Silva..."} /></>
+						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' || tipoBusca === 'veiculo') && (
+							<><Text style={styles.label}>* {tipoBusca === 'veiculo' ? 'Placa ou Código' : 'Nome'}</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder={tipoBusca === 'motivo_laudo' ? "Ex: Furo na lateral..." : tipoBusca === 'veiculo' ? "Ex: ABC1234 ou 102..." : "Ex: Reformadora Silva..."} /></>
 						)}
 
 						{tipoBusca === 'marca_pneu' && (
@@ -631,14 +701,27 @@ export default function PneusScreen() {
 				}
 				renderItem={({ item }) => {
 					const isAvulso = !item.placa_associada || item.placa_associada.trim() === '';
+					const isSucata = !!item.motivo_recusa || !!item.laud_tx_motivo;
+
+					const statusPneu = isSucata ? 'SUCATA' : 'RODANDO';
+					const colorStatusPneu = isSucata ? '#E53935' : '#1967d2';
+					const bgStatusPneu = isSucata ? '#ffebee' : '#e8f0fe';
+
 					return (
 						<View style={styles.card}>
 							<View style={styles.cardHeader}>
 								<Text style={styles.cardTitle} numberOfLines={1}>ID: #{item.id} | Série: {item.serie || 'N/A'}</Text>
-								<View style={[styles.statusBadge, { backgroundColor: isAvulso ? '#fff3cd' : '#e8f5e9' }]}>
-									<Text style={[styles.statusText, { color: isAvulso ? '#856404' : '#28a745' }]}>
-										{isAvulso ? 'AVULSO' : `PLACA: ${item.placa_associada}`}
-									</Text>
+								<View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+									<View style={[styles.statusBadge, { backgroundColor: bgStatusPneu }]}>
+										<Text style={[styles.statusText, { color: colorStatusPneu }]}>
+											{statusPneu}
+										</Text>
+									</View>
+									<View style={[styles.statusBadge, { backgroundColor: isAvulso ? '#fff3cd' : '#e8f5e9' }]}>
+										<Text style={[styles.statusText, { color: isAvulso ? '#856404' : '#28a745' }]}>
+											{isAvulso ? 'AVULSO' : `PLACA: ${item.placa_associada || item.placa}`}
+										</Text>
+									</View>
 								</View>
 							</View>
 
@@ -726,7 +809,7 @@ export default function PneusScreen() {
 
 							<View style={styles.row}>
 								<View style={{ width: '100%', marginBottom: 15 }}>
-									<Text style={styles.label}>Associar à Placa (Vazio = Avulso)</Text>
+									<Text style={styles.label}>Associar à Placa ou Código (Vazio = Avulso)</Text>
 									<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('veiculo')}>
 										<Text style={{ color: form.placa_associada ? '#000' : '#999' }}>{form.placa_associada || 'Pneu Avulso...'}</Text>
 										{form.placa_associada ? (
@@ -824,8 +907,41 @@ export default function PneusScreen() {
 
 							<Text style={styles.groupTitle}>Especificações</Text>
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>* DOT (4 dígitos)</Text><TextInput style={styles.inputModal} value={form.dot} onChangeText={t => setForm({ ...form, dot: t.replace(/\D/g, '') })} keyboardType="numeric" maxLength={4} placeholder="Ex: 2324" /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Série</Text><TextInput style={styles.inputModal} value={form.serie} onChangeText={t => setForm({ ...form, serie: t })} /></View>
+								<View style={styles.inputGroupH}>
+									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+										<Text style={[styles.label, { marginBottom: 0 }]}>* DOT</Text>
+										<TouchableOpacity onPress={() => setForm({ ...form, dot: form.dot === 'S/A' ? '' : 'S/A' })}>
+											<Text style={{ fontSize: 11, color: form.dot === 'S/A' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
+												{form.dot === 'S/A' ? 'LIMPAR' : 'SEM ACESSO'}
+											</Text>
+										</TouchableOpacity>
+									</View>
+									<TextInput
+										style={[styles.inputModal, form.dot === 'S/A' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
+										value={form.dot}
+										onChangeText={t => setForm({ ...form, dot: t === 'S/A' ? 'S/A' : t.replace(/\D/g, '') })}
+										keyboardType={form.dot === 'S/A' ? 'default' : 'numeric'}
+										maxLength={form.dot === 'S/A' ? 3 : 4}
+										placeholder="Ex: 2324"
+										editable={form.dot !== 'S/A'}
+									/>
+								</View>
+								<View style={styles.inputGroupH}>
+									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+										<Text style={[styles.label, { marginBottom: 0 }]}>Série</Text>
+										<TouchableOpacity onPress={() => setForm({ ...form, serie: form.serie === 'S/A' ? '' : 'S/A' })}>
+											<Text style={{ fontSize: 11, color: form.serie === 'S/A' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
+												{form.serie === 'S/A' ? 'LIMPAR' : 'SEM ACESSO'}
+											</Text>
+										</TouchableOpacity>
+									</View>
+									<TextInput
+										style={[styles.inputModal, form.serie === 'S/A' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
+										value={form.serie}
+										onChangeText={t => setForm({ ...form, serie: t })}
+										editable={form.serie !== 'S/A'}
+									/>
+								</View>
 							</View>
 
 							<View style={{ width: '100%', marginBottom: 15 }}>
@@ -842,28 +958,29 @@ export default function PneusScreen() {
 
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={form.mm_original} onChangeText={t => setForm({ ...form, mm_original: t.replace(',', '.') })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.milimetros} onChangeText={t => setForm({ ...form, milimetros: t.replace(',', '.') })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={form.milimetros} onChangeText={t => setForm({ ...form, milimetros: t.replace(',', '.') })} /></View>
 							</View>
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}>
 									<Text style={styles.label}>Calib. Padrão (Lbs)</Text>
-									<TextInput style={styles.inputModal} keyboardType="numeric" value={form.pressao_padrao} onChangeText={t => setForm({ ...form, pressao_padrao: t })} />
+									<TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={form.pressao_padrao} onChangeText={t => setForm({ ...form, pressao_padrao: t })} />
 								</View>
 								<View style={styles.inputGroupH}>
 									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
 										<Text style={[styles.label, { marginBottom: 0 }]}>Calib. Atual</Text>
-										<TouchableOpacity onPress={() => setForm({ ...form, pressao: form.pressao === 'N/M' ? '' : 'N/M' })}>
-											<Text style={{ fontSize: 11, color: form.pressao === 'N/M' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
-												{form.pressao === 'N/M' ? 'LIMPAR' : 'INDISPONÍVEL'}
+										<TouchableOpacity onPress={() => setForm({ ...form, pressao: form.pressao === 'S/A' ? '' : 'S/A' })}>
+											<Text style={{ fontSize: 11, color: form.pressao === 'S/A' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
+												{form.pressao === 'S/A' ? 'LIMPAR' : 'SEM ACESSO'}
 											</Text>
 										</TouchableOpacity>
 									</View>
 									<TextInput
-										style={[styles.inputModal, form.pressao === 'N/M' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
-										keyboardType={form.pressao === 'N/M' ? 'default' : 'numeric'}
+										style={[styles.inputModal, form.pressao === 'S/A' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
+										keyboardType={form.pressao === 'S/A' ? 'default' : 'numeric'}
 										value={form.pressao}
 										onChangeText={t => setForm({ ...form, pressao: t })}
 										placeholder="Lbs"
+										editable={form.pressao !== 'S/A'}
 									/>
 								</View>
 							</View>
@@ -927,17 +1044,12 @@ export default function PneusScreen() {
 											const codigoFormatado = (form.placa_associada || form.id).replace(/[^A-Za-z0-9]/g, '');
 											const nomeArquivoPdf = `LAUDO-${nomeClienteFormatado}-${strData}-${codigoFormatado}`.toUpperCase();
 
-											compartilharPDF(`https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`, nomeArquivoPdf);
+											const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`;
+											abrirModalPreview(url, nomeArquivoPdf, 'Laudo Técnico de Pneu', `Cliente: ${form.cliente || 'Avulso'}`);
 										}}
 									>
-										<Feather name="printer" size={16} color="#fff" />
-										<Text
-											style={[styles.btnImprimirText, { fontSize: 13, marginLeft: 5 }]}
-											numberOfLines={1}
-											adjustsFontSizeToFit
-										>
-											Imprimir
-										</Text>
+										<Feather name="download" size={16} color="#fff" />
+										<Text style={[styles.btnImprimirText, { fontSize: 13, marginLeft: 5 }]} numberOfLines={1} adjustsFontSizeToFit>Exportar</Text>
 									</TouchableOpacity>
 								) : null}
 
@@ -950,7 +1062,9 @@ export default function PneusScreen() {
 
 						{fotoAmpliada && (
 							<View style={styles.fullScreenOverlay}>
-								<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}><Feather name="x-circle" size={36} color="#fff" /></TouchableOpacity>
+								<TouchableOpacity style={styles.closeFullBtn} onPress={() => setFotoAmpliada(null)}>
+									<Feather name="x-circle" size={36} color="#fff" />
+								</TouchableOpacity>
 								<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
 							</View>
 						)}
@@ -958,9 +1072,18 @@ export default function PneusScreen() {
 						{modalBuscaVisible && renderBuscaDinamica()}
 						{modalCadastroVisible && renderCadastroDinamico()}
 
+						{modalPreviewVisible && renderPreviewContent()}
+
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>
+
+			{!modalVisible && modalPreviewVisible && (
+				<Modal visible={true} animationType="fade" transparent={true} onRequestClose={() => setModalPreviewVisible(false)}>
+					{renderPreviewContent()}
+				</Modal>
+			)}
+
 		</View>
 	);
 }
@@ -969,7 +1092,6 @@ const pickerStyles = StyleSheet.create({
 	inputIOS: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#000', marginBottom: 15, paddingRight: 30, minHeight: 48 },
 	inputAndroid: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#000', marginBottom: 15, paddingRight: 30, minHeight: 48 }
 });
-const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />;
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8' },
@@ -980,36 +1102,49 @@ const styles = StyleSheet.create({
 	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
 	inputModal: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
+	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%' },
-	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
 
 	inputWithIcon: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
 	inputFlex: { flex: 1, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000' },
 	searchIconBtn: { backgroundColor: '#0c6ead', width: 48, height: 48, justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderWidth: 1, borderColor: '#0c6ead' },
 
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 10 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
+	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
+	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
+	btnConsolidar: { flex: 1.3, backgroundColor: '#f39c12', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
 	btnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 	btnInserirText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginBottom: 15, elevation: 3, overflow: 'hidden' },
+	cardSelected: { borderColor: '#1967d2', borderWidth: 2, backgroundColor: '#f0f4ff' },
+	checkboxContainer: { paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee', backgroundColor: '#f9f9f9' },
+
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
 	cardTitle: { fontWeight: 'bold', fontSize: 15, color: '#333', flex: 1, marginRight: 10 },
 	statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
 	statusText: { fontSize: 11, fontWeight: 'bold' },
 	cardInfoBox: { padding: 15, paddingBottom: 10 },
-	cardInfoRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-	cardInfoText: { fontSize: 13, color: '#444', flexShrink: 1, lineHeight: 18 },
+	cardInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+	cardInfoText: { fontSize: 13, color: '#444', flexShrink: 1 },
 
 	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
-	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%' },
-
-	btnEditarCard: { backgroundColor: '#0c6ead', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
-	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
-
-	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15, marginLeft: 8 },
+	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%', gap: 8 },
+	btnEditarCard: { backgroundColor: '#0c6ead', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 12 },
+	btnEditarCardText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
+	btnImprimirHistorico: { backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+	btnImprimirHistoricoText: { color: '#333', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
+	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 12 },
 	btnExcluirCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
+
+	headerAtivo: { backgroundColor: '#0c6ead', padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 30 },
+	headerAtivoTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 5 },
+	headerAtivoSubText: { color: '#e0e0e0', fontSize: 14, marginLeft: 5 },
+	actionRowAtivo: { flexDirection: 'row', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
+	btnVoltarBranco: { backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 50, borderRadius: 8, borderWidth: 1, borderColor: '#ccc', flex: 1, marginRight: 10 },
+	btnVoltarBrancoText: { color: '#333', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
+	btnNovoChecklist: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 50, borderRadius: 8, flex: 1 },
+	btnNovoChecklistText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
 
 	modalHeaderFullScreen: {
 		flexDirection: 'row',
@@ -1018,18 +1153,14 @@ const styles = StyleSheet.create({
 		backgroundColor: '#0c6ead',
 		paddingHorizontal: 15,
 		paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 65 : (StatusBar.currentHeight ? StatusBar.currentHeight + 15 : 50),
+		paddingTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 24) + 15,
 		elevation: 4,
 	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
-
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 	btnSalvarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnTextCancel: { color: '#333', fontWeight: 'bold' },
-	btnLaudar: { backgroundColor: '#E53935', flexDirection: 'row', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnLaudarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
-	btnImprimirLaudo: { backgroundColor: '#63c77b', flexDirection: 'row', padding: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
 	btnImprimir: { backgroundColor: '#3276b1', flexDirection: 'row', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 0 },
 	btnImprimirText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
@@ -1040,10 +1171,7 @@ const styles = StyleSheet.create({
 	fotoPreview: { width: 100, height: 100, borderRadius: 8 },
 	btnRemoveFoto: { position: 'absolute', top: -10, right: -10, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
 
-	boxReformado: { backgroundColor: '#f0f0f0', padding: 15, borderRadius: 8, marginBottom: 15 },
-
-	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
 	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
 	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
@@ -1057,14 +1185,32 @@ const styles = StyleSheet.create({
 	btnInserirBuscaDinamicaMini: { backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' },
 	btnInserirBuscaDinamicaTextMini: { color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 },
 
-	modalSmall: { width: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
-	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+	modalSmall: { width: '85%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 5 },
 
 	btnVoltarCliente: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eee', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 15, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#ccc' },
 	btnVoltarClienteText: { marginLeft: 6, fontSize: 13, fontWeight: 'bold', color: '#333' },
-	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
 	fullScreenOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 99999, elevation: 99999 },
 	closeFullBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 100000, elevation: 100000, padding: 10 },
 	fullScreenImage: { width: '100%', height: '80%' },
+
+	pilhaGraficaContainer: { alignItems: 'center', paddingTop: 10 },
+	pneuStackedItem: {
+		backgroundColor: '#333', borderWidth: 5, borderColor: '#2a2a2a', borderRadius: 15,
+		width: '85%', minHeight: 85, marginBottom: 6, marginTop: 2, flexDirection: 'row', alignItems: 'center',
+		paddingHorizontal: 15, paddingVertical: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
+	},
+	stackedPneuNumber: { color: '#aaa', fontSize: 20, fontWeight: 'bold', marginRight: 15 },
+	stackedPneuInfo: { flex: 1 },
+	stackedPneuSerie: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+	stackedPneuBanda: { color: '#f39c12', fontSize: 12, marginTop: 3, fontWeight: 'bold' },
+	stackedPneuStatus: { color: '#b0bec5', fontSize: 12, marginTop: 3 },
+	stackedPneuIcon: { opacity: 0.6, marginLeft: 10 },
+
+	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+	reportBox: { backgroundColor: '#fff', borderRadius: 8, padding: 15, marginBottom: 15, elevation: 2 },
+	reportRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderColor: '#f0f0f0' },
+	reportLabel: { fontSize: 14, color: '#666' },
+	reportValue: { fontSize: 15, fontWeight: 'bold', color: '#333' },
 });
