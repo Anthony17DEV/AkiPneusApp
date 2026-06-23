@@ -258,7 +258,7 @@ export default function VeiculosScreen() {
 		const result = await ImagePicker.launchCameraAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsEditing: false,
-			quality: 0.7,
+			quality: 0.2,
 			base64: true
 		});
 
@@ -270,10 +270,11 @@ export default function VeiculosScreen() {
 	const abrirGaleria = async () => {
 		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Você precisa permitir o acesso à galeria."); return; }
+
 		const result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsMultipleSelection: true,
-			quality: 0.7,
+			quality: 0.2,
 			base64: true
 		});
 
@@ -446,6 +447,13 @@ export default function VeiculosScreen() {
 					<FlatList
 						data={resultadosBusca}
 						keyExtractor={(item, index) => String(item?.id || index)}
+
+						initialNumToRender={10}
+						maxToRenderPerBatch={10}
+						windowSize={5}
+						removeClippedSubviews={true}
+						keyboardShouldPersistTaps="handled"
+
 						renderItem={({ item }) => (
 							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
 								<Text style={styles.itemBuscaNome}>{item.nome}</Text>
@@ -493,6 +501,12 @@ export default function VeiculosScreen() {
 			<FlatList
 				data={veiculos}
 				keyExtractor={(item, index) => String(item?.id || index)}
+
+				initialNumToRender={10}
+				maxToRenderPerBatch={10}
+				windowSize={5}
+				removeClippedSubviews={true}
+
 				contentContainerStyle={{ paddingBottom: 40 }}
 				showsVerticalScrollIndicator={false}
 				ListHeaderComponent={

@@ -60,6 +60,11 @@ export default function ChecklistScreen() {
 	const [modalViewPneuVisible, setModalViewPneuVisible] = useState(false);
 	const [viewData, setViewData] = useState<any>({});
 
+	const [modalPreviewVisible, setModalPreviewVisible] = useState(false);
+	const [previewData, setPreviewData] = useState({ url: '', nome: '', tipo: '', subtitulo: '' });
+	const [htmlDoc, setHtmlDoc] = useState('');
+	const [isCarregandoPreview, setIsCarregandoPreview] = useState(false);
+
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'implemento' | 'veiculo' | 'motivo_laudo' | 'reformador'>('referencia_pneu');
 	const [termoComboBusca, setTermoComboBusca] = useState('');
@@ -78,11 +83,6 @@ export default function ChecklistScreen() {
 		ref_mm_original: '', ref_valor: ''
 	});
 
-	const [modalPreviewVisible, setModalPreviewVisible] = useState(false);
-	const [previewData, setPreviewData] = useState({ url: '', nome: '', tipo: '', subtitulo: '' });
-	const [htmlDoc, setHtmlDoc] = useState('');
-	const [isCarregandoPreview, setIsCarregandoPreview] = useState(false);
-
 	const abrirModalPreview = async (url: string, nomeDoArquivo: string, tipoDoc: string, subtituloDoc: string) => {
 		setPreviewData({ url, nome: nomeDoArquivo, tipo: tipoDoc, subtitulo: subtituloDoc });
 		setModalPreviewVisible(true);
@@ -99,12 +99,12 @@ export default function ChecklistScreen() {
 	};
 
 	const visualizarPDFNativo = async () => {
-		if (!htmlDoc) { Alert.alert('Aguarde', 'Documento ainda carregando...'); return; }
+		if (!htmlDoc) { Alert.alert('Aguarde', 'O documento ainda está a carregar...'); return; }
 		try { await Print.printAsync({ html: htmlDoc }); } catch (e) { console.log(e); }
 	};
 
 	const compartilharDocumentoPDF = async () => {
-		if (!htmlDoc) { Alert.alert('Aguarde', 'Documento ainda carregando...'); return; }
+		if (!htmlDoc) { Alert.alert('Aguarde', 'O documento ainda está a carregar...'); return; }
 		try {
 			setIsCarregandoPreview(true);
 			const { uri } = await Print.printToFileAsync({ html: htmlDoc });
@@ -119,7 +119,7 @@ export default function ChecklistScreen() {
 			if (isAvailable) {
 				await Sharing.shareAsync(fileUriLocal, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Enviar PDF' });
 			} else {
-				Alert.alert('Aviso', 'O envio não está disponível no seu dispositivo.');
+				Alert.alert('Aviso', 'A partilha não está disponível no seu telemóvel.');
 			}
 		} catch (e) {
 			Alert.alert('Erro', 'Falha ao processar o PDF.');
@@ -162,7 +162,7 @@ export default function ChecklistScreen() {
 	const confirmSignOut = () => {
 		Alert.alert(
 			'Sair da Conta',
-			'Tem certeza que deseja sair do aplicativo?',
+			'Tem a certeza que deseja sair da aplicação?',
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{ text: 'Sair', style: 'destructive', onPress: signOut },
@@ -209,6 +209,14 @@ export default function ChecklistScreen() {
 	const carregarHistorico = async (vId: number) => {
 		const res = await apiService.listarChecklists(vId);
 		if (res && res.success) setHistorico(res.data);
+	};
+
+	const formatarDataLocal = (dataStr: string) => {
+		if (!dataStr) return '';
+		const partes = dataStr.split(' ');
+		const dPartes = partes[0].split('-');
+		if (dPartes.length === 3) return `${dPartes[2]}/${dPartes[1]}/${dPartes[0]}`;
+		return dataStr;
 	};
 
 	const carregarCoresPneus = async (checkId: number) => {
@@ -352,15 +360,15 @@ export default function ChecklistScreen() {
 
 	const tirarFotoPneu = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmera."); return; }
-		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmara."); return; }
+		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
 
 	const escolherFotoGaleria = async () => {
 		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à galeria de fotos."); return; }
-		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
 
@@ -582,11 +590,52 @@ export default function ChecklistScreen() {
 		}
 	};
 
-	const formatarData = (dataStr: string) => {
-		if (!dataStr) return '';
-		const d = new Date(dataStr.replace(' ', 'T'));
-		return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-	};
+	const renderPreviewContent = () => (
+		<View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 999999, elevation: 999999 }]}>
+			<View style={{ width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 10 }}>
+				<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+					<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Exportar Documento</Text>
+					<TouchableOpacity onPress={() => setModalPreviewVisible(false)}>
+						<Feather name="x" size={24} color="#333" />
+					</TouchableOpacity>
+				</View>
+
+				<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
+					<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
+					<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
+					<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
+					<Text style={{ fontSize: 11, color: '#999', marginTop: 15, textAlign: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+						{previewData.nome}.pdf
+					</Text>
+				</View>
+
+				{isCarregandoPreview ? (
+					<View style={{ alignItems: 'center', paddingVertical: 20 }}>
+						<ActivityIndicator size="large" color="#0c6ead" />
+						<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A gerar documento em alta qualidade...</Text>
+					</View>
+				) : (
+					<View style={{ gap: 12, width: '100%' }}>
+						<TouchableOpacity
+							style={{ backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+							onPress={visualizarPDFNativo}
+						>
+							<Feather name="eye" size={20} color="#fff" />
+							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Visualizar Documento</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							style={{ backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+							onPress={compartilharDocumentoPDF}
+						>
+							<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
+							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar / Partilhar</Text>
+						</TouchableOpacity>
+					</View>
+				)}
+			</View>
+		</View>
+	);
 
 	const renderBuscaDinamica = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
@@ -619,7 +668,16 @@ export default function ChecklistScreen() {
 					<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
 				</View>
 				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
+					<FlatList
+						data={resultadosBusca}
+						keyExtractor={(item, index) => String(item?.id || index)}
+
+						initialNumToRender={10}
+						maxToRenderPerBatch={10}
+						windowSize={5}
+						removeClippedSubviews={true}
+						keyboardShouldPersistTaps="handled"
+
 						renderItem={({ item }) => (
 							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
 								<Text style={styles.itemBuscaNome}>{item.nome}</Text>
@@ -760,7 +818,7 @@ export default function ChecklistScreen() {
 								historico.map((h, index) => (
 									<View key={`historico_${index}`} style={styles.itemHistorico}>
 										<View style={{ flex: 1, paddingRight: 10 }}>
-											<Text style={{ fontWeight: 'bold', color: '#333' }}>{formatarData(h.chec_tx_dataHora)}</Text>
+											<Text style={{ fontWeight: 'bold', color: '#333' }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
 											<Text style={{ color: '#666', fontSize: 12 }}>Motorista: {h.chec_tx_motorista}</Text>
 											<Text style={{ color: '#666', fontSize: 12 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
 										</View>
@@ -1092,6 +1150,9 @@ export default function ChecklistScreen() {
 					{modalBuscaVisible && renderBuscaDinamica()}
 					{modalCadastroVisible && renderCadastroDinamico()}
 
+					{/* MODAL CAMALEÃO A SOBREPOR A EDIÇÃO DO PNEU */}
+					{modalPreviewVisible && renderPreviewContent()}
+
 				</KeyboardAvoidingView>
 			</Modal>
 
@@ -1108,14 +1169,19 @@ export default function ChecklistScreen() {
 					<ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
 						{(() => {
 							const db = viewData.dbData || {};
+
 							const mmOrig = getFloatDb(db.pneu_tx_mmOriginal);
 							const mmAtual = getFloatDb(db.pneu_tx_milimetros);
 							const valor = getFloatDb(db.pneu_tx_valor);
+
 							const mmGastos = (mmOrig > 0 && mmAtual >= 0 && mmOrig > mmAtual) ? (mmOrig - mmAtual) : 0;
+
 							const cpmTotal = mmOrig > 0 ? (valor / mmOrig) : 0;
 							const cpmGasto = mmGastos > 0 ? (valor / mmGastos) : 0;
+
 							const kmRodado = getFloatDb(db.km_rodado || db.pneu_tx_kmRodado || db.pneu_tx_km);
 							const qpm = mmGastos > 0 ? (kmRodado / mmGastos) : 0;
+
 							const isSucata = !!db.laud_tx_motivo || !!db.motivo_recusa;
 							const prejuizo = (mmOrig > 0 && valor > 0 && mmAtual > 0) ? (valor / mmOrig) * mmAtual : 0;
 
@@ -1123,36 +1189,87 @@ export default function ChecklistScreen() {
 								<>
 									<View style={styles.reportBox}>
 										<Text style={styles.groupTitle}>Identificação Principal</Text>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Posição:</Text><Text style={styles.reportValue}>{viewData.codigoPneu}</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Série / Fogo:</Text><Text style={styles.reportValue}>{db.pneu_tx_serie || 'N/A'} {db.pneu_tx_ferro ? `(F: ${db.pneu_tx_ferro})` : ''}</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Marca / Modelo:</Text><Text style={styles.reportValue}>{db.pneu_tx_marca || '--'} / {db.pneu_tx_modelo || '--'}</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Condição:</Text><Text style={styles.reportValue}>{db.pneu_tx_tipo || '--'}</Text></View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Posição:</Text>
+											<Text style={styles.reportValue}>{viewData.codigoPneu}</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Série / Fogo:</Text>
+											<Text style={styles.reportValue}>{db.pneu_tx_serie || 'N/A'} {db.pneu_tx_ferro ? `(F: ${db.pneu_tx_ferro})` : ''}</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Marca / Modelo:</Text>
+											<Text style={styles.reportValue}>{db.pneu_tx_marca || '--'} / {db.pneu_tx_modelo || '--'}</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Condição:</Text>
+											<Text style={styles.reportValue}>{db.pneu_tx_tipo || '--'}</Text>
+										</View>
 									</View>
 
 									<View style={styles.reportBox}>
 										<Text style={styles.groupTitle}>Aferições de Desgaste</Text>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Sulco Original:</Text><Text style={styles.reportValue}>{mmOrig.toFixed(1)} mm</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Sulco Atual:</Text><Text style={[styles.reportValue, { color: mmAtual <= 3 && mmAtual > 0 ? '#E53935' : '#28a745' }]}>{mmAtual.toFixed(1)} mm</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Milímetros Gastos:</Text><Text style={styles.reportValue}>{mmGastos.toFixed(1)} mm</Text></View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Sulco Original:</Text>
+											<Text style={styles.reportValue}>{mmOrig.toFixed(1)} mm</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Sulco Atual:</Text>
+											<Text style={[styles.reportValue, { color: mmAtual <= 3 && mmAtual > 0 ? '#E53935' : '#28a745' }]}>
+												{mmAtual.toFixed(1)} mm
+											</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Milímetros Gastos:</Text>
+											<Text style={styles.reportValue}>{mmGastos.toFixed(1)} mm</Text>
+										</View>
 									</View>
 
 									<View style={styles.reportBox}>
 										<Text style={styles.groupTitle}>Indicadores de Performance</Text>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>Valor da Peça:</Text><Text style={styles.reportValue}>R$ {valor.toFixed(2).replace('.', ',')}</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>CPM (R$ por MM Total):</Text><Text style={styles.reportValue}>R$ {cpmTotal.toFixed(2).replace('.', ',')}</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>CPM (R$ por MM Gasto):</Text><Text style={[styles.reportValue, { color: '#f39c12' }]}>R$ {cpmGasto.toFixed(2).replace('.', ',')}</Text></View>
-										<View style={styles.reportRow}><Text style={styles.reportLabel}>QPM (KM por MM Gasto):</Text><Text style={[styles.reportValue, { color: '#0c6ead' }]}>{kmRodado > 0 ? `${qpm.toFixed(0)} km/mm` : 'N/D (Sem Histórico)'}</Text></View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>Valor da Peça:</Text>
+											<Text style={styles.reportValue}>R$ {valor.toFixed(2).replace('.', ',')}</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>CPM (R$ por MM Total):</Text>
+											<Text style={styles.reportValue}>R$ {cpmTotal.toFixed(2).replace('.', ',')}</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>CPM (R$ por MM Gasto):</Text>
+											<Text style={[styles.reportValue, { color: '#f39c12' }]}>R$ {cpmGasto.toFixed(2).replace('.', ',')}</Text>
+										</View>
+										<View style={styles.reportRow}>
+											<Text style={styles.reportLabel}>QPM (KM por MM Gasto):</Text>
+											<Text style={[styles.reportValue, { color: '#0c6ead' }]}>
+												{kmRodado > 0 ? `${qpm.toFixed(0)} km/mm` : 'N/D (Sem Histórico)'}
+											</Text>
+										</View>
 									</View>
 
 									{prejuizo > 0 && (
 										<View style={[styles.reportBox, { borderColor: isSucata ? '#E53935' : '#f39c12', borderWidth: 1 }]}>
-											<Text style={[styles.groupTitle, { color: isSucata ? '#E53935' : '#f39c12', borderBottomWidth: 0, marginBottom: 5 }]}>{isSucata ? 'Prejuízo Calculado (Sucata)' : 'Valor Residual da Borracha'}</Text>
-											<Text style={{ color: isSucata ? '#E53935' : '#f39c12', fontWeight: 'bold', fontSize: 18 }}>R$ {prejuizo.toFixed(2).replace('.', ',')}</Text>
-											{isSucata && (<Text style={{ color: '#E53935', marginTop: 8, fontSize: 14 }}><Text style={{ fontWeight: 'bold' }}>Motivo:</Text> {db.laud_tx_motivo || db.motivo_recusa}</Text>)}
+											<Text style={[styles.groupTitle, { color: isSucata ? '#E53935' : '#f39c12', borderBottomWidth: 0, marginBottom: 5 }]}>
+												{isSucata ? 'Prejuízo Calculado (Sucata)' : 'Valor Residual da Borracha'}
+											</Text>
+											<Text style={{ color: isSucata ? '#E53935' : '#f39c12', fontWeight: 'bold', fontSize: 18 }}>
+												R$ {prejuizo.toFixed(2).replace('.', ',')}
+											</Text>
+											{isSucata && (
+												<Text style={{ color: '#E53935', marginTop: 8, fontSize: 14 }}>
+													<Text style={{ fontWeight: 'bold' }}>Motivo:</Text> {db.laud_tx_motivo || db.motivo_recusa}
+												</Text>
+											)}
 										</View>
 									)}
 
-									<TouchableOpacity style={[styles.btnSalvar, { marginTop: 20 }]} onPress={() => { setModalViewPneuVisible(false); abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData); }}>
+									<TouchableOpacity
+										style={[styles.btnSalvar, { marginTop: 20 }]}
+										onPress={() => {
+											setModalViewPneuVisible(false);
+											abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData);
+										}}
+									>
 										<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
 										<Text style={styles.btnSalvarText}>Editar Este Pneu</Text>
 									</TouchableOpacity>
@@ -1163,52 +1280,12 @@ export default function ChecklistScreen() {
 				</View>
 			</Modal>
 
-			<Modal visible={modalPreviewVisible} animationType="fade" transparent={true} onRequestClose={() => setModalPreviewVisible(false)}>
-				<View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 999999, elevation: 999999 }}>
-					<View style={{ width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 10 }}>
-						<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-							<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Exportar Documento</Text>
-							<TouchableOpacity onPress={() => setModalPreviewVisible(false)}>
-								<Feather name="x" size={24} color="#333" />
-							</TouchableOpacity>
-						</View>
-
-						<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
-							<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
-							<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
-							<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
-							<Text style={{ fontSize: 11, color: '#999', marginTop: 15, textAlign: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
-								{previewData.nome}.pdf
-							</Text>
-						</View>
-
-						{isCarregandoPreview ? (
-							<View style={{ alignItems: 'center', paddingVertical: 20 }}>
-								<ActivityIndicator size="large" color="#0c6ead" />
-								<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>Gerando documento em alta qualidade...</Text>
-							</View>
-						) : (
-							<View style={{ gap: 12 }}>
-								<TouchableOpacity
-									style={{ backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8 }}
-									onPress={visualizarPDFNativo}
-								>
-									<Feather name="eye" size={20} color="#fff" />
-									<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Visualizar Documento</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity
-									style={{ backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8 }}
-									onPress={compartilharDocumentoPDF}
-								>
-									<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
-									<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar PDF</Text>
-								</TouchableOpacity>
-							</View>
-						)}
-					</View>
-				</View>
-			</Modal>
+			{/* MODAL CAMALEÃO SE ABERTO FORA DA EDIÇÃO DO PNEU */}
+			{!modalPneuVisible && modalPreviewVisible && (
+				<Modal visible={true} animationType="fade" transparent={true} onRequestClose={() => setModalPreviewVisible(false)}>
+					{renderPreviewContent()}
+				</Modal>
+			)}
 
 		</View>
 	);
@@ -1236,6 +1313,9 @@ const styles = StyleSheet.create({
 	btnNovoChecklist: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 50, borderRadius: 8 },
 	btnNovoChecklistText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
 
+	btnGravarChecklist: { backgroundColor: '#63c77b', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 8, width: '100%', alignItems: 'center', elevation: 3 },
+	btnGravarChecklistText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+
 	itemHistorico: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 	btnModificarHistorico: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
 	btnModificarHistoricoText: { color: '#fff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
@@ -1258,6 +1338,7 @@ const styles = StyleSheet.create({
 	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
 	btnRemoveFoto: { position: 'absolute', top: -10, right: -10, backgroundColor: '#E53935', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', zIndex: 10, elevation: 5 },
+	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	inputGroupH: { width: '48%' },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
@@ -1267,8 +1348,10 @@ const styles = StyleSheet.create({
 	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', padding: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 0 },
 	btnSalvarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+
 	btnImprimir: { backgroundColor: '#3276b1', flexDirection: 'row', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 0 },
 	btnImprimirText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
+
 	btnFoto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed', borderRadius: 8, paddingVertical: 15, backgroundColor: '#f9f9f9' },
 	btnFotoText: { marginLeft: 10, color: '#666', fontWeight: 'bold' },
 	fotoContainer: { marginRight: 15, marginTop: 10, position: 'relative' },
@@ -1284,6 +1367,8 @@ const styles = StyleSheet.create({
 	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
 	itemBuscaDoc: { fontSize: 12, color: '#888', marginTop: 2 },
 	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
+	btnInserirBuscaDinamica: { backgroundColor: '#e8f5e9', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#63c77b', marginBottom: 15 },
+	btnInserirBuscaDinamicaText: { color: '#28a745', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
 	btnInserirBuscaDinamicaMini: { backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' },
 	btnInserirBuscaDinamicaTextMini: { color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 },
 

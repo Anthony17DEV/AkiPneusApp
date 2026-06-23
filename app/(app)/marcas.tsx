@@ -198,6 +198,12 @@ export default function MarcasScreen() {
 			<FlatList
 				data={marcasFiltradas}
 				keyExtractor={(item, index) => String(item.id || index)}
+
+				initialNumToRender={10}
+				maxToRenderPerBatch={10}
+				windowSize={5}
+				removeClippedSubviews={true}
+
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
 				ListHeaderComponent={
@@ -290,7 +296,6 @@ export default function MarcasScreen() {
 
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					{/* Aqui está o macete "undefined" que impede a briga com o teclado do Android */}
 					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 						<View style={styles.modalHeaderFull}>
 							<TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 5 }}>
@@ -300,7 +305,6 @@ export default function MarcasScreen() {
 							<View style={{ width: 34 }} />
 						</View>
 
-						{/* O keyboardShouldPersistTaps permite rolar a tela enquanto digita */}
 						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
 							<Text style={styles.groupTitle}>{form.referenciaAntiga ? 'Editar Marca' : 'Nova Marca de Pneu'}</Text>
 
@@ -364,6 +368,13 @@ export default function MarcasScreen() {
 												<FlatList
 													data={resultadosBusca}
 													keyExtractor={(item, index) => String(item?.id || index)}
+
+													initialNumToRender={10}
+													maxToRenderPerBatch={10}
+													windowSize={5}
+													removeClippedSubviews={true}
+													keyboardShouldPersistTaps="handled"
+
 													renderItem={({ item }) => (
 														<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome}</Text></TouchableOpacity>
 													)}

@@ -204,7 +204,7 @@ export default function ClientesScreen() {
 	const abrirCamera = async () => {
 		const { status } = await ImagePicker.requestCameraPermissionsAsync();
 		if (status !== 'granted') { Alert.alert('Permissão negada'); return; }
-		let result = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
+		let result = await ImagePicker.launchCameraAsync({ quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) {
 			setFotos([...fotos, `data:image/jpeg;base64,${result.assets[0].base64}`]);
 		}
@@ -214,7 +214,7 @@ export default function ClientesScreen() {
 		let result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsMultipleSelection: true,
-			quality: 0.5,
+			quality: 0.2,
 			base64: true
 		});
 
@@ -331,6 +331,12 @@ export default function ClientesScreen() {
 			<FlatList
 				data={clientes}
 				keyExtractor={(item, index) => String(item?.id || index)}
+
+				initialNumToRender={8}
+				maxToRenderPerBatch={8}
+				windowSize={5}
+				removeClippedSubviews={true}
+
 				renderItem={renderItem}
 				contentContainerStyle={{ paddingBottom: 40 }}
 				showsVerticalScrollIndicator={false}
@@ -536,6 +542,13 @@ export default function ClientesScreen() {
 						</View>
 						{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
 							<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
+
+								initialNumToRender={10}
+								maxToRenderPerBatch={10}
+								windowSize={5}
+								removeClippedSubviews={true}
+								keyboardShouldPersistTaps="handled"
+
 								renderItem={({ item }) => (
 									<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
 										<Text style={styles.itemBuscaNome}>{item.nome}</Text>

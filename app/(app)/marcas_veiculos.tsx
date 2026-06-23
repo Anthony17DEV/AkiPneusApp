@@ -33,7 +33,7 @@ export default function MarcasVeiculosScreen() {
 	const [formModelo, setFormModelo] = useState({ id: '', nome: '' });
 
 	const confirmSignOut = () => {
-		Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
+		Alert.alert('Sair da Conta', 'Tem a certeza que deseja sair da aplicação?', [
 			{ text: 'Cancelar', style: 'cancel' },
 			{ text: 'Sair', style: 'destructive', onPress: signOut },
 		]);
@@ -110,7 +110,7 @@ export default function MarcasVeiculosScreen() {
 	const handleExcluir = (item: MarcaVeiculo) => {
 		Alert.alert(
 			'Excluir Marca',
-			`Tem certeza que deseja excluir a marca "${item.nome}"?`,
+			`Tem a certeza que deseja excluir a marca "${item.nome}"?`,
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{
@@ -201,7 +201,7 @@ export default function MarcasVeiculosScreen() {
 	const excluirModelo = (modelo: any) => {
 		Alert.alert(
 			'Excluir Modelo',
-			`Tem certeza que deseja excluir o modelo "${modelo.nome}"?`,
+			`Tem a certeza que deseja excluir o modelo "${modelo.nome}"?`,
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{
@@ -234,6 +234,12 @@ export default function MarcasVeiculosScreen() {
 			<FlatList
 				data={marcas}
 				keyExtractor={(item, index) => String(item?.id || index)}
+
+				initialNumToRender={10}
+				maxToRenderPerBatch={10}
+				windowSize={5}
+				removeClippedSubviews={true}
+
 				contentContainerStyle={{ paddingBottom: 40 }}
 				ListHeaderComponent={
 					<View style={styles.filterSection}>
@@ -283,7 +289,6 @@ export default function MarcasVeiculosScreen() {
 
 						<View style={styles.cardActions}>
 							<View style={styles.actionButtonsRow}>
-								{/* AQUI FOI ALTERADO PARA ABRIR O GERENCIADOR DE MODELOS */}
 								<TouchableOpacity style={styles.btnModelosCard} onPress={() => abrirModelos(item)}>
 									<Feather name="list" size={14} color="#ffffff" />
 									<Text style={styles.btnModelosCardText}>Modelos</Text>
@@ -315,7 +320,6 @@ export default function MarcasVeiculosScreen() {
 				<ActivityIndicator size="large" color="#0c6ead" style={{ position: 'absolute', top: '50%', alignSelf: 'center' }} />
 			)}
 
-			{/* MODAL DE MARCAS */}
 			<Modal visible={modalVisible} animationType="slide" transparent={false}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
 					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -356,7 +360,6 @@ export default function MarcasVeiculosScreen() {
 				</View>
 			</Modal>
 
-			{/* MODAL DE MODELOS */}
 			<Modal visible={modalModelosVisible} animationType="slide" transparent={false}>
 				<View style={{ flex: 1, backgroundColor: '#f4f6f8' }}>
 					<View style={styles.modalHeaderFullScreen}>
@@ -370,7 +373,6 @@ export default function MarcasVeiculosScreen() {
 					</View>
 
 					<View style={{ padding: 20, flex: 1 }}>
-						{/* Barra de Inserção de Modelos */}
 						<View style={{ flexDirection: 'row', marginBottom: 20 }}>
 							<TextInput
 								style={[styles.input, { flex: 1, marginBottom: 0, backgroundColor: '#fff', height: 50 }]}
@@ -396,13 +398,18 @@ export default function MarcasVeiculosScreen() {
 							) : null}
 						</View>
 
-						{/* Listagem de Modelos */}
 						{isLoadingModelos ? (
 							<ActivityIndicator size="large" color="#0c6ead" style={{ marginTop: 20 }} />
 						) : (
 							<FlatList
 								data={modelos}
 								keyExtractor={item => String(item.id)}
+
+								initialNumToRender={10}
+								maxToRenderPerBatch={10}
+								windowSize={5}
+								removeClippedSubviews={true}
+
 								contentContainerStyle={{ paddingBottom: 40 }}
 								renderItem={({ item }) => (
 									<View style={{ flexDirection: 'row', backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 10, alignItems: 'center', elevation: 1 }}>

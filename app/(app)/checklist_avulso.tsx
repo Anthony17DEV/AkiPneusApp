@@ -510,14 +510,14 @@ export default function ChecklistAvulsoScreen() {
 	const tirarFotoPneu = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmara."); return; }
-		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
 
 	const escolherFotoGaleria = async () => {
 		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à galeria de fotos."); return; }
-		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
 	};
 
@@ -620,22 +620,23 @@ export default function ChecklistAvulsoScreen() {
 
 		setIsCadastrando(true);
 		try {
-			const dadosCadastro = {
-				tipo: tipoBusca,
-				...formCadastro,
-				nome: formCadastro.nome.toUpperCase(),
-				marca: formCadastro.marca.toUpperCase(),
-				modelo: formCadastro.modelo.toUpperCase(),
-				valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : ''
-			};
+			let url = API_CADASTRO_URL;
+			let dadosCadastro: any = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
 
-			const response = await fetch(API_CADASTRO_URL, {
+			if (tipoBusca === 'veiculo') {
+				url = 'https://sistemascactus.com/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
+				dadosCadastro = { tipo: 'veiculo_incompleto', nome: formCadastro.nome };
+			}
+
+			const response = await fetch(url, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosCadastro)
 			});
 			const res = await response.json();
 			if (res.success) {
 				if (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, isNewModel: true });
+				} else if (tipoBusca === 'veiculo') {
+					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, placa: res.nome || formCadastro.nome, isNewModel: true });
 				} else if (tipoBusca === 'referencia_pneu') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, mmOriginal: formCadastro.mmOriginal, marca: formCadastro.marca, modelo: formCadastro.modelo, valor: dadosCadastro.valor, isNewModel: true });
 				} else if (tipoBusca === 'marca_pneu') {
@@ -645,7 +646,6 @@ export default function ChecklistAvulsoScreen() {
 				} else if (tipoBusca === 'banda') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true, sulco: formCadastro.sulco, valor: formCadastro.valor });
 				}
-
 				setModalCadastroVisible(false);
 			} else {
 				Alert.alert('Erro', res.message || 'Falha ao cadastrar no banco.');
@@ -657,19 +657,13 @@ export default function ChecklistAvulsoScreen() {
 		}
 	};
 
-	const formatarData = (dataStr: string) => {
-		if (!dataStr) return '';
-		const d = new Date(dataStr.replace(' ', 'T'));
-		return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-	};
-
 	const renderBuscaDinamica = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalContentBusca}>
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador', 'veiculo'].includes(tipoBusca) && (
+						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador'].includes(tipoBusca) && (
 							<TouchableOpacity
 								style={styles.btnInserirBuscaDinamicaMini}
 								onPress={() => {
@@ -691,11 +685,20 @@ export default function ChecklistAvulsoScreen() {
 					<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
 				</View>
 				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-					<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
+					<FlatList
+						data={resultadosBusca}
+						keyExtractor={(item, index) => String(item?.id || index)}
+
+						initialNumToRender={10}
+						maxToRenderPerBatch={10}
+						windowSize={5}
+						removeClippedSubviews={true}
+						keyboardShouldPersistTaps="handled"
+
 						renderItem={({ item }) => (
 							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-								<Text style={styles.itemBuscaNome}>{item.nome}</Text>
-								{item.documento && <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.documento}</Text>}
+								<Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text>
+								{item.documento && <Text style={styles.itemBuscaDoc}>{item.documento}</Text>}
 							</TouchableOpacity>
 						)}
 						ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado.</Text>}
@@ -863,7 +866,11 @@ export default function ChecklistAvulsoScreen() {
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
 					extraData={[modalConsolidarVisible, selectedChecklists, modalRelatorioVisible, opcoesRelatorio]}
-					removeClippedSubviews={false}
+
+					initialNumToRender={10}
+					maxToRenderPerBatch={10}
+					windowSize={5}
+					removeClippedSubviews={true}
 
 					contentContainerStyle={{ paddingBottom: 100 }}
 					ListHeaderComponent={
@@ -1214,10 +1221,9 @@ export default function ChecklistAvulsoScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t.replace(',', '.') })} /></View>
+								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t.replace(',', '.') })} /></View>
 							</View>
-
 							<View style={styles.row}>
 								<View style={styles.inputGroupH}>
 									<Text style={styles.label}>Calib. Padrão (Lbs)</Text>
@@ -1323,8 +1329,6 @@ export default function ChecklistAvulsoScreen() {
 
 						{modalBuscaVisible && renderBuscaDinamica()}
 						{modalCadastroVisible && renderCadastroDinamico()}
-
-						{/* VISUALIZAÇÃO SOBREPOSTA NO MODAL DE EDIÇÃO */}
 						{modalPreviewVisible && renderPreviewContent()}
 
 					</KeyboardAvoidingView>
@@ -1349,6 +1353,12 @@ export default function ChecklistAvulsoScreen() {
 					<FlatList
 						data={checklists}
 						keyExtractor={(item) => String(item.id)}
+
+						initialNumToRender={10}
+						maxToRenderPerBatch={10}
+						windowSize={5}
+						removeClippedSubviews={true}
+
 						contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
 						renderItem={({ item }) => {
 							const isSelected = selectedChecklists.includes(item.id);
@@ -1432,7 +1442,6 @@ export default function ChecklistAvulsoScreen() {
 				</KeyboardAvoidingView>
 			</Modal>
 
-			{/* VISUALIZAÇÃO NA TELA PRINCIPAL (LISTAGEM) */}
 			{!modalPneuVisible && modalPreviewVisible && (
 				<Modal visible={true} animationType="fade" transparent={true} onRequestClose={() => setModalPreviewVisible(false)}>
 					{renderPreviewContent()}

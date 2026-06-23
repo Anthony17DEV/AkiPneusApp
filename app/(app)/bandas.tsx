@@ -196,6 +196,13 @@ export default function BandasScreen() {
 						<FlatList
 							data={resultadosBusca}
 							keyExtractor={(item, index) => String(item?.id || index)}
+
+							initialNumToRender={10}
+							maxToRenderPerBatch={10}
+							windowSize={5}
+							removeClippedSubviews={true}
+							keyboardShouldPersistTaps="handled"
+
 							renderItem={({ item }) => (
 								<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
 									<Text style={styles.itemBuscaNome}>{item.nome}</Text>
@@ -214,6 +221,12 @@ export default function BandasScreen() {
 			<FlatList
 				data={bandas}
 				keyExtractor={(item, index) => String(item.id || index)}
+
+				initialNumToRender={10}
+				maxToRenderPerBatch={10}
+				windowSize={5}
+				removeClippedSubviews={true}
+
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
 				ListHeaderComponent={

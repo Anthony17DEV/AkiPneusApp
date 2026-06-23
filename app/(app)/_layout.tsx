@@ -98,6 +98,8 @@ export default function AppLayout() {
 		<Drawer
 			drawerContent={(props) => <CustomDrawerContent {...props} />}
 			screenOptions={{
+				//@ts-ignore
+				unmountOnBlur: true,
 				headerStyle: { backgroundColor: '#0c6ead' },
 				headerStatusBarHeight: Platform.OS === 'android' ? StatusBar.currentHeight : undefined,
 

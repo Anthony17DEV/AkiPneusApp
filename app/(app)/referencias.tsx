@@ -125,6 +125,12 @@ export default function ReferenciasScreen() {
 			<FlatList
 				data={referencias}
 				keyExtractor={(item, index) => String(item?.id || index)}
+
+				initialNumToRender={12}
+				maxToRenderPerBatch={12}
+				windowSize={5}
+				removeClippedSubviews={true}
+
 				contentContainerStyle={{ paddingBottom: 40 }}
 				ListHeaderComponent={
 					<View style={styles.filterSection}>
