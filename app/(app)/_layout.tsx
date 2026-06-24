@@ -6,6 +6,14 @@ import React from 'react';
 import { Alert, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
+const HeaderLogo = () => (
+	<Image
+		source={require('../../assets/images/solutires.png')}
+		style={{ width: 120, height: 40 }}
+		resizeMode="contain"
+	/>
+);
+
 function CustomDrawerContent(props: DrawerContentComponentProps) {
 	const { user, signOut } = useAuth();
 	const router = useRouter();
@@ -122,9 +130,7 @@ export default function AppLayout() {
 				name="index"
 				options={{
 					drawerLabel: 'Inicial',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="pie-chart" size={size} color={color} />,
 				}}
 			/>
@@ -133,9 +139,7 @@ export default function AppLayout() {
 				name="clientes"
 				options={{
 					drawerLabel: 'Clientes',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="users" size={size} color={color} />,
 				}}
 			/>
@@ -144,9 +148,7 @@ export default function AppLayout() {
 				name="veiculos"
 				options={{
 					drawerLabel: 'Check-List Veículos',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="truck-outline" size={size} color={color} />,
 				}}
 			/>
@@ -155,9 +157,7 @@ export default function AppLayout() {
 				name="pneus"
 				options={{
 					drawerLabel: 'Buscar Pneus',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="tire" size={size} color={color} />,
 				}}
 			/>
@@ -166,9 +166,7 @@ export default function AppLayout() {
 				name="checklist_avulso"
 				options={{
 					drawerLabel: 'Análise Sucata',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />,
 				}}
 			/>
@@ -177,9 +175,7 @@ export default function AppLayout() {
 				name="referencias"
 				options={{
 					drawerLabel: 'Referencias Pneus',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="tag" size={size} color={color} />,
 				}}
 			/>
@@ -188,9 +184,7 @@ export default function AppLayout() {
 				name="bandas"
 				options={{
 					drawerLabel: 'Bandas Rodagem',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="disc" size={size} color={color} />,
 				}}
 			/>
@@ -199,9 +193,7 @@ export default function AppLayout() {
 				name="reformadores"
 				options={{
 					drawerLabel: 'Reformadores',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="briefcase" size={size} color={color} />,
 				}}
 			/>
@@ -210,9 +202,7 @@ export default function AppLayout() {
 				name="marcas_veiculos"
 				options={{
 					drawerLabel: 'Marcas Veículos',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="car" size={size} color={color} />,
 				}}
 			/>
@@ -221,9 +211,7 @@ export default function AppLayout() {
 				name="usuarios"
 				options={{
 					drawerLabel: 'Gerenciar Usuário',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="user-plus" size={size} color={color} />,
 				}}
 			/>
@@ -232,9 +220,7 @@ export default function AppLayout() {
 				name="marcas"
 				options={{
 					drawerLabel: 'Marcas',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="bookmark" size={size} color={color} />,
 					drawerItemStyle: { display: 'none' },
 				}}
@@ -244,9 +230,7 @@ export default function AppLayout() {
 				name="modelos"
 				options={{
 					drawerLabel: 'Modelos',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="box" size={size} color={color} />,
 					drawerItemStyle: { display: 'none' },
 				}}
@@ -256,9 +240,7 @@ export default function AppLayout() {
 				name="checklist"
 				options={{
 					drawerLabel: 'Checklist',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="check-square" size={size} color={color} />,
 					drawerItemStyle: { display: 'none' },
 				}}
@@ -268,9 +250,7 @@ export default function AppLayout() {
 				name="perfil"
 				options={{
 					drawerLabel: 'Perfil',
-					headerTitle: () => (
-						<Image source={require('../../assets/images/solutires.png')} style={{ width: 120, height: 40 }} resizeMode="contain" />
-					),
+					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
 					drawerItemStyle: { display: 'none' },
 				}}

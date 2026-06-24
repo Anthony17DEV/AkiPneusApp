@@ -1,6 +1,6 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/solutires.png';
 import { apiService } from '../../src/services/apiService';
@@ -16,6 +16,15 @@ export default function MarcasScreen() {
 	const router = useRouter();
 	const params = useLocalSearchParams();
 	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_marcas.php';
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [marcas, setMarcas] = useState<MarcaPneu[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -48,15 +57,19 @@ export default function MarcasScreen() {
 				body: JSON.stringify({ acao: 'listar', busca_referencia: '', busca_marca: '' })
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				setMarcas(res.data);
 			} else {
 				setMarcas([]);
 			}
 		} catch (error) {
-			console.log('Erro ignorado no listar');
+			if (isMounted.current) console.log('Erro ignorado no listar');
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		setIsLoading(false);
 	};
 
 	useEffect(() => {
@@ -93,11 +106,13 @@ export default function MarcasScreen() {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', referencia: ref, marca: marca })
 						});
-					} catch (error) {
-						console.log("Erro ignorado ao excluir");
-					} finally {
+
+						if (!isMounted.current) return;
+
 						Alert.alert('Sucesso', 'Marca excluída com sucesso.');
 						carregarMarcas();
+					} catch (error) {
+						if (isMounted.current) console.log("Erro ignorado ao excluir");
 					}
 				}
 			}
@@ -124,13 +139,16 @@ export default function MarcasScreen() {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-		} catch (error) {
-			console.log('Erro ignorado ao salvar');
-		} finally {
+
+			if (!isMounted.current) return;
+
 			Alert.alert('Sucesso', (form.referenciaAntiga && form.marcaAntiga) ? 'Marca atualizada com sucesso!' : 'Marca cadastrada com sucesso!');
 			setModalVisible(false);
 			carregarMarcas();
-			setIsSaving(false);
+		} catch (error) {
+			if (isMounted.current) console.log('Erro ignorado ao salvar');
+		} finally {
+			if (isMounted.current) setIsSaving(false);
 		}
 	};
 
@@ -144,9 +162,17 @@ export default function MarcasScreen() {
 
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		const res = await apiService.buscarDinamica(tipo, termo);
-		setResultadosBusca(res && res.success ? res.data : []);
-		setIsSearching(false);
+		try {
+			const res = await apiService.buscarDinamica(tipo, termo);
+
+			if (!isMounted.current) return;
+
+			setResultadosBusca(res && res.success ? res.data : []);
+		} catch (error) {
+			if (isMounted.current) setResultadosBusca([]);
+		} finally {
+			if (isMounted.current) setIsSearching(false);
+		}
 	};
 
 	const selecionarItemBusca = (item: any) => {
@@ -172,6 +198,9 @@ export default function MarcasScreen() {
 				})
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome });
 				setModalCadastroVisible(false);
@@ -179,9 +208,9 @@ export default function MarcasScreen() {
 				Alert.alert('Erro', res.message || 'Falha ao cadastrar.');
 			}
 		} catch (err) {
-			Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
+			if (isMounted.current) Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
 		} finally {
-			setIsCadastrando(false);
+			if (isMounted.current) setIsCadastrando(false);
 		}
 	};
 
@@ -195,6 +224,58 @@ export default function MarcasScreen() {
 
 	return (
 		<View style={styles.container}>
+
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Gerenciar Marcas de Pneus</Text>
+
+				{!!params?.referencia_nome && (
+					<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/referencias')}>
+						<Feather name="arrow-left" size={16} color="#333" />
+						<Text style={styles.btnVoltarClienteText}>Voltar para Referências</Text>
+					</TouchableOpacity>
+				)}
+
+				<View style={styles.inputGroupFull}>
+					<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+						<Text style={styles.label}>Buscar / Filtrar</Text>
+						{filtroBusca.length > 0 && (
+							<TouchableOpacity onPress={() => setFiltroBusca('')} style={{ paddingHorizontal: 5 }}>
+								<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
+							</TouchableOpacity>
+						)}
+					</View>
+					<TextInput
+						style={styles.input}
+						placeholder="Referência ou Marca..."
+						value={filtroBusca}
+						onChangeText={setFiltroBusca}
+					/>
+				</View>
+
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={carregarMarcas}>
+						<Feather name="search" size={14} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
+						<Feather name="plus-circle" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir</Text>
+					</TouchableOpacity>
+				</View>
+
+				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
+					Resultados ({marcasFiltradas.length})
+				</Text>
+
+				{isLoading && marcas.length === 0 && (
+					<View style={{ paddingVertical: 40, alignItems: 'center' }}>
+						<ActivityIndicator size="large" color="#0c6ead" />
+						<Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text>
+					</View>
+				)}
+			</View>
+
 			<FlatList
 				data={marcasFiltradas}
 				keyExtractor={(item, index) => String(item.id || index)}
@@ -206,53 +287,6 @@ export default function MarcasScreen() {
 
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Gerenciar Marcas de Pneus</Text>
-
-						{!!params?.referencia_nome && (
-							<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/referencias')}>
-								<Feather name="arrow-left" size={16} color="#333" />
-								<Text style={styles.btnVoltarClienteText}>Voltar para Referências</Text>
-							</TouchableOpacity>
-						)}
-
-						<View style={styles.inputGroupFull}>
-							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-								<Text style={styles.label}>Buscar / Filtrar</Text>
-								{filtroBusca.length > 0 && (
-									<TouchableOpacity onPress={() => setFiltroBusca('')} style={{ paddingHorizontal: 5 }}>
-										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
-									</TouchableOpacity>
-								)}
-							</View>
-							<TextInput
-								style={styles.input}
-								placeholder="Referência ou Marca..."
-								value={filtroBusca}
-								onChangeText={setFiltroBusca}
-							/>
-						</View>
-
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={carregarMarcas}>
-								<Feather name="search" size={14} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-								<Feather name="plus-circle" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir</Text>
-							</TouchableOpacity>
-						</View>
-
-						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Resultados ({marcasFiltradas.length})
-						</Text>
-
-						{isLoading && marcas.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
-					</View>
-				}
 				renderItem={({ item }) => (
 					<View style={styles.card}>
 						<View style={styles.cardHeader}>

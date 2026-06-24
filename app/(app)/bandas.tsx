@@ -53,12 +53,14 @@ export default function BandasScreen() {
 		return formatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 	};
 
-	const carregarBandas = async () => {
+	const carregarBandas = async (signal?: AbortSignal) => {
 		setIsLoading(true);
 		try {
 			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca_marca: filtroMarca, busca_modelo: filtroModelo })
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ acao: 'listar', busca_marca: filtroMarca, busca_modelo: filtroModelo }),
+				signal
 			});
 			const res = await response.json();
 			if (res.success) {
@@ -66,14 +68,25 @@ export default function BandasScreen() {
 			} else {
 				setBandas([]);
 			}
-		} catch (error) {
-			console.log("Erro ignorado no listar");
+		} catch (error: any) {
+			if (error.name === 'AbortError') {
+				console.log('Requisição cancelada pelo sistema.');
+			} else {
+				console.log("Erro na API:", error);
+			}
+		} finally {
+			setIsLoading(false);
 		}
-		setIsLoading(false);
 	};
 
 	useEffect(() => {
-		carregarBandas();
+		const abortController = new AbortController();
+
+		carregarBandas(abortController.signal);
+
+		return () => {
+			abortController.abort();
+		};
 	}, []);
 
 	const resetForm = () => {
@@ -163,8 +176,9 @@ export default function BandasScreen() {
 			}
 		} catch (e) {
 			setResultadosBusca([]);
+		} finally {
+			setIsSearching(false);
 		}
-		setIsSearching(false);
 	};
 
 	const selecionarItemBusca = (item: any) => {
@@ -196,13 +210,11 @@ export default function BandasScreen() {
 						<FlatList
 							data={resultadosBusca}
 							keyExtractor={(item, index) => String(item?.id || index)}
-
 							initialNumToRender={10}
 							maxToRenderPerBatch={10}
 							windowSize={5}
 							removeClippedSubviews={true}
 							keyboardShouldPersistTaps="handled"
-
 							renderItem={({ item }) => (
 								<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
 									<Text style={styles.itemBuscaNome}>{item.nome}</Text>
@@ -218,99 +230,105 @@ export default function BandasScreen() {
 
 	return (
 		<View style={styles.container}>
-			<FlatList
-				data={bandas}
-				keyExtractor={(item, index) => String(item.id || index)}
 
-				initialNumToRender={10}
-				maxToRenderPerBatch={10}
-				windowSize={5}
-				removeClippedSubviews={true}
+			{/* FILTROS MOVIDOS PARA FORA DA FLATLIST */}
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Gerenciar Bandas de Rodagem</Text>
 
-				contentContainerStyle={{ paddingBottom: 100 }}
-				showsVerticalScrollIndicator={false}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Gerenciar Bandas de Rodagem</Text>
-
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Filtro de Marca</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Ex: Vipal, Drebor..."
-									value={filtroMarca}
-									onChangeText={setFiltroMarca}
-								/>
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Filtro de Modelo</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Ex: VRT3"
-									value={filtroModelo}
-									onChangeText={setFiltroModelo}
-								/>
-							</View>
-						</View>
-
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={carregarBandas}>
-								<Feather name="search" size={18} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-								<Feather name="plus-circle" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir</Text>
-							</TouchableOpacity>
-						</View>
-
-						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Resultados ({bandas.length})
-						</Text>
-
-						{isLoading && bandas.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
+				<View style={styles.row}>
+					<View style={styles.inputGroupH}>
+						<Text style={styles.label}>Filtro de Marca</Text>
+						<TextInput
+							style={styles.input}
+							placeholder="Ex: Vipal, Drebor..."
+							value={filtroMarca}
+							onChangeText={setFiltroMarca}
+						/>
 					</View>
-				}
-				renderItem={({ item }) => (
-					<View style={styles.card}>
-						<View style={styles.cardHeader}>
-							<View style={{ flex: 1 }}>
-								<Text style={styles.cardTitle} numberOfLines={1}>{item.marca}</Text>
-								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-									<MaterialCommunityIcons name="tire" size={14} color="#666" style={{ marginRight: 6 }} />
-									<Text style={styles.cardSubTitle} numberOfLines={1}>{item.referencia ? `Ref: ${item.referencia} | ` : ''}Mod: {item.modelo}</Text>
+					<View style={styles.inputGroupH}>
+						<Text style={styles.label}>Filtro de Modelo</Text>
+						<TextInput
+							style={styles.input}
+							placeholder="Ex: VRT3"
+							value={filtroModelo}
+							onChangeText={setFiltroModelo}
+						/>
+					</View>
+				</View>
+
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarBandas()}>
+						<Feather name="search" size={18} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
+						<Feather name="plus-circle" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir</Text>
+					</TouchableOpacity>
+				</View>
+
+				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
+					Resultados ({bandas.length})
+				</Text>
+			</View>
+
+			{/* INDICADOR DE CARREGAMENTO ISOLADO */}
+			{isLoading && bandas.length === 0 ? (
+				<View style={{ paddingVertical: 40, alignItems: 'center' }}>
+					<ActivityIndicator size="large" color="#0c6ead" />
+					<Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text>
+				</View>
+			) : (
+				<FlatList
+					data={bandas}
+					keyExtractor={(item, index) => String(item.id || index)}
+					initialNumToRender={10}
+					maxToRenderPerBatch={10}
+					windowSize={5}
+					removeClippedSubviews={true}
+					contentContainerStyle={{ paddingBottom: 100 }}
+					showsVerticalScrollIndicator={false}
+					renderItem={({ item }) => (
+						<View style={styles.card}>
+							<View style={styles.cardHeader}>
+								<View style={{ flex: 1 }}>
+									<Text style={styles.cardTitle} numberOfLines={1}>{item.marca}</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+										<MaterialCommunityIcons name="tire" size={14} color="#666" style={{ marginRight: 6 }} />
+										<Text style={styles.cardSubTitle} numberOfLines={1}>{item.referencia ? `Ref: ${item.referencia} | ` : ''}Mod: {item.modelo}</Text>
+									</View>
+								</View>
+								<View style={{ alignItems: 'flex-end' }}>
+									<View style={styles.statusBadge}>
+										<Text style={styles.statusText}>{item.sulco} mm</Text>
+									</View>
+									{Number(item.valor) > 0 && (
+										<Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2e7d32', marginTop: 5 }}>R$ {formatarValorDB(item.valor)}</Text>
+									)}
 								</View>
 							</View>
-							<View style={{ alignItems: 'flex-end' }}>
-								<View style={styles.statusBadge}>
-									<Text style={styles.statusText}>{item.sulco} mm</Text>
+
+							<View style={styles.cardActions}>
+								<View style={styles.actionButtonsRow}>
+									<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
+										<Feather name="edit-2" size={14} color="#ffffff" />
+										<Text style={styles.btnEditarCardText}>Editar</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirBanda(item.id, `${item.marca} - ${item.modelo}`)}>
+										<Feather name="trash-2" size={14} color="#ffffff" />
+										<Text style={styles.btnExcluirCardText}>Excluir</Text>
+									</TouchableOpacity>
 								</View>
-								{Number(item.valor) > 0 && (
-									<Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2e7d32', marginTop: 5 }}>R$ {formatarValorDB(item.valor)}</Text>
-								)}
 							</View>
 						</View>
+					)}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma banda de rodagem encontrada.</Text> : null}
+				/>
+			)}
 
-						<View style={styles.cardActions}>
-							<View style={styles.actionButtonsRow}>
-								<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
-									<Feather name="edit-2" size={14} color="#ffffff" />
-									<Text style={styles.btnEditarCardText}>Editar</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirBanda(item.id, `${item.marca} - ${item.modelo}`)}>
-									<Feather name="trash-2" size={14} color="#ffffff" />
-									<Text style={styles.btnExcluirCardText}>Excluir</Text>
-								</TouchableOpacity>
-							</View>
-						</View>
-					</View>
-				)}
-				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma banda de rodagem encontrada.</Text> : null}
-			/>
-
+			{/* MODAL DE EDIÇÃO MANTIDO INTACTO (Apenas referenciando para completar) */}
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
 					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>

@@ -1,6 +1,6 @@
 ﻿import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
@@ -12,6 +12,8 @@ export default function DashboardScreen() {
 	const { user } = useAuth();
 	const router = useRouter();
 	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Analista';
+
+	const isMounted = useRef(true);
 
 	const [isLoading, setIsLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -25,15 +27,32 @@ export default function DashboardScreen() {
 	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 
 	const carregarDashboard = async () => {
-		const res = await apiService.buscarDashboard(user?.id);
-		if (res && res.success && res.data) {
-			setUltimasInspecoes(res.data.ultimasInspecoes || []);
+		try {
+			const res = await apiService.buscarDashboard(user?.id);
+
+			if (!isMounted.current) return;
+
+			if (res && res.success && res.data) {
+				setUltimasInspecoes(res.data.ultimasInspecoes || []);
+			}
+		} catch (error) {
+			if (isMounted.current) console.log("Erro ao carregar dashboard", error);
+		} finally {
+			if (isMounted.current) {
+				setIsLoading(false);
+				setRefreshing(false);
+			}
 		}
-		setIsLoading(false);
-		setRefreshing(false);
 	};
 
-	useEffect(() => { carregarDashboard(); }, []);
+	useEffect(() => {
+		isMounted.current = true;
+		carregarDashboard();
+
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const onRefresh = () => {
 		setRefreshing(true);
@@ -49,13 +68,20 @@ export default function DashboardScreen() {
 		setIsBuscando(true);
 		setVeiculoEncontrado(null);
 
-		const res = await apiService.buscarVeiculo(termoBusca);
-		setIsBuscando(false);
+		try {
+			const res = await apiService.buscarVeiculo(termoBusca);
 
-		if (res && res.success && res.data) {
-			setVeiculoEncontrado(res.data);
-		} else {
-			Alert.alert('Ops!', res?.message || 'Veículo não encontrado.');
+			if (!isMounted.current) return;
+
+			if (res && res.success && res.data) {
+				setVeiculoEncontrado(res.data);
+			} else {
+				Alert.alert('Ops!', res?.message || 'Veículo não encontrado.');
+			}
+		} catch (error) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha ao buscar veículo.');
+		} finally {
+			if (isMounted.current) setIsBuscando(false);
 		}
 	};
 

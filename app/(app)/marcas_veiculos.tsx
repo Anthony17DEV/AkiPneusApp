@@ -1,6 +1,6 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -15,6 +15,15 @@ interface MarcaVeiculo {
 export default function MarcasVeiculosScreen() {
 	const router = useRouter();
 	const { user, signOut } = useAuth();
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [marcas, setMarcas] = useState<MarcaVeiculo[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -53,15 +62,17 @@ export default function MarcasVeiculosScreen() {
 			});
 			const res = await response.json();
 
+			if (!isMounted.current) return;
+
 			if (res && res.success) {
 				setMarcas(res.data);
 			} else {
 				setMarcas([]);
 			}
 		} catch (error) {
-			setMarcas([]);
+			if (isMounted.current) setMarcas([]);
 		} finally {
-			setIsLoading(false);
+			if (isMounted.current) setIsLoading(false);
 		}
 	};
 
@@ -93,6 +104,9 @@ export default function MarcasVeiculosScreen() {
 				})
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res && res.success) {
 				Alert.alert('Sucesso', `Marca ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
 				setModalVisible(false);
@@ -101,9 +115,9 @@ export default function MarcasVeiculosScreen() {
 				Alert.alert('Erro', res?.message || 'Falha ao salvar a marca.');
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 		} finally {
-			setIsSaving(false);
+			if (isMounted.current) setIsSaving(false);
 		}
 	};
 
@@ -123,6 +137,8 @@ export default function MarcasVeiculosScreen() {
 							});
 							const res = await response.json();
 
+							if (!isMounted.current) return;
+
 							if (res && res.success) {
 								Alert.alert('Sucesso', 'Marca excluída com sucesso.');
 								carregarMarcas();
@@ -130,7 +146,7 @@ export default function MarcasVeiculosScreen() {
 								Alert.alert('Erro', res.message || 'Falha ao excluir a marca.');
 							}
 						} catch (error) {
-							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 						}
 					}
 				}
@@ -154,15 +170,18 @@ export default function MarcasVeiculosScreen() {
 				body: JSON.stringify({ acao: 'listar_modelos', marca_id: marca_id })
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res && res.success) {
 				setModelos(res.data);
 			} else {
 				setModelos([]);
 			}
 		} catch (error) {
-			setModelos([]);
+			if (isMounted.current) setModelos([]);
 		} finally {
-			setIsLoadingModelos(false);
+			if (isMounted.current) setIsLoadingModelos(false);
 		}
 	};
 
@@ -184,6 +203,9 @@ export default function MarcasVeiculosScreen() {
 				})
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res && res.success) {
 				setFormModelo({ id: '', nome: '' });
 				carregarModelos(marcaSelecionada!.id);
@@ -192,9 +214,9 @@ export default function MarcasVeiculosScreen() {
 				Alert.alert('Erro', res?.message || 'Falha ao salvar o modelo.');
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 		} finally {
-			setIsSaving(false);
+			if (isMounted.current) setIsSaving(false);
 		}
 	};
 
@@ -214,6 +236,8 @@ export default function MarcasVeiculosScreen() {
 							});
 							const res = await response.json();
 
+							if (!isMounted.current) return;
+
 							if (res && res.success) {
 								carregarModelos(marcaSelecionada!.id);
 								carregarMarcas();
@@ -221,7 +245,7 @@ export default function MarcasVeiculosScreen() {
 								Alert.alert('Erro', res.message || 'Falha ao excluir o modelo.');
 							}
 						} catch (error) {
-							Alert.alert('Erro', 'Falha na conexão.');
+							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão.');
 						}
 					}
 				}
@@ -231,93 +255,96 @@ export default function MarcasVeiculosScreen() {
 
 	return (
 		<View style={styles.container}>
-			<FlatList
-				data={marcas}
-				keyExtractor={(item, index) => String(item?.id || index)}
 
-				initialNumToRender={10}
-				maxToRenderPerBatch={10}
-				windowSize={5}
-				removeClippedSubviews={true}
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Filtrar Marcas de Veículos</Text>
 
-				contentContainerStyle={{ paddingBottom: 40 }}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Filtrar Marcas de Veículos</Text>
+				<View style={styles.inputGroupFull}>
+					<Text style={styles.label}>Nome da Marca</Text>
+					<TextInput
+						style={styles.input}
+						placeholder="Ex: VOLVO, SCANIA..."
+						value={filtroMarca}
+						onChangeText={setFiltroMarca}
+						autoCapitalize="characters"
+					/>
+				</View>
 
-						<View style={styles.inputGroupFull}>
-							<Text style={styles.label}>Nome da Marca</Text>
-							<TextInput
-								style={styles.input}
-								placeholder="Ex: VOLVO, SCANIA..."
-								value={filtroMarca}
-								onChangeText={setFiltroMarca}
-								autoCapitalize="characters"
-							/>
-						</View>
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={carregarMarcas}>
+						<Feather name="search" size={18} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
 
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={carregarMarcas}>
-								<Feather name="search" size={18} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
+					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
+						<Feather name="plus-circle" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir</Text>
+					</TouchableOpacity>
+				</View>
 
-							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-								<Feather name="plus-circle" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir</Text>
-							</TouchableOpacity>
-						</View>
+				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
+					Marcas Cadastradas ({marcas.length})
+				</Text>
+			</View>
 
-						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Marcas Cadastradas ({marcas.length})
-						</Text>
-					</View>
-				}
-				renderItem={({ item }) => (
-					<View style={styles.card}>
-						<View style={styles.cardHeader}>
-							<View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-								<Feather name="tag" size={20} color="#0c6ead" style={{ marginRight: 10 }} />
-								<Text style={styles.cardTitle} numberOfLines={1}>{item.nome}</Text>
-							</View>
-							{item.total_modelos !== undefined && (
-								<View style={styles.statusBadge}>
-									<Text style={styles.statusText}>{item.total_modelos} modelos</Text>
+			{isLoading && marcas.length === 0 ? (
+				<View style={{ paddingVertical: 40, alignItems: 'center' }}>
+					<ActivityIndicator size="large" color="#0c6ead" />
+					<Text style={{ marginTop: 10, color: '#666' }}>A carregar...</Text>
+				</View>
+			) : (
+				<FlatList
+					data={marcas}
+					keyExtractor={(item, index) => String(item?.id || index)}
+
+					initialNumToRender={10}
+					maxToRenderPerBatch={10}
+					windowSize={5}
+					removeClippedSubviews={true}
+
+					contentContainerStyle={{ paddingBottom: 40 }}
+					renderItem={({ item }) => (
+						<View style={styles.card}>
+							<View style={styles.cardHeader}>
+								<View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+									<Feather name="tag" size={20} color="#0c6ead" style={{ marginRight: 10 }} />
+									<Text style={styles.cardTitle} numberOfLines={1}>{item.nome}</Text>
 								</View>
-							)}
-						</View>
+								{item.total_modelos !== undefined && (
+									<View style={styles.statusBadge}>
+										<Text style={styles.statusText}>{item.total_modelos} modelos</Text>
+									</View>
+								)}
+							</View>
 
-						<View style={styles.cardActions}>
-							<View style={styles.actionButtonsRow}>
-								<TouchableOpacity style={styles.btnModelosCard} onPress={() => abrirModelos(item)}>
-									<Feather name="list" size={14} color="#ffffff" />
-									<Text style={styles.btnModelosCardText}>Modelos</Text>
-								</TouchableOpacity>
+							<View style={styles.cardActions}>
+								<View style={styles.actionButtonsRow}>
+									<TouchableOpacity style={styles.btnModelosCard} onPress={() => abrirModelos(item)}>
+										<Feather name="list" size={14} color="#ffffff" />
+										<Text style={styles.btnModelosCardText}>Modelos</Text>
+									</TouchableOpacity>
 
-								<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
-									<Feather name="edit-2" size={14} color="#ffffff" />
-									<Text style={styles.btnEditarCardText}>Editar</Text>
-								</TouchableOpacity>
+									<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
+										<Feather name="edit-2" size={14} color="#ffffff" />
+										<Text style={styles.btnEditarCardText}>Editar</Text>
+									</TouchableOpacity>
 
-								<TouchableOpacity style={styles.btnExcluirCard} onPress={() => handleExcluir(item)}>
-									<Feather name="trash-2" size={14} color="#ffffff" />
-									<Text style={styles.btnExcluirCardText}>Excluir</Text>
-								</TouchableOpacity>
+									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => handleExcluir(item)}>
+										<Feather name="trash-2" size={14} color="#ffffff" />
+										<Text style={styles.btnExcluirCardText}>Excluir</Text>
+									</TouchableOpacity>
+								</View>
 							</View>
 						</View>
-					</View>
-				)}
-				ListEmptyComponent={
-					!isLoading ? (
-						<Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>
-							Nenhuma marca encontrada.
-						</Text>
-					) : null
-				}
-			/>
-
-			{isLoading && (
-				<ActivityIndicator size="large" color="#0c6ead" style={{ position: 'absolute', top: '50%', alignSelf: 'center' }} />
+					)}
+					ListEmptyComponent={
+						!isLoading ? (
+							<Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>
+								Nenhuma marca encontrada.
+							</Text>
+						) : null
+					}
+				/>
 			)}
 
 			<Modal visible={modalVisible} animationType="slide" transparent={false}>
@@ -434,7 +461,7 @@ export default function MarcasVeiculosScreen() {
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8' },
-	filterSection: { backgroundColor: '#fff', padding: 20, elevation: 3, marginBottom: 15 },
+	filterSection: { backgroundColor: '#fff', padding: 20, elevation: 3, marginBottom: 15, zIndex: 1 },
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 10, justifyContent: 'center' },

@@ -1,6 +1,6 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface Referencia {
@@ -12,6 +12,15 @@ interface Referencia {
 export default function ReferenciasScreen() {
 	const router = useRouter();
 	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_referencias.php';
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [referencias, setReferencias] = useState<Referencia[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -29,15 +38,19 @@ export default function ReferenciasScreen() {
 				body: JSON.stringify({ acao: 'listar', busca: filtroBusca })
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				setReferencias(res.data || []);
 			} else {
 				setReferencias([]);
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha ao buscar as referências.');
+			if (isMounted.current) Alert.alert('Erro', 'Falha ao buscar as referências.');
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		setIsLoading(false);
 	};
 
 	useEffect(() => {
@@ -78,6 +91,8 @@ export default function ReferenciasScreen() {
 			});
 			const res = await response.json();
 
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				Alert.alert('Sucesso', res.message);
 				setModalVisible(false);
@@ -86,9 +101,10 @@ export default function ReferenciasScreen() {
 				Alert.alert('Atenção', res.message || 'Falha ao salvar referência.');
 			}
 		} catch (error) {
-			Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+		} finally {
+			if (isMounted.current) setIsSaving(false);
 		}
-		setIsSaving(false);
 	};
 
 	const excluirReferencia = (nome: string) => {
@@ -105,6 +121,9 @@ export default function ReferenciasScreen() {
 								body: JSON.stringify({ acao: 'excluir', nome: nome })
 							});
 							const res = await response.json();
+
+							if (!isMounted.current) return;
+
 							if (res.success) {
 								Alert.alert('Sucesso', 'Referência excluída com sucesso.');
 								carregarReferencias();
@@ -112,7 +131,7 @@ export default function ReferenciasScreen() {
 								Alert.alert('Erro', res.message || 'Falha ao excluir.');
 							}
 						} catch (error) {
-							Alert.alert('Erro', 'Falha na conexão com o servidor.');
+							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 						}
 					}
 				}
@@ -122,77 +141,84 @@ export default function ReferenciasScreen() {
 
 	return (
 		<View style={styles.container}>
-			<FlatList
-				data={referencias}
-				keyExtractor={(item, index) => String(item?.id || index)}
 
-				initialNumToRender={12}
-				maxToRenderPerBatch={12}
-				windowSize={5}
-				removeClippedSubviews={true}
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Gerenciar Referências</Text>
 
-				contentContainerStyle={{ paddingBottom: 40 }}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Gerenciar Referências</Text>
-
-						<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-							<View style={styles.inputContainer}>
-								<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-								<TextInput
-									style={styles.inputBuscaInterno}
-									placeholder="Buscar referência..."
-									value={filtroBusca}
-									onChangeText={setFiltroBusca}
-									onSubmitEditing={carregarReferencias}
-								/>
-							</View>
-						</View>
-
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={carregarReferencias}>
-								<Feather name="search" size={18} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
-							<TouchableOpacity style={styles.btnInserir} onPress={resetForm}>
-								<Feather name="plus-circle" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir Referência</Text>
-							</TouchableOpacity>
-						</View>
-						<Text style={[styles.sectionTitle, { marginTop: 25 }]}>Resultados ({referencias.length})</Text>
+				<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+					<View style={styles.inputContainer}>
+						<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
+						<TextInput
+							style={styles.inputBuscaInterno}
+							placeholder="Buscar referência..."
+							value={filtroBusca}
+							onChangeText={setFiltroBusca}
+							onSubmitEditing={carregarReferencias}
+						/>
 					</View>
-				}
-				renderItem={({ item }) => (
-					<View style={styles.card}>
-						<View style={styles.cardHeader}>
-							<View style={{ flex: 1, paddingRight: 10 }}>
-								<Text style={styles.cardTitle} numberOfLines={2}>{item.nome}</Text>
+				</View>
+
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={carregarReferencias}>
+						<Feather name="search" size={18} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.btnInserir} onPress={resetForm}>
+						<Feather name="plus-circle" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir Referência</Text>
+					</TouchableOpacity>
+				</View>
+				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>Resultados ({referencias.length})</Text>
+			</View>
+
+			{isLoading && referencias.length === 0 ? (
+				<View style={{ paddingVertical: 40, alignItems: 'center' }}>
+					<ActivityIndicator size="large" color="#0c6ead" />
+					<Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text>
+				</View>
+			) : (
+				<FlatList
+					data={referencias}
+					keyExtractor={(item, index) => String(item?.id || index)}
+
+					initialNumToRender={12}
+					maxToRenderPerBatch={12}
+					windowSize={5}
+					removeClippedSubviews={true}
+
+					contentContainerStyle={{ paddingBottom: 40 }}
+					renderItem={({ item }) => (
+						<View style={styles.card}>
+							<View style={styles.cardHeader}>
+								<View style={{ flex: 1, paddingRight: 10 }}>
+									<Text style={styles.cardTitle} numberOfLines={2}>{item.nome}</Text>
+								</View>
+								<View style={styles.statusBadge}>
+									<Text style={styles.statusText}>{item.qtd_marcas} Marcas</Text>
+								</View>
 							</View>
-							<View style={styles.statusBadge}>
-								<Text style={styles.statusText}>{item.qtd_marcas} Marcas</Text>
+
+							<View style={styles.cardActions}>
+								<View style={styles.actionButtonsRow}>
+									<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push(`/marcas?ref_id=${item.id}&ref_nome=${encodeURIComponent(item.nome)}`)}>
+										<Feather name="list" size={14} color="#333" />
+										<Text style={styles.btnActionTextSecondary}>Ver Marcas</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity style={styles.btnEditarCard} onPress={() => editarReferencia(item)}>
+										<Feather name="edit-2" size={14} color="#ffffff" />
+									</TouchableOpacity>
+
+									<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirReferencia(item.nome)}>
+										<Feather name="trash-2" size={14} color="#ffffff" />
+									</TouchableOpacity>
+								</View>
 							</View>
 						</View>
-
-						<View style={styles.cardActions}>
-							<View style={styles.actionButtonsRow}>
-								<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push(`/marcas?ref_id=${item.id}&ref_nome=${encodeURIComponent(item.nome)}`)}>
-									<Feather name="list" size={14} color="#333" />
-									<Text style={styles.btnActionTextSecondary}>Ver Marcas</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity style={styles.btnEditarCard} onPress={() => editarReferencia(item)}>
-									<Feather name="edit-2" size={14} color="#ffffff" />
-								</TouchableOpacity>
-
-								<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirReferencia(item.nome)}>
-									<Feather name="trash-2" size={14} color="#ffffff" />
-								</TouchableOpacity>
-							</View>
-						</View>
-					</View>
-				)}
-				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma referência encontrada.</Text> : null}
-			/>
+					)}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma referência encontrada.</Text> : null}
+				/>
+			)}
 
 			<Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
 				<View style={styles.modalOverlayBusca}>

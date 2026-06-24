@@ -1,6 +1,6 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/solutires.png';
 import { apiService } from '../../src/services/apiService';
@@ -18,6 +18,15 @@ export default function ModelosScreen() {
 	const router = useRouter();
 	const params = useLocalSearchParams();
 	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_modelos.php';
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [modelos, setModelos] = useState<ModeloPneu[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -64,15 +73,19 @@ export default function ModelosScreen() {
 				body: JSON.stringify({ acao: 'listar', busca_referencia: refStr, busca_marca: marcaStr, busca_modelo: modStr })
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				setModelos(res.data);
 			} else {
 				setModelos([]);
 			}
 		} catch (error) {
-			console.log('Erro ignorado no listar');
+			if (isMounted.current) console.log('Erro ignorado no listar');
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		setIsLoading(false);
 	};
 
 	useEffect(() => {
@@ -117,11 +130,13 @@ export default function ModelosScreen() {
 							method: 'POST', headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({ acao: 'excluir', id: id })
 						});
-					} catch (error) {
-						console.log("Erro ignorado ao excluir");
-					} finally {
+
+						if (!isMounted.current) return;
+
 						Alert.alert('Sucesso', 'Modelo excluído.');
 						carregarModelos();
+					} catch (error) {
+						if (isMounted.current) console.log("Erro ignorado ao excluir");
 					}
 				}
 			}
@@ -145,13 +160,16 @@ export default function ModelosScreen() {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-		} catch (error) {
-			console.log('Erro ignorado ao salvar');
-		} finally {
+
+			if (!isMounted.current) return;
+
 			Alert.alert('Sucesso', form.id ? 'Modelo atualizado com sucesso!' : 'Modelo cadastrado com sucesso!');
 			setModalVisible(false);
 			carregarModelos();
-			setIsSaving(false);
+		} catch (error) {
+			if (isMounted.current) console.log('Erro ignorado ao salvar');
+		} finally {
+			if (isMounted.current) setIsSaving(false);
 		}
 	};
 
@@ -165,9 +183,17 @@ export default function ModelosScreen() {
 
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		const res = await apiService.buscarDinamica(tipo, termo);
-		setResultadosBusca(res && res.success ? res.data : []);
-		setIsSearching(false);
+		try {
+			const res = await apiService.buscarDinamica(tipo, termo);
+
+			if (!isMounted.current) return;
+
+			setResultadosBusca(res && res.success ? res.data : []);
+		} catch (error) {
+			if (isMounted.current) setResultadosBusca([]);
+		} finally {
+			if (isMounted.current) setIsSearching(false);
+		}
 	};
 
 	const selecionarItemBusca = (item: any) => {
@@ -181,6 +207,57 @@ export default function ModelosScreen() {
 
 	return (
 		<View style={styles.container}>
+
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Gerenciar Modelos de Pneus</Text>
+
+				{!!params?.marca_nome && (
+					<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push({ pathname: '/marcas', params: { referencia_nome: params.referencia_nome } })}>
+						<Feather name="arrow-left" size={16} color="#333" />
+						<Text style={styles.btnVoltarClienteText}>Voltar para Marcas</Text>
+					</TouchableOpacity>
+				)}
+
+				<View style={styles.row}>
+					<View style={styles.inputGroupH}>
+						<Text style={styles.label}>Referência</Text>
+						<TextInput style={styles.input} placeholder="Ex: 295/80" value={filtroRef} onChangeText={t => setFiltroRef(t.replace(/,/g, '.'))} />
+					</View>
+					<View style={styles.inputGroupH}>
+						<Text style={styles.label}>Marca</Text>
+						<TextInput style={styles.input} placeholder="Ex: Michelin" value={filtroMarca} onChangeText={setFiltroMarca} />
+					</View>
+				</View>
+
+				<View style={styles.inputGroupFull}>
+					<Text style={styles.label}>Modelo</Text>
+					<TextInput style={styles.input} placeholder="Ex: XTE2" value={filtroModelo} onChangeText={setFiltroModelo} />
+				</View>
+
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarModelos()}>
+						<Feather name="search" size={18} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
+						<Feather name="plus-circle" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir</Text>
+					</TouchableOpacity>
+				</View>
+
+				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
+					Resultados ({modelos.length})
+				</Text>
+
+				{isLoading && modelos.length === 0 && (
+					<View style={{ paddingVertical: 40, alignItems: 'center' }}>
+						<ActivityIndicator size="large" color="#0c6ead" />
+						<Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text>
+					</View>
+				)}
+			</View>
+
 			<FlatList
 				data={modelos}
 				keyExtractor={(item, index) => String(item.id || index)}
@@ -192,52 +269,6 @@ export default function ModelosScreen() {
 
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Gerenciar Modelos de Pneus</Text>
-
-						{!!params?.marca_nome && (
-							<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push({ pathname: '/marcas', params: { referencia_nome: params.referencia_nome } })}>
-								<Feather name="arrow-left" size={16} color="#333" />
-								<Text style={styles.btnVoltarClienteText}>Voltar para Marcas</Text>
-							</TouchableOpacity>
-						)}
-
-						<View style={styles.row}>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Referência</Text>
-								<TextInput style={styles.input} placeholder="Ex: 295/80" value={filtroRef} onChangeText={t => setFiltroRef(t.replace(/,/g, '.'))} />
-							</View>
-							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Marca</Text>
-								<TextInput style={styles.input} placeholder="Ex: Michelin" value={filtroMarca} onChangeText={setFiltroMarca} />
-							</View>
-						</View>
-
-						<View style={styles.inputGroupFull}>
-							<Text style={styles.label}>Modelo</Text>
-							<TextInput style={styles.input} placeholder="Ex: XTE2" value={filtroModelo} onChangeText={setFiltroModelo} />
-						</View>
-
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarModelos()}>
-								<Feather name="search" size={18} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-								<Feather name="plus-circle" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir</Text>
-							</TouchableOpacity>
-						</View>
-
-						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Resultados ({modelos.length})
-						</Text>
-
-						{isLoading && modelos.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
-					</View>
-				}
 				renderItem={({ item }) => (
 					<View style={styles.card}>
 						<View style={styles.cardHeader}>

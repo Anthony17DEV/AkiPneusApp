@@ -1,7 +1,7 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
 	ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView,
 	Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput,
@@ -37,6 +37,8 @@ interface Contato {
 export default function ClientesScreen() {
 	const { user, signOut } = useAuth();
 	const router = useRouter();
+
+	const isMounted = useRef(true);
 
 	const [clientes, setClientes] = useState<Cliente[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -74,18 +76,36 @@ export default function ClientesScreen() {
 
 	const carregarClientes = async (pageToLoad = 1) => {
 		if (pageToLoad === 1) setIsLoading(true); else setIsFetchingMore(true);
-		const filtros = { codigo: filtroCodigo, cnpj: filtroCnpj, nome: filtroNome };
-		const response = await apiService.buscarClientes(user?.id, user?.nivel, filtros, pageToLoad);
 
-		if (response && response.success) {
-			const dataArray = response.data || [];
-			if (pageToLoad === 1) { setClientes(dataArray); } else { setClientes(prev => [...prev, ...dataArray]); }
-			setHasMore(dataArray.length === 20); setPagina(pageToLoad);
+		try {
+			const filtros = { codigo: filtroCodigo, cnpj: filtroCnpj, nome: filtroNome };
+			const response = await apiService.buscarClientes(user?.id, user?.nivel, filtros, pageToLoad);
+
+			if (!isMounted.current) return;
+
+			if (response && response.success) {
+				const dataArray = response.data || [];
+				if (pageToLoad === 1) { setClientes(dataArray); } else { setClientes(prev => [...prev, ...dataArray]); }
+				setHasMore(dataArray.length === 20); setPagina(pageToLoad);
+			}
+		} catch (error) {
+			if (isMounted.current) console.log("Erro ao carregar clientes", error);
+		} finally {
+			if (isMounted.current) {
+				setIsLoading(false);
+				setIsFetchingMore(false);
+			}
 		}
-		setIsLoading(false); setIsFetchingMore(false);
 	};
 
-	useEffect(() => { carregarClientes(1); }, []);
+	useEffect(() => {
+		isMounted.current = true;
+		carregarClientes(1);
+
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const loadMore = () => { if (!isLoading && !isFetchingMore && hasMore) carregarClientes(pagina + 1); };
 
@@ -103,29 +123,40 @@ export default function ClientesScreen() {
 
 	const handleActionModificar = async (cliente: Cliente) => {
 		setIsLoading(true);
-		const res = await apiService.buscarClientePorId(cliente.id);
-		setIsLoading(false);
+		try {
+			const res = await apiService.buscarClientePorId(cliente.id);
 
-		if (res && res.success) {
-			const dados = res.data;
-			setFormCliente({
-				cnpj: dados.cnpj || '', identificacao: dados.identificacao || '',
-				cidade: dados.cidade || '', cidade_id: dados.cidade_id || '',
-				tipoCliente: dados.tipoCliente || '', situacao: dados.situacao || ''
-			});
+			if (!isMounted.current) return;
+			setIsLoading(false);
 
-			if (dados.contatos && dados.contatos.length > 0) {
-				setContatos(dados.contatos);
+			if (res && res.success) {
+				const dados = res.data;
+				setFormCliente({
+					cnpj: dados.cnpj || '', identificacao: dados.identificacao || '',
+					cidade: dados.cidade || '', cidade_id: dados.cidade_id || '',
+					tipoCliente: dados.tipoCliente || '', situacao: dados.situacao || ''
+				});
+
+				if (dados.contatos && dados.contatos.length > 0) {
+					setContatos(dados.contatos);
+				} else {
+					setContatos([{ nome: '', fone1: '', fone2: '', email: '' }]);
+				}
+
+				setFotosAntigas(dados.foto ? dados.foto.split(',').map((f: string) => `${URL_FOTOS}${f}`) : []);
+				setFotos([]);
+				setIsEditing(true);
+				setIdEditando(cliente.id);
+				setModalInserirVisible(true);
 			} else {
-				setContatos([{ nome: '', fone1: '', fone2: '', email: '' }]);
+				Alert.alert('Erro', res?.message || 'Não foi possível carregar os detalhes.');
 			}
-
-			setFotosAntigas(dados.foto ? dados.foto.split(',').map((f: string) => `${URL_FOTOS}${f}`) : []);
-			setFotos([]);
-			setIsEditing(true);
-			setIdEditando(cliente.id);
-			setModalInserirVisible(true);
-		} else { Alert.alert('Erro', res?.message || 'Não foi possível carregar os detalhes.'); }
+		} catch (error) {
+			if (isMounted.current) {
+				setIsLoading(false);
+				Alert.alert('Erro', 'Falha na comunicação com o servidor.');
+			}
+		}
 	};
 
 	const excluirCliente = (id: number, nome: string) => {
@@ -145,16 +176,13 @@ export default function ClientesScreen() {
 						} catch (error) {
 							console.log('Erro ignorado ao excluir cliente');
 						} finally {
-							Alert.alert(
-								'Sucesso',
-								'Cliente excluído com sucesso.',
-								[
-									{
-										text: 'OK',
-										onPress: () => carregarClientes(1)
-									}
-								]
-							);
+							if (isMounted.current) {
+								Alert.alert(
+									'Sucesso',
+									'Cliente excluído com sucesso.',
+									[{ text: 'OK', onPress: () => carregarClientes(1) }]
+								);
+							}
 						}
 					}
 				}
@@ -191,9 +219,16 @@ export default function ClientesScreen() {
 
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		const res = await apiService.buscarDinamica(tipo, termo, null as any);
-		if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
-		setIsSearching(false);
+		try {
+			const res = await apiService.buscarDinamica(tipo, termo, null as any);
+			if (!isMounted.current) return;
+
+			if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
+		} catch (error) {
+			if (isMounted.current) setResultadosBusca([]);
+		} finally {
+			if (isMounted.current) setIsSearching(false);
+		}
 	};
 
 	const selecionarItemBusca = (item: any) => {
@@ -240,15 +275,24 @@ export default function ClientesScreen() {
 		};
 
 		try {
+			setIsLoading(true);
 			let response;
 			if (isEditing) { dadosFinais.id = idEditando; response = await apiService.modificarCliente(dadosFinais, user?.id); }
 			else { response = await apiService.cadastrarCliente(dadosFinais, user?.id); }
 
+			if (!isMounted.current) return;
+
 			if (response && response.success) {
 				Alert.alert('Sucesso', isEditing ? 'Cliente atualizado!' : 'Novo cliente cadastrado.');
 				setModalInserirVisible(false); resetForm(); carregarClientes(1);
-			} else { Alert.alert('Atenção', response?.message || 'Erro no servidor.'); }
-		} catch (e: any) { Alert.alert('Erro Fatal', e.message); }
+			} else {
+				Alert.alert('Atenção', response?.message || 'Erro no servidor.');
+			}
+		} catch (e: any) {
+			if (isMounted.current) Alert.alert('Erro Fatal', e.message);
+		} finally {
+			if (isMounted.current) setIsLoading(false);
+		}
 	};
 
 	const aplicarMascaraTelefoneInput = (text: string) => {
@@ -328,6 +372,37 @@ export default function ClientesScreen() {
 
 	return (
 		<View style={styles.container}>
+
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Buscar Clientes</Text>
+				<View style={styles.row}>
+					<View style={{ width: '30%' }}><Text style={styles.label}>Código</Text><TextInput style={styles.input} placeholder="Ex: 102" keyboardType="numeric" value={filtroCodigo} onChangeText={setFiltroCodigo} /></View>
+					<View style={{ width: '65%' }}><Text style={styles.label}>CNPJ</Text><MaskedTextInput mask="99.999.999/9999-99" style={styles.input} placeholder="00.000.000/0000-00" keyboardType="numeric" value={filtroCnpj} onChangeText={(text, rawText) => setFiltroCnpj(rawText)} /></View>
+				</View>
+				<View style={styles.row}>
+					<View style={{ width: '100%' }}><Text style={styles.label}>Cliente</Text><TextInput style={styles.input} placeholder="Nome/Razão..." value={filtroNome} onChangeText={setFiltroNome} /></View>
+				</View>
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarClientes(1)}>
+						<Feather name="search" size={18} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity style={styles.btnInserir} onPress={abrirModalNovo}>
+						<Feather name="user-plus" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir</Text>
+					</TouchableOpacity>
+				</View>
+				<Text style={[styles.sectionTitle, { marginTop: 10, marginBottom: -10 }]}></Text>
+
+				{isLoading && clientes.length === 0 && (
+					<View style={{ paddingVertical: 20, alignItems: 'center' }}>
+						<ActivityIndicator size="large" color="#0c6ead" />
+						<Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text>
+					</View>
+				)}
+			</View>
+
 			<FlatList
 				data={clientes}
 				keyExtractor={(item, index) => String(item?.id || index)}
@@ -342,31 +417,7 @@ export default function ClientesScreen() {
 				showsVerticalScrollIndicator={false}
 				onEndReached={loadMore}
 				onEndReachedThreshold={0.3}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Buscar Clientes</Text>
-						<View style={styles.row}>
-							<View style={{ width: '30%' }}><Text style={styles.label}>Código</Text><TextInput style={styles.input} placeholder="Ex: 102" keyboardType="numeric" value={filtroCodigo} onChangeText={setFiltroCodigo} /></View>
-							<View style={{ width: '65%' }}><Text style={styles.label}>CNPJ</Text><MaskedTextInput mask="99.999.999/9999-99" style={styles.input} placeholder="00.000.000/0000-00" keyboardType="numeric" value={filtroCnpj} onChangeText={(text, rawText) => setFiltroCnpj(rawText)} /></View>
-						</View>
-						<View style={styles.row}>
-							<View style={{ width: '100%' }}><Text style={styles.label}>Cliente</Text><TextInput style={styles.input} placeholder="Nome/Razão..." value={filtroNome} onChangeText={setFiltroNome} /></View>
-						</View>
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarClientes(1)}>
-								<Feather name="search" size={18} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
 
-							<TouchableOpacity style={styles.btnInserir} onPress={abrirModalNovo}>
-								<Feather name="user-plus" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir</Text>
-							</TouchableOpacity>
-						</View>
-						<Text style={[styles.sectionTitle, { marginTop: -10, marginBottom: -10 }]}></Text>
-						{isLoading && clientes.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
-					</View>
-				}
 				ListFooterComponent={isFetchingMore ? <ActivityIndicator size="small" color="#0c6ead" style={{ marginVertical: 20 }} /> : !hasMore && clientes.length > 0 ? <Text style={{ textAlign: 'center', color: '#999', marginVertical: 20 }}>Fim da lista.</Text> : null}
 				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum cliente encontrado.</Text> : null}
 			/>

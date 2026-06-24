@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -38,6 +38,15 @@ export default function ChecklistScreen() {
 	const params = useLocalSearchParams();
 	const router = useRouter();
 	const { user, signOut } = useAuth();
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [veiculo, setVeiculo] = useState<Veiculo | null>(null);
@@ -91,11 +100,12 @@ export default function ChecklistScreen() {
 		try {
 			const resposta = await fetch(url);
 			const txt = await resposta.text();
+			if (!isMounted.current) return;
 			setHtmlDoc(txt);
 		} catch (e) {
-			Alert.alert('Erro', 'Não foi possível gerar o documento.');
+			if (isMounted.current) Alert.alert('Erro', 'Não foi possível gerar o documento.');
 		}
-		setIsCarregandoPreview(false);
+		if (isMounted.current) setIsCarregandoPreview(false);
 	};
 
 	const visualizarPDFNativo = async () => {
@@ -108,6 +118,9 @@ export default function ChecklistScreen() {
 		try {
 			setIsCarregandoPreview(true);
 			const { uri } = await Print.printToFileAsync({ html: htmlDoc });
+
+			if (!isMounted.current) return;
+
 			// @ts-ignore
 			const diretorio = FileSystem.documentDirectory;
 			const fileUriLocal = `${diretorio}${previewData.nome}.pdf`;
@@ -116,20 +129,20 @@ export default function ChecklistScreen() {
 			await FileSystem.moveAsync({ from: uri, to: fileUriLocal });
 
 			const isAvailable = await Sharing.isAvailableAsync();
-			if (isAvailable) {
+			if (isAvailable && isMounted.current) {
 				await Sharing.shareAsync(fileUriLocal, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Enviar PDF' });
-			} else {
+			} else if (isMounted.current) {
 				Alert.alert('Aviso', 'A partilha não está disponível no seu telemóvel.');
 			}
 		} catch (e) {
-			Alert.alert('Erro', 'Falha ao processar o PDF.');
+			if (isMounted.current) Alert.alert('Erro', 'Falha ao processar o PDF.');
 		} finally {
-			setIsCarregandoPreview(false);
+			if (isMounted.current) setIsCarregandoPreview(false);
 		}
 	};
 
 	useFocusEffect(
-		React.useCallback(() => {
+		useCallback(() => {
 			if (params.veiculo_id || params.placa) {
 				setImplementos([]);
 				setHistorico([]);
@@ -143,6 +156,9 @@ export default function ChecklistScreen() {
 	const buscarVeiculoDireto = async (vId: string, placaStr: string) => {
 		setIsLoading(true);
 		const res = await apiService.buscarVeiculo({ id: vId, busca: placaStr });
+
+		if (!isMounted.current) return;
+
 		setIsLoading(false);
 
 		if (res && res.success && res.data && res.data.length > 0) {
@@ -208,6 +224,7 @@ export default function ChecklistScreen() {
 
 	const carregarHistorico = async (vId: number) => {
 		const res = await apiService.listarChecklists(vId);
+		if (!isMounted.current) return;
 		if (res && res.success) setHistorico(res.data);
 	};
 
@@ -221,6 +238,7 @@ export default function ChecklistScreen() {
 
 	const carregarCoresPneus = async (checkId: number) => {
 		const res = await apiService.buscarPneusVeiculo(checkId);
+		if (!isMounted.current) return;
 		if (res && res.success && res.data) { setDadosPneus(res.data); } else { setDadosPneus({}); }
 	};
 
@@ -238,6 +256,9 @@ export default function ChecklistScreen() {
 			user_id: user?.id,
 			implementos: implementos.map(i => i.id)
 		});
+
+		if (!isMounted.current) return;
+
 		setIsLoading(false);
 		if (res && res.success) {
 			setModalNovoChecklist(false); setIdChecklistAtivo(res.checklist_id); carregarCoresPneus(res.checklist_id); setFormNovoCheck({ motorista: '', odometro: '' });
@@ -251,6 +272,8 @@ export default function ChecklistScreen() {
 		try {
 			const response = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idChecklist}`);
 			const res = await response.json();
+			if (!isMounted.current) return;
+
 			if (res.success && res.data) {
 				const veiculosFormatados = res.data.map((v: any) => ({
 					...v,
@@ -266,7 +289,7 @@ export default function ChecklistScreen() {
 				setImplementos([]);
 			}
 		} catch (e) {
-			setImplementos([]);
+			if (isMounted.current) setImplementos([]);
 		}
 	};
 
@@ -286,6 +309,8 @@ export default function ChecklistScreen() {
 			} catch (err) {
 				console.log('Erro ao salvar composição', err);
 			}
+
+			if (!isMounted.current) return;
 			setIsLoading(false);
 		}
 
@@ -362,14 +387,18 @@ export default function ChecklistScreen() {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmara."); return; }
 		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
-		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
+		if (!result.canceled && result.assets[0].base64) {
+			setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]);
+		}
 	};
 
 	const escolherFotoGaleria = async () => {
 		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à galeria de fotos."); return; }
 		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
-		if (!result.canceled && result.assets[0].base64) { setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]); }
+		if (!result.canceled && result.assets[0].base64) {
+			setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]);
+		}
 	};
 
 	const removerFoto = (index: number) => { setFotosPneu(fotosPneu.filter((_, i) => i !== index)); };
@@ -425,6 +454,8 @@ export default function ChecklistScreen() {
 
 		const res = await apiService.salvarInspecaoPneu(dadosParaSalvar);
 
+		if (!isMounted.current) return;
+
 		setIsSaving(false);
 		if (res && res.success) {
 			Alert.alert('Sucesso', res.message);
@@ -443,6 +474,8 @@ export default function ChecklistScreen() {
 
 		if (tipo === 'veiculo' || tipo === 'implemento') {
 			const res = await apiService.buscarVeiculo({ busca: termo });
+			if (!isMounted.current) return;
+
 			if (res && res.success) {
 				let listaVeiculos = res.data;
 
@@ -466,10 +499,11 @@ export default function ChecklistScreen() {
 		} else {
 			const extras = { referencia_id: formPneu.referencia, marca_atual: formPneu.marca };
 			const res = await apiService.buscarDinamica(tipo, termo, extras);
+			if (!isMounted.current) return;
 			setResultadosBusca(res && res.success ? res.data : []);
 		}
 
-		setIsSearching(false);
+		if (isMounted.current) setIsSearching(false);
 	};
 
 	const selecionarItemBusca = (item: any) => {
@@ -566,6 +600,9 @@ export default function ChecklistScreen() {
 				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosCadastro)
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				if (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.nome, isNewModel: true });
@@ -584,9 +621,9 @@ export default function ChecklistScreen() {
 				Alert.alert('Erro', res.message || 'Falha ao cadastrar no banco.');
 			}
 		} catch (err) {
-			Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
+			if (isMounted.current) Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
 		} finally {
-			setIsCadastrando(false);
+			if (isMounted.current) setIsCadastrando(false);
 		}
 	};
 
@@ -1149,8 +1186,6 @@ export default function ChecklistScreen() {
 
 					{modalBuscaVisible && renderBuscaDinamica()}
 					{modalCadastroVisible && renderCadastroDinamico()}
-
-					{/* MODAL CAMALEÃO A SOBREPOR A EDIÇÃO DO PNEU */}
 					{modalPreviewVisible && renderPreviewContent()}
 
 				</KeyboardAvoidingView>
@@ -1280,7 +1315,6 @@ export default function ChecklistScreen() {
 				</View>
 			</Modal>
 
-			{/* MODAL CAMALEÃO SE ABERTO FORA DA EDIÇÃO DO PNEU */}
 			{!modalPneuVisible && modalPreviewVisible && (
 				<Modal visible={true} animationType="fade" transparent={true} onRequestClose={() => setModalPreviewVisible(false)}>
 					{renderPreviewContent()}

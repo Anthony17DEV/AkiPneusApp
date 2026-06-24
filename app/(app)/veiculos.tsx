@@ -2,7 +2,7 @@
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -36,6 +36,15 @@ export default function VeiculosScreen() {
 	const params = useLocalSearchParams();
 	const router = useRouter();
 	const { signOut } = useAuth();
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -121,17 +130,25 @@ export default function VeiculosScreen() {
 
 	const buscarVeiculosNaApi = async (buscaStr: string, tipoStr: string, cliNomeStr: string, cliIdStr: string) => {
 		setIsLoading(true);
-		const res = await apiService.buscarVeiculo({
-			busca: buscaStr,
-			cliente: cliNomeStr,
-			tipo: tipoStr,
-			cliente_id: cliIdStr
-		});
-		setIsLoading(false);
-		if (res && res.success && Array.isArray(res.data)) {
-			setVeiculos(res.data);
-		} else {
-			setVeiculos([]);
+		try {
+			const res = await apiService.buscarVeiculo({
+				busca: buscaStr,
+				cliente: cliNomeStr,
+				tipo: tipoStr,
+				cliente_id: cliIdStr
+			});
+
+			if (!isMounted.current) return;
+
+			if (res && res.success && Array.isArray(res.data)) {
+				setVeiculos(res.data);
+			} else {
+				setVeiculos([]);
+			}
+		} catch (error) {
+			if (isMounted.current) setVeiculos([]);
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
 	};
 
@@ -242,8 +259,10 @@ export default function VeiculosScreen() {
 						} catch (error) {
 							console.log('Erro ignorado ao excluir veículo');
 						} finally {
-							Alert.alert('Sucesso', 'Veículo excluído com sucesso.');
-							carregarVeiculos();
+							if (isMounted.current) {
+								Alert.alert('Sucesso', 'Veículo excluído com sucesso.');
+								carregarVeiculos();
+							}
 						}
 					}
 				}
@@ -308,6 +327,8 @@ export default function VeiculosScreen() {
 
 			const res = await response.json();
 
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				setModalVisible(false);
 				Alert.alert('Sucesso', form.id ? 'Veículo atualizado!' : 'Veículo salvo!', [
@@ -329,9 +350,9 @@ export default function VeiculosScreen() {
 				Alert.alert('Erro ao Salvar', res.message || 'Falha ao salvar. Verifique se a placa já existe.');
 			}
 		} catch (e) {
-			Alert.alert('Erro de Conexão', 'Falha ao conectar com o servidor.');
+			if (isMounted.current) Alert.alert('Erro de Conexão', 'Falha ao conectar com o servidor.');
 		} finally {
-			setIsSaving(false);
+			if (isMounted.current) setIsSaving(false);
 		}
 	};
 
@@ -349,10 +370,18 @@ export default function VeiculosScreen() {
 
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		const marcaIdParaModelo = tipo === 'modelo' ? form.marca_id : null;
-		const res = await apiService.buscarDinamica(tipo, termo, { marca_id: marcaIdParaModelo });
-		if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
-		setIsSearching(false);
+		try {
+			const marcaIdParaModelo = tipo === 'modelo' ? form.marca_id : null;
+			const res = await apiService.buscarDinamica(tipo, termo, { marca_id: marcaIdParaModelo });
+
+			if (!isMounted.current) return;
+
+			if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
+		} catch (error) {
+			if (isMounted.current) setResultadosBusca([]);
+		} finally {
+			if (isMounted.current) setIsSearching(false);
+		}
 	};
 
 	const selecionarItemBusca = (item: any) => {
@@ -380,6 +409,9 @@ export default function VeiculosScreen() {
 				})
 			});
 			const res = await response.json();
+
+			if (!isMounted.current) return;
+
 			if (res.success) {
 				selecionarItemBusca({ id: res.id, nome: res.nome });
 				setModalCadastroVisible(false);
@@ -387,9 +419,9 @@ export default function VeiculosScreen() {
 				Alert.alert('Erro', res.message || 'Falha ao cadastrar.');
 			}
 		} catch (err) {
-			Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
+			if (isMounted.current) Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
 		} finally {
-			setIsCadastrando(false);
+			if (isMounted.current) setIsCadastrando(false);
 		}
 	};
 
@@ -498,159 +530,164 @@ export default function VeiculosScreen() {
 
 	return (
 		<View style={styles.container}>
-			<FlatList
-				data={veiculos}
-				keyExtractor={(item, index) => String(item?.id || index)}
 
-				initialNumToRender={10}
-				maxToRenderPerBatch={10}
-				windowSize={5}
-				removeClippedSubviews={true}
+			<View style={styles.filterSection}>
+				<Text style={styles.sectionTitle}>Buscar Veículos</Text>
 
-				contentContainerStyle={{ paddingBottom: 40 }}
-				showsVerticalScrollIndicator={false}
-				ListHeaderComponent={
-					<View style={styles.filterSection}>
-						<Text style={styles.sectionTitle}>Buscar Veículos</Text>
+				{!!params?.cliente_id && (
+					<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/clientes')}>
+						<Feather name="arrow-left" size={16} color="#333" />
+						<Text style={styles.btnVoltarClienteText}>Voltar para Clientes</Text>
+					</TouchableOpacity>
+				)}
 
+				<View style={styles.row}>
+					<View style={{ width: '48%' }}>
+						<Text style={styles.label}>Código ou Placa</Text>
+						<TextInput
+							style={styles.input}
+							placeholder="Ex: 102 ou ABC"
+							value={filtroBusca}
+							onChangeText={setFiltroBusca}
+							autoCapitalize="characters"
+						/>
+					</View>
+					<View style={{ width: '48%' }}>
+						<Text style={styles.label}>Tipo de Veículo</Text>
+						<RNPickerSelect
+							placeholder={{ label: 'Todos...', value: '', color: '#666' }}
+							value={filtroTipo}
+							onValueChange={setFiltroTipo}
+							items={TIPOS_VEICULOS}
+							style={pickerStyles}
+							useNativeAndroidPickerStyle={false}
+							Icon={PickerIcon}
+						/>
+					</View>
+				</View>
+
+				<View style={styles.inputGroupFull}>
+					<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+						<Text style={styles.label}>Cliente</Text>
 						{!!params?.cliente_id && (
-							<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/clientes')}>
-								<Feather name="arrow-left" size={16} color="#333" />
-								<Text style={styles.btnVoltarClienteText}>Voltar para Clientes</Text>
+							<TouchableOpacity onPress={limparFiltroCliente} style={{ paddingHorizontal: 5 }}>
+								<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
 							</TouchableOpacity>
 						)}
+					</View>
+					<TextInput
+						style={[styles.input, params?.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
+						placeholder="Nome do Cliente..."
+						value={filtroCliente}
+						editable={!params?.cliente_id}
+						onChangeText={(text) => {
+							setFiltroCliente(text);
+							setFiltroClienteId('');
+						}}
+					/>
+				</View>
 
-						<View style={styles.row}>
-							<View style={{ width: '48%' }}>
-								<Text style={styles.label}>Código ou Placa</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Ex: 102 ou ABC"
-									value={filtroBusca}
-									onChangeText={setFiltroBusca}
-									autoCapitalize="characters"
-								/>
-							</View>
-							<View style={{ width: '48%' }}>
-								<Text style={styles.label}>Tipo de Veículo</Text>
-								<RNPickerSelect
-									placeholder={{ label: 'Todos...', value: '', color: '#666' }}
-									value={filtroTipo}
-									onValueChange={setFiltroTipo}
-									items={TIPOS_VEICULOS}
-									style={pickerStyles}
-									useNativeAndroidPickerStyle={false}
-									Icon={PickerIcon}
-								/>
-							</View>
-						</View>
+				<View style={styles.actionRow}>
+					<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarVeiculos()}>
+						<Feather name="search" size={18} color="#fff" />
+						<Text style={styles.btnText}>Buscar</Text>
+					</TouchableOpacity>
 
-						<View style={styles.inputGroupFull}>
-							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-								<Text style={styles.label}>Cliente</Text>
-								{!!params?.cliente_id && (
-									<TouchableOpacity onPress={limparFiltroCliente} style={{ paddingHorizontal: 5 }}>
-										<Text style={{ color: '#0c6ead', fontSize: 13, fontWeight: 'bold' }}>Limpar Filtro</Text>
+					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
+						<Feather name="plus-circle" size={18} color="#ffffff" />
+						<Text style={styles.btnInserirText}>Inserir</Text>
+					</TouchableOpacity>
+				</View>
+
+				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
+					Resultados ({veiculos.length} encontrados)
+				</Text>
+			</View>
+
+			{isLoading && veiculos.length === 0 ? (
+				<View style={{ paddingVertical: 40, alignItems: 'center' }}>
+					<ActivityIndicator size="large" color="#0c6ead" />
+					<Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text>
+				</View>
+			) : (
+				<FlatList
+					data={veiculos}
+					keyExtractor={(item, index) => String(item?.id || index)}
+
+					initialNumToRender={10}
+					maxToRenderPerBatch={10}
+					windowSize={5}
+					removeClippedSubviews={true}
+
+					contentContainerStyle={{ paddingBottom: 40 }}
+					showsVerticalScrollIndicator={false}
+					renderItem={({ item }) => (
+						<View style={styles.card}>
+							<View style={styles.cardHeader}>
+								<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo || item.id} - {item.placa}</Text>
+								<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}>
+									<Text style={[styles.statusText, { color: '#1967d2' }]}>{item.tipo || 'VEÍCULO'}</Text>
+								</View>
+							</View>
+
+							<View style={styles.cardInfoBox}>
+								<View style={styles.cardInfoRow}>
+									<MaterialCommunityIcons name="truck-outline" size={16} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}>Marca: #{item.marca_id || '--'} {item.marca} - {item.modelo}</Text>
+								</View>
+								<View style={styles.cardInfoRow}>
+									<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}>Rodado: {item.rodado} • {item.eixos} Eixos</Text>
+								</View>
+								<View style={styles.cardInfoRow}>
+									<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
+									<Text style={styles.cardInfoText}>Cliente: {item.proprietario || 'N/A'}</Text>
+								</View>
+							</View>
+
+							<View style={styles.cardActions}>
+								<View style={styles.actionButtonsRow}>
+									<TouchableOpacity
+										style={styles.btnActionSecondary}
+										onPress={() => router.push({
+											pathname: '/checklist',
+											params: {
+												veiculo_id: item.id,
+												placa: item.placa,
+												eixos: item.eixos,
+												rodado: item.rodado,
+												cliente_id: params?.cliente_id,
+												cliente_nome: params?.cliente_nome
+											}
+										})}
+									>
+										<Feather name="clipboard" size={14} color="#333" />
+										<Text style={styles.btnActionTextSecondary}>Checklist</Text>
 									</TouchableOpacity>
-								)}
-							</View>
-							<TextInput
-								style={[styles.input, params?.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
-								placeholder="Nome do Cliente..."
-								value={filtroCliente}
-								editable={!params?.cliente_id}
-								onChangeText={(text) => {
-									setFiltroCliente(text);
-									setFiltroClienteId('');
-								}}
-							/>
-						</View>
 
-						<View style={styles.actionRow}>
-							<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarVeiculos()}>
-								<Feather name="search" size={18} color="#fff" />
-								<Text style={styles.btnText}>Buscar</Text>
-							</TouchableOpacity>
+									<TouchableOpacity
+										style={styles.btnEditarCard}
+										onPress={() => handleEditar(item)}
+									>
+										<Feather name="edit-2" size={14} color="#ffffff" />
+										<Text style={styles.btnEditarCardText}>Editar</Text>
+									</TouchableOpacity>
 
-							<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-								<Feather name="plus-circle" size={18} color="#ffffff" />
-								<Text style={styles.btnInserirText}>Inserir</Text>
-							</TouchableOpacity>
-						</View>
+									<TouchableOpacity
+										style={styles.btnExcluirCard}
+										onPress={() => excluirVeiculo(item.id)}
+									>
+										<Feather name="trash-2" size={14} color="#ffffff" />
+										<Text style={styles.btnExcluirCardText}>Excluir</Text>
+									</TouchableOpacity>
 
-						<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-							Resultados ({veiculos.length} registros encontrados)
-						</Text>
-
-						{isLoading && veiculos.length === 0 && <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator size="large" color="#0c6ead" /><Text style={{ marginTop: 10, color: '#666' }}>Buscando...</Text></View>}
-					</View>
-				}
-				renderItem={({ item }) => (
-					<View style={styles.card}>
-						<View style={styles.cardHeader}>
-							<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo || item.id} - {item.placa}</Text>
-							<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}>
-								<Text style={[styles.statusText, { color: '#1967d2' }]}>{item.tipo || 'VEÍCULO'}</Text>
+								</View>
 							</View>
 						</View>
-
-						<View style={styles.cardInfoBox}>
-							<View style={styles.cardInfoRow}>
-								<MaterialCommunityIcons name="truck-outline" size={16} color="#666" style={{ marginRight: 8 }} />
-								<Text style={styles.cardInfoText}>Marca: #{item.marca_id || '--'} {item.marca} - {item.modelo}</Text>
-							</View>
-							<View style={styles.cardInfoRow}>
-								<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
-								<Text style={styles.cardInfoText}>Rodado: {item.rodado} • {item.eixos} Eixos</Text>
-							</View>
-							<View style={styles.cardInfoRow}>
-								<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
-								<Text style={styles.cardInfoText}>Cliente: {item.proprietario || 'N/A'}</Text>
-							</View>
-						</View>
-
-						<View style={styles.cardActions}>
-							<View style={styles.actionButtonsRow}>
-								<TouchableOpacity
-									style={styles.btnActionSecondary}
-									onPress={() => router.push({
-										pathname: '/checklist',
-										params: {
-											veiculo_id: item.id,
-											placa: item.placa,
-											eixos: item.eixos,
-											rodado: item.rodado,
-											cliente_id: params?.cliente_id,
-											cliente_nome: params?.cliente_nome
-										}
-									})}
-								>
-									<Feather name="clipboard" size={14} color="#333" />
-									<Text style={styles.btnActionTextSecondary}>Checklist</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity
-									style={styles.btnEditarCard}
-									onPress={() => handleEditar(item)}
-								>
-									<Feather name="edit-2" size={14} color="#ffffff" />
-									<Text style={styles.btnEditarCardText}>Editar</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity
-									style={styles.btnExcluirCard}
-									onPress={() => excluirVeiculo(item.id)}
-								>
-									<Feather name="trash-2" size={14} color="#ffffff" />
-									<Text style={styles.btnExcluirCardText}>Excluir</Text>
-								</TouchableOpacity>
-
-							</View>
-						</View>
-					</View>
-				)}
-				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum veículo encontrado.</Text> : null}
-			/>
+					)}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum veículo encontrado.</Text> : null}
+				/>
+			)}
 
 			<Modal visible={modalVisible} animationType="slide" transparent={true}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>

@@ -1,6 +1,6 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
@@ -23,6 +23,15 @@ export default function PerfilScreen() {
 	const { user, signOut, updateUser } = useAuth();
 
 	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
 	const [isUploading, setIsUploading] = useState(false);
 	const [modalSenhaVisible, setModalSenhaVisible] = useState(false);
@@ -95,16 +104,23 @@ export default function PerfilScreen() {
 
 	const enviarFoto = async (base64Image: string) => {
 		setIsUploading(true);
-		const res = await apiService.atualizarFoto(user?.id, base64Image);
-		setIsUploading(false);
+		try {
+			const res = await apiService.atualizarFoto(user?.id, base64Image);
 
-		if (res && res.success) {
-			if (updateUser) {
-				updateUser({ ...user, foto: res.foto_nome });
+			if (!isMounted.current) return;
+
+			if (res && res.success) {
+				if (updateUser) {
+					updateUser({ ...user, foto: res.foto_nome });
+				}
+				Alert.alert('Sucesso', 'Sua foto de perfil foi atualizada com sucesso!');
+			} else {
+				Alert.alert('Erro', res?.message || 'Falha ao atualizar a foto.');
 			}
-			Alert.alert('Sucesso', 'Sua foto de perfil foi atualizada com sucesso!');
-		} else {
-			Alert.alert('Erro', res?.message || 'Falha ao atualizar a foto.');
+		} catch (error) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha na comunicação com o servidor.');
+		} finally {
+			if (isMounted.current) setIsUploading(false);
 		}
 	};
 
@@ -123,16 +139,23 @@ export default function PerfilScreen() {
 		}
 
 		setIsSalvandoSenha(true);
-		const res = await apiService.alterarSenha(user?.id, novaSenha);
-		setIsSalvandoSenha(false);
+		try {
+			const res = await apiService.alterarSenha(user?.id, novaSenha);
 
-		if (res && res.success) {
-			Alert.alert('Sucesso', 'Sua senha foi alterada com segurança!');
-			setModalSenhaVisible(false);
-			setNovaSenha('');
-			setConfirmarSenha('');
-		} else {
-			Alert.alert('Erro', res?.message || 'Falha ao alterar a senha.');
+			if (!isMounted.current) return;
+
+			if (res && res.success) {
+				Alert.alert('Sucesso', 'Sua senha foi alterada com segurança!');
+				setModalSenhaVisible(false);
+				setNovaSenha('');
+				setConfirmarSenha('');
+			} else {
+				Alert.alert('Erro', res?.message || 'Falha ao alterar a senha.');
+			}
+		} catch (error) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha na comunicação com o servidor.');
+		} finally {
+			if (isMounted.current) setIsSalvandoSenha(false);
 		}
 	};
 
