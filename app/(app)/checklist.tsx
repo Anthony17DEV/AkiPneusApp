@@ -5,7 +5,7 @@ import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/solutires.png';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,6 +59,7 @@ export default function ChecklistScreen() {
 	const [formNovoCheck, setFormNovoCheck] = useState({ motorista: '', odometro: '' });
 
 	const [dadosPneus, setDadosPneus] = useState<{ [key: string]: any }>({});
+	const [pneusPendentes, setPneusPendentes] = useState<string[]>([]);
 
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
 	const [pneuSelecionado, setPneuSelecionado] = useState('');
@@ -73,6 +74,8 @@ export default function ChecklistScreen() {
 	const [previewData, setPreviewData] = useState({ url: '', nome: '', tipo: '', subtitulo: '' });
 	const [htmlDoc, setHtmlDoc] = useState('');
 	const [isCarregandoPreview, setIsCarregandoPreview] = useState(false);
+	const [exibirCPK, setExibirCPK] = useState(false);
+	const [exibirKPM, setExibirKPM] = useState(false);
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'implemento' | 'veiculo' | 'motivo_laudo' | 'reformador'>('referencia_pneu');
@@ -94,6 +97,8 @@ export default function ChecklistScreen() {
 
 	const abrirModalPreview = async (url: string, nomeDoArquivo: string, tipoDoc: string, subtituloDoc: string) => {
 		setPreviewData({ url, nome: nomeDoArquivo, tipo: tipoDoc, subtitulo: subtituloDoc });
+		setExibirCPK(false);
+		setExibirKPM(false);
 		setModalPreviewVisible(true);
 		setIsCarregandoPreview(true);
 		setHtmlDoc('');
@@ -109,17 +114,31 @@ export default function ChecklistScreen() {
 	};
 
 	const visualizarPDFNativo = async () => {
-		if (!htmlDoc) { Alert.alert('Aguarde', 'O documento ainda está a carregar...'); return; }
-		try { await Print.printAsync({ html: htmlDoc }); } catch (e) { console.log(e); }
+		if (!previewData.url) return;
+		const finalUrl = `${previewData.url}&cpk=${exibirCPK ? 1 : 0}&kpm=${exibirKPM ? 1 : 0}`;
+		try {
+			const supported = await Linking.canOpenURL(finalUrl);
+			if (supported) {
+				await Linking.openURL(finalUrl);
+			} else {
+				Alert.alert('Erro', 'Não foi possível abrir o navegador no telemóvel.');
+			}
+		} catch (e) {
+			console.log(e);
+		}
 	};
 
 	const compartilharDocumentoPDF = async () => {
-		if (!htmlDoc) { Alert.alert('Aguarde', 'O documento ainda está a carregar...'); return; }
+		if (!previewData.url) return;
 		try {
 			setIsCarregandoPreview(true);
-			const { uri } = await Print.printToFileAsync({ html: htmlDoc });
+			const finalUrl = `${previewData.url}&cpk=${exibirCPK ? 1 : 0}&kpm=${exibirKPM ? 1 : 0}`;
+			const resposta = await fetch(finalUrl);
+			const htmlAtualizado = await resposta.text();
 
 			if (!isMounted.current) return;
+
+			const { uri } = await Print.printToFileAsync({ html: htmlAtualizado });
 
 			// @ts-ignore
 			const diretorio = FileSystem.documentDirectory;
@@ -148,14 +167,15 @@ export default function ChecklistScreen() {
 				setHistorico([]);
 				setIdChecklistAtivo(null);
 				setDadosPneus({});
+				setPneusPendentes([]);
 				buscarVeiculoDireto(params.veiculo_id as string, params.placa as string);
 			}
 		}, [params.veiculo_id, params.placa])
 	);
 
-	const buscarVeiculoDireto = async (vId: string, placaStr: string) => {
+	const buscarVeiculoDireto = async (idVeiculo: string, placaStr: string) => {
 		setIsLoading(true);
-		const res = await apiService.buscarVeiculo({ id: vId, busca: placaStr });
+		const res = await apiService.buscarVeiculo({ id: idVeiculo, busca: placaStr });
 
 		if (!isMounted.current) return;
 
@@ -166,6 +186,7 @@ export default function ChecklistScreen() {
 			const veiculoFormatado = {
 				...v,
 				placa: v.placa || v.veic_tx_placa || 'S/ PLACA',
+				codigo: v.codigo || v.veic_tx_codigo || '',
 				cor: v.cor || v.veic_tx_cor
 			};
 			setVeiculo(veiculoFormatado);
@@ -222,8 +243,8 @@ export default function ChecklistScreen() {
 		return parseFloat(str) || 0;
 	};
 
-	const carregarHistorico = async (vId: number) => {
-		const res = await apiService.listarChecklists(vId);
+	const carregarHistorico = async (idVeiculo: number) => {
+		const res = await apiService.listarChecklists(idVeiculo);
 		if (!isMounted.current) return;
 		if (res && res.success) setHistorico(res.data);
 	};
@@ -236,8 +257,8 @@ export default function ChecklistScreen() {
 		return dataStr;
 	};
 
-	const carregarCoresPneus = async (checkId: number) => {
-		const res = await apiService.buscarPneusVeiculo(checkId);
+	const carregarCoresPneus = async (idDoChecklist: number) => {
+		const res = await apiService.buscarPneusVeiculo(idDoChecklist);
 		if (!isMounted.current) return;
 		if (res && res.success && res.data) { setDadosPneus(res.data); } else { setDadosPneus({}); }
 	};
@@ -261,16 +282,47 @@ export default function ChecklistScreen() {
 
 		setIsLoading(false);
 		if (res && res.success) {
-			setModalNovoChecklist(false); setIdChecklistAtivo(res.checklist_id); carregarCoresPneus(res.checklist_id); setFormNovoCheck({ motorista: '', odometro: '' });
+			setModalNovoChecklist(false);
+			setIdChecklistAtivo(res.checklist_id);
+			setFormNovoCheck({ motorista: '', odometro: '' });
+
+			let encontrouPneusNoNovoChecklist = false;
+
+			const respostaPneusNovos = await apiService.buscarPneusVeiculo(res.checklist_id);
+			if (respostaPneusNovos && respostaPneusNovos.success && respostaPneusNovos.data && Object.keys(respostaPneusNovos.data).length > 0) {
+				setDadosPneus(respostaPneusNovos.data);
+				setPneusPendentes(Object.keys(respostaPneusNovos.data));
+				encontrouPneusNoNovoChecklist = true;
+			}
+
+			if (!encontrouPneusNoNovoChecklist && historico.length > 0) {
+				const idUltimoChecklist = historico[0].chec_nb_id;
+				const respostaPneusAntigos = await apiService.buscarPneusVeiculo(idUltimoChecklist);
+				if (respostaPneusAntigos && respostaPneusAntigos.success && respostaPneusAntigos.data) {
+					const pneusClonados = { ...respostaPneusAntigos.data };
+					Object.keys(pneusClonados).forEach(posicao => {
+						if (pneusClonados[posicao].dados_completos) {
+							pneusClonados[posicao].dados_completos.pneu_nb_id = '';
+							pneusClonados[posicao].dados_completos.id = '';
+						}
+					});
+					setDadosPneus(pneusClonados);
+					setPneusPendentes(Object.keys(pneusClonados));
+				}
+			} else if (!encontrouPneusNoNovoChecklist) {
+				setDadosPneus({});
+				setPneusPendentes([]);
+			}
 		} else { Alert.alert("Erro", res.message || "Erro ao iniciar."); }
 	};
 
-	const abrirChecklistAntigo = async (idChecklist: number) => {
-		setIdChecklistAtivo(idChecklist);
-		carregarCoresPneus(idChecklist);
+	const abrirChecklistAntigo = async (idDoChecklist: number) => {
+		setIdChecklistAtivo(idDoChecklist);
+		setPneusPendentes([]);
+		carregarCoresPneus(idDoChecklist);
 
 		try {
-			const response = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idChecklist}`);
+			const response = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idDoChecklist}`);
 			const res = await response.json();
 			if (!isMounted.current) return;
 
@@ -279,6 +331,7 @@ export default function ChecklistScreen() {
 					...v,
 					id: v.veic_nb_id || v.id,
 					placa: v.veic_tx_placa || v.placa,
+					codigo: v.veic_tx_codigo || v.codigo,
 					tipo: v.veic_tx_tipo || v.tipo,
 					eixos: v.veic_tx_eixos || v.eixos,
 					cor: v.veic_tx_cor || v.cor,
@@ -322,9 +375,53 @@ export default function ChecklistScreen() {
 		}
 	};
 
-	const imprimirChecklist = async (idChecklist: number) => {
-		const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist.php?id=${idChecklist}`;
-		abrirModalPreview(url, `Historico_Veiculo_${idChecklist}`, 'Laudo de Inspeção da Frota', `Checklist Veicular #${idChecklist}`);
+	const imprimirChecklist = async (idDoChecklist: number) => {
+		const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist.php?id=${idDoChecklist}`;
+		abrirModalPreview(url, `Historico_Veiculo_${idDoChecklist}`, 'Laudo de Inspeção da Frota', `Checklist Veicular #${idDoChecklist}`);
+	};
+
+	const excluirChecklistAntigo = (idDoChecklist: number) => {
+		Alert.alert(
+			'Excluir Checklist',
+			'Tem a certeza que deseja excluir permanentemente esta inspeção?',
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{
+					text: 'Excluir', style: 'destructive', onPress: async () => {
+						setIsLoading(true);
+						try {
+							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_checklist_excluir.php', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ acao: 'excluir', id: idDoChecklist })
+							});
+
+							const textRes = await response.text();
+							let res;
+							try {
+								res = JSON.parse(textRes);
+							} catch (e) {
+								res = { success: true, message: textRes };
+							}
+
+							if (!isMounted.current) return;
+
+							if (res.success || res.status === 'success' || (res.message && res.message.toLowerCase().includes('sucesso'))) {
+								Alert.alert('Sucesso', 'Checklist excluído com sucesso.');
+								if (veiculo?.id) carregarHistorico(veiculo.id);
+							} else {
+								Alert.alert('Aviso', res.message || 'Comando enviado. Verifique se o checklist foi removido.');
+								if (veiculo?.id) carregarHistorico(veiculo.id);
+							}
+						} catch (error) {
+							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+						} finally {
+							if (isMounted.current) setIsLoading(false);
+						}
+					}
+				}
+			]
+		);
 	};
 
 	const abrirEdicaoPneu = (codigoPneu: string, dbData: any) => {
@@ -376,7 +473,7 @@ export default function ChecklistScreen() {
 		const pAtual = dadosPneus[codigoPneu] || {};
 		const dbData = pAtual.dados_completos || {};
 
-		if (dbData && (dbData.pneu_nb_id || dbData.id)) {
+		if (dbData && (dbData.pneu_nb_id || dbData.id) && !pneusPendentes.includes(codigoPneu)) {
 			abrirVisualizacaoPneu(codigoPneu, dbData);
 		} else {
 			abrirEdicaoPneu(codigoPneu, dbData);
@@ -460,6 +557,9 @@ export default function ChecklistScreen() {
 		if (res && res.success) {
 			Alert.alert('Sucesso', res.message);
 			setModalPneuVisible(false);
+
+			setPneusPendentes(prev => prev.filter(p => p !== pneuSelecionado));
+
 			if (idChecklistAtivo) carregarCoresPneus(idChecklistAtivo);
 		}
 		else {
@@ -491,6 +591,7 @@ export default function ChecklistScreen() {
 					id: v.id,
 					nome: v.placa || v.veic_tx_placa || v.nome,
 					placa: v.placa || v.veic_tx_placa || v.nome,
+					codigo: v.codigo || v.veic_tx_codigo || '',
 					cor: v.cor || v.veic_tx_cor,
 					documento: `Código: ${v.codigo || '--'} | Tipo: ${v.tipo || v.veic_tx_tipo || 'N/A'} | Eixos: ${v.eixos || v.veic_tx_eixos || 2}`
 				}));
@@ -637,7 +738,7 @@ export default function ChecklistScreen() {
 					</TouchableOpacity>
 				</View>
 
-				<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
+				<View style={{ alignItems: 'center', marginBottom: 15, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
 					<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
 					<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
 					<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
@@ -646,10 +747,24 @@ export default function ChecklistScreen() {
 					</Text>
 				</View>
 
+				<View style={{ marginBottom: 20, backgroundColor: '#f4f6f8', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+					<Text style={{ fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 12 }}>Opções do Relatório:</Text>
+
+					<TouchableOpacity onPress={() => setExibirCPK(!exibirCPK)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+						<Feather name={exibirCPK ? "check-square" : "square"} size={22} color={exibirCPK ? "#1967d2" : "#999"} style={{ marginRight: 10 }} />
+						<Text style={{ fontSize: 14, color: '#333', fontWeight: 'bold' }}>Exibir CPK (Custo por KM)</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity onPress={() => setExibirKPM(!exibirKPM)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+						<Feather name={exibirKPM ? "check-square" : "square"} size={22} color={exibirKPM ? "#1967d2" : "#999"} style={{ marginRight: 10 }} />
+						<Text style={{ fontSize: 14, color: '#333', fontWeight: 'bold' }}>Exibir KPM (Km por mm)</Text>
+					</TouchableOpacity>
+				</View>
+
 				{isCarregandoPreview ? (
 					<View style={{ alignItems: 'center', paddingVertical: 20 }}>
 						<ActivityIndicator size="large" color="#0c6ead" />
-						<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A gerar documento em alta qualidade...</Text>
+						<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A processar documento...</Text>
 					</View>
 				) : (
 					<View style={{ gap: 12, width: '100%' }}>
@@ -666,7 +781,7 @@ export default function ChecklistScreen() {
 							onPress={compartilharDocumentoPDF}
 						>
 							<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
-							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar / Partilhar</Text>
+							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar</Text>
 						</TouchableOpacity>
 					</View>
 				)}
@@ -784,6 +899,13 @@ export default function ChecklistScreen() {
 
 	const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />;
 
+	const dadosPneusComPendencia: { [key: string]: any } = { ...dadosPneus };
+	pneusPendentes.forEach(posicao => {
+		if (dadosPneusComPendencia[posicao]) {
+			dadosPneusComPendencia[posicao] = { ...dadosPneusComPendencia[posicao], pendente: true };
+		}
+	});
+
 	return (
 		<View style={styles.container}>
 			{isLoading && <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 50 }} />}
@@ -851,29 +973,36 @@ export default function ChecklistScreen() {
 								<Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Histórico de Inspeções</Text>
 							</View>
 
-							{historico.length === 0 ? <Text style={{ color: '#999', textAlign: 'center', marginBottom: 10 }}>Nenhuma inspeção encontrada.</Text> : (
-								historico.map((h, index) => (
-									<View key={`historico_${index}`} style={styles.itemHistorico}>
-										<View style={{ flex: 1, paddingRight: 10 }}>
-											<Text style={{ fontWeight: 'bold', color: '#333' }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
-											<Text style={{ color: '#666', fontSize: 12 }}>Motorista: {h.chec_tx_motorista}</Text>
-											<Text style={{ color: '#666', fontSize: 12 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
-										</View>
+							{historico.map((h, index) => (
+								<View key={`historico_${index}`} style={[styles.itemHistorico, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 15 }]}>
 
-										<View style={{ flexDirection: 'row', gap: 8 }}>
-											<TouchableOpacity style={styles.btnImprimirHistorico} onPress={() => imprimirChecklist(h.chec_nb_id)}>
-												<Feather name="printer" size={14} color="#333" />
-												<Text style={styles.btnImprimirHistoricoText}>Exportar</Text>
-											</TouchableOpacity>
-
-											<TouchableOpacity style={styles.btnModificarHistorico} onPress={() => abrirChecklistAntigo(h.chec_nb_id)}>
-												<Feather name="edit-2" size={14} color="#fff" />
-												<Text style={styles.btnModificarHistoricoText}>Editar</Text>
-											</TouchableOpacity>
-										</View>
+									<View style={{ width: '100%', marginBottom: 12 }}>
+										<Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
+										<Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>Motorista: {h.chec_tx_motorista}</Text>
+										<Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
 									</View>
-								))
-							)}
+
+									<View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
+										<TouchableOpacity style={[styles.btnImprimirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => imprimirChecklist(h.chec_nb_id)}>
+											<Feather name="printer" size={14} color="#333" />
+											<Text style={styles.btnImprimirHistoricoText} numberOfLines={1}>Exportar</Text>
+										</TouchableOpacity>
+
+										<TouchableOpacity style={[styles.btnModificarHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => abrirChecklistAntigo(h.chec_nb_id)}>
+											<Feather name="edit-2" size={14} color="#fff" />
+											<Text style={styles.btnModificarHistoricoText} numberOfLines={1}>Editar</Text>
+										</TouchableOpacity>
+
+										{(user?.nivel === 'ADMINISTRADOR' || user?.nivel === 'DIRETORIA') && (
+											<TouchableOpacity style={[styles.btnExcluirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => excluirChecklistAntigo(h.chec_nb_id)}>
+												<Feather name="trash-2" size={14} color="#fff" />
+												<Text style={styles.btnExcluirHistoricoText} numberOfLines={1}>Excluir</Text>
+											</TouchableOpacity>
+										)}
+									</View>
+
+								</View>
+							))}
 						</View>
 					)}
 
@@ -901,7 +1030,7 @@ export default function ChecklistScreen() {
 
 								<ChassiCaminhao
 									veiculos={[veiculo, ...implementos]}
-									dadosPneus={dadosPneus}
+									dadosPneus={dadosPneusComPendencia}
 									onPneuPress={handlePneuClick}
 								/>
 							</View>
@@ -1211,14 +1340,17 @@ export default function ChecklistScreen() {
 
 							const mmGastos = (mmOrig > 0 && mmAtual >= 0 && mmOrig > mmAtual) ? (mmOrig - mmAtual) : 0;
 
-							const cpmTotal = mmOrig > 0 ? (valor / mmOrig) : 0;
-							const cpmGasto = mmGastos > 0 ? (valor / mmGastos) : 0;
-
 							const kmRodado = getFloatDb(db.km_rodado || db.pneu_tx_kmRodado || db.pneu_tx_km);
-							const qpm = mmGastos > 0 ? (kmRodado / mmGastos) : 0;
+
+							const cpm = mmOrig > 0 ? (valor / mmOrig) : 0;
+
+							const cpk = kmRodado > 0 ? (valor / kmRodado) * 1000 : 0;
+
+							const kpm = mmGastos > 0 ? (kmRodado / mmGastos) : 0;
+
+							const valorResidual = mmAtual * cpm;
 
 							const isSucata = !!db.laud_tx_motivo || !!db.motivo_recusa;
-							const prejuizo = (mmOrig > 0 && valor > 0 && mmAtual > 0) ? (valor / mmOrig) * mmAtual : 0;
 
 							return (
 								<>
@@ -1250,7 +1382,7 @@ export default function ChecklistScreen() {
 										</View>
 										<View style={styles.reportRow}>
 											<Text style={styles.reportLabel}>Sulco Atual:</Text>
-											<Text style={[styles.reportValue, { color: mmAtual <= 3 && mmAtual > 0 ? '#E53935' : '#28a745' }]}>
+											<Text style={[styles.reportValue, { color: mmAtual <= 2 && mmAtual > 0 ? '#E53935' : '#28a745' }]}>
 												{mmAtual.toFixed(1)} mm
 											</Text>
 										</View>
@@ -1263,32 +1395,34 @@ export default function ChecklistScreen() {
 									<View style={styles.reportBox}>
 										<Text style={styles.groupTitle}>Indicadores de Performance</Text>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>Valor da Peça:</Text>
+											<Text style={styles.reportLabel}>Valor:</Text>
 											<Text style={styles.reportValue}>R$ {valor.toFixed(2).replace('.', ',')}</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>CPM (R$ por MM Total):</Text>
-											<Text style={styles.reportValue}>R$ {cpmTotal.toFixed(2).replace('.', ',')}</Text>
+											<Text style={styles.reportLabel}>CPM (Custo/mm):</Text>
+											<Text style={styles.reportValue}>R$ {cpm.toFixed(2).replace('.', ',')}</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>CPM (R$ por MM Gasto):</Text>
-											<Text style={[styles.reportValue, { color: '#f39c12' }]}>R$ {cpmGasto.toFixed(2).replace('.', ',')}</Text>
+											<Text style={styles.reportLabel}>CPK (Custo/Km):</Text>
+											<Text style={[styles.reportValue, { color: '#E53935' }]}>
+												{kmRodado > 0 ? `R$ ${cpk.toFixed(4).replace('.', ',')} / 1000Km` : 'N/D'}
+											</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>QPM (KM por MM Gasto):</Text>
+											<Text style={styles.reportLabel}>KPM (Km/mm):</Text>
 											<Text style={[styles.reportValue, { color: '#0c6ead' }]}>
-												{kmRodado > 0 ? `${qpm.toFixed(0)} km/mm` : 'N/D (Sem Histórico)'}
+												{kmRodado > 0 ? `${kpm.toFixed(0)} Km/mm` : 'N/D'}
 											</Text>
 										</View>
 									</View>
 
-									{prejuizo > 0 && (
+									{valorResidual > 0 && (
 										<View style={[styles.reportBox, { borderColor: isSucata ? '#E53935' : '#f39c12', borderWidth: 1 }]}>
 											<Text style={[styles.groupTitle, { color: isSucata ? '#E53935' : '#f39c12', borderBottomWidth: 0, marginBottom: 5 }]}>
 												{isSucata ? 'Prejuízo Calculado (Sucata)' : 'Valor Residual da Borracha'}
 											</Text>
 											<Text style={{ color: isSucata ? '#E53935' : '#f39c12', fontWeight: 'bold', fontSize: 18 }}>
-												R$ {prejuizo.toFixed(2).replace('.', ',')}
+												R$ {valorResidual.toFixed(2).replace('.', ',')}
 											</Text>
 											{isSucata && (
 												<Text style={{ color: '#E53935', marginTop: 8, fontSize: 14 }}>
@@ -1306,7 +1440,7 @@ export default function ChecklistScreen() {
 										}}
 									>
 										<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
-										<Text style={styles.btnSalvarText}>Editar Este Pneu</Text>
+										<Text style={styles.btnSalvarText}>Editar</Text>
 									</TouchableOpacity>
 								</>
 							);
@@ -1409,6 +1543,8 @@ const styles = StyleSheet.create({
 	fullScreenOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 99999, elevation: 99999 },
 	closeFullBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 100000, elevation: 100000, padding: 10 },
 	fullScreenImage: { width: '100%', height: '80%' },
+	btnExcluirHistorico: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+	btnExcluirHistoricoText: { color: '#fff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
 	reportBox: { backgroundColor: '#fff', borderRadius: 8, padding: 15, marginBottom: 15, elevation: 2 },
 	reportRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderColor: '#f0f0f0' },

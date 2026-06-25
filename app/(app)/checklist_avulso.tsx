@@ -5,7 +5,7 @@ import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/solutires.png';
@@ -82,8 +82,17 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const visualizarPDFNativo = async () => {
-		if (!htmlDoc) { Alert.alert('Aguarde', 'O documento ainda está a carregar...'); return; }
-		try { await Print.printAsync({ html: htmlDoc }); } catch (e) { console.log(e); }
+		if (!previewData.url) return;
+		try {
+			const supported = await Linking.canOpenURL(previewData.url);
+			if (supported) {
+				await Linking.openURL(previewData.url);
+			} else {
+				Alert.alert('Erro', 'Não foi possível abrir o navegador no telemóvel.');
+			}
+		} catch (e) {
+			console.log(e);
+		}
 	};
 
 	const compartilharDocumentoPDF = async () => {
@@ -840,7 +849,7 @@ export default function ChecklistAvulsoScreen() {
 							onPress={compartilharDocumentoPDF}
 						>
 							<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
-							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar / Partilhar</Text>
+							<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar</Text>
 						</TouchableOpacity>
 					</View>
 				)}
