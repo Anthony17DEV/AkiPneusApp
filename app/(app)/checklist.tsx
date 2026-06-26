@@ -258,9 +258,45 @@ export default function ChecklistScreen() {
 	};
 
 	const carregarCoresPneus = async (idDoChecklist: number) => {
-		const res = await apiService.buscarPneusVeiculo(idDoChecklist);
+		const resAtual = await apiService.buscarPneusVeiculo(idDoChecklist);
+		let pneusAtuais: any = {};
+		if (resAtual && resAtual.success && resAtual.data) {
+			pneusAtuais = resAtual.data;
+		}
+
+		let pneusMesclados = { ...pneusAtuais };
+		let pendentesTemporarios: string[] = [];
+
+		const indexAtual = historico.findIndex(h => h.chec_nb_id === idDoChecklist);
+		const eOMaisRecente = indexAtual === 0 || indexAtual === -1;
+
+		if (eOMaisRecente && historico.length > 0) {
+			const idAnterior = indexAtual === -1 ? historico[0].chec_nb_id : (historico.length > 1 ? historico[1].chec_nb_id : null);
+
+			if (idAnterior) {
+				const resAntigo = await apiService.buscarPneusVeiculo(idAnterior);
+				if (resAntigo && resAntigo.success && resAntigo.data) {
+					const pneusAntigos = resAntigo.data;
+
+					Object.keys(pneusAntigos).forEach(posicao => {
+						if (!pneusMesclados[posicao]) {
+							const pneuClone = JSON.parse(JSON.stringify(pneusAntigos[posicao]));
+							if (pneuClone.dados_completos) {
+								pneuClone.dados_completos.pneu_nb_id = '';
+								pneuClone.dados_completos.id = '';
+							}
+							pneusMesclados[posicao] = pneuClone;
+							pendentesTemporarios.push(posicao);
+						}
+					});
+				}
+			}
+		}
+
 		if (!isMounted.current) return;
-		if (res && res.success && res.data) { setDadosPneus(res.data); } else { setDadosPneus({}); }
+
+		setDadosPneus(pneusMesclados);
+		setPneusPendentes(pendentesTemporarios);
 	};
 
 	const removerImplemento = (id: number) => {
@@ -270,12 +306,41 @@ export default function ChecklistScreen() {
 	const iniciarNovoChecklist = async () => {
 		if (!formNovoCheck.motorista || !formNovoCheck.odometro) { Alert.alert("Erro", "Preencha o Motorista e o Odômetro."); return; }
 		setIsLoading(true);
+
+		let implementosParaEnviar = [...implementos];
+
+		if (implementosParaEnviar.length === 0 && historico.length > 0) {
+			const idUltimoChecklist = historico[0].chec_nb_id;
+			try {
+				const response = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idUltimoChecklist}`);
+				const resComp = await response.json();
+				if (resComp.success && resComp.data && resComp.data.length > 0) {
+					const veiculosFormatados = resComp.data.map((v: any) => ({
+						...v,
+						id: v.veic_nb_id || v.id,
+						placa: v.veic_tx_placa || v.placa,
+						codigo: v.veic_tx_codigo || v.codigo,
+						tipo: v.veic_tx_tipo || v.tipo,
+						eixos: v.veic_tx_eixos || v.eixos,
+						cor: v.veic_tx_cor || v.cor,
+						rodado: v.veic_tx_tipoRodado || v.rodado
+					}));
+					implementosParaEnviar = veiculosFormatados;
+					if (isMounted.current) {
+						setImplementos(veiculosFormatados);
+					}
+				}
+			} catch (e) {
+				console.log('Erro ao clonar composição', e);
+			}
+		}
+
 		const res = await apiService.iniciarChecklist({
 			veiculo_id: veiculo?.id,
 			motorista: formNovoCheck.motorista,
 			odometro: formNovoCheck.odometro,
 			user_id: user?.id,
-			implementos: implementos.map(i => i.id)
+			implementos: implementosParaEnviar.map(i => i.id)
 		});
 
 		if (!isMounted.current) return;
@@ -286,39 +351,14 @@ export default function ChecklistScreen() {
 			setIdChecklistAtivo(res.checklist_id);
 			setFormNovoCheck({ motorista: '', odometro: '' });
 
-			let encontrouPneusNoNovoChecklist = false;
-
-			const respostaPneusNovos = await apiService.buscarPneusVeiculo(res.checklist_id);
-			if (respostaPneusNovos && respostaPneusNovos.success && respostaPneusNovos.data && Object.keys(respostaPneusNovos.data).length > 0) {
-				setDadosPneus(respostaPneusNovos.data);
-				setPneusPendentes(Object.keys(respostaPneusNovos.data));
-				encontrouPneusNoNovoChecklist = true;
-			}
-
-			if (!encontrouPneusNoNovoChecklist && historico.length > 0) {
-				const idUltimoChecklist = historico[0].chec_nb_id;
-				const respostaPneusAntigos = await apiService.buscarPneusVeiculo(idUltimoChecklist);
-				if (respostaPneusAntigos && respostaPneusAntigos.success && respostaPneusAntigos.data) {
-					const pneusClonados = { ...respostaPneusAntigos.data };
-					Object.keys(pneusClonados).forEach(posicao => {
-						if (pneusClonados[posicao].dados_completos) {
-							pneusClonados[posicao].dados_completos.pneu_nb_id = '';
-							pneusClonados[posicao].dados_completos.id = '';
-						}
-					});
-					setDadosPneus(pneusClonados);
-					setPneusPendentes(Object.keys(pneusClonados));
-				}
-			} else if (!encontrouPneusNoNovoChecklist) {
-				setDadosPneus({});
-				setPneusPendentes([]);
-			}
-		} else { Alert.alert("Erro", res.message || "Erro ao iniciar."); }
+			carregarCoresPneus(res.checklist_id);
+		} else {
+			Alert.alert("Erro", res.message || "Erro ao iniciar.");
+		}
 	};
 
 	const abrirChecklistAntigo = async (idDoChecklist: number) => {
 		setIdChecklistAtivo(idDoChecklist);
-		setPneusPendentes([]);
 		carregarCoresPneus(idDoChecklist);
 
 		try {
@@ -557,8 +597,6 @@ export default function ChecklistScreen() {
 		if (res && res.success) {
 			Alert.alert('Sucesso', res.message);
 			setModalPneuVisible(false);
-
-			setPneusPendentes(prev => prev.filter(p => p !== pneuSelecionado));
 
 			if (idChecklistAtivo) carregarCoresPneus(idChecklistAtivo);
 		}
