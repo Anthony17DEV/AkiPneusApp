@@ -61,6 +61,8 @@ export default function ChecklistScreen() {
 	const [dadosPneus, setDadosPneus] = useState<{ [key: string]: any }>({});
 	const [pneusPendentes, setPneusPendentes] = useState<string[]>([]);
 
+	const [avisosVinculo, setAvisosVinculo] = useState<string[]>([]);
+
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
 	const [pneuSelecionado, setPneuSelecionado] = useState('');
 	const [isSaving, setIsSaving] = useState(false);
@@ -168,10 +170,27 @@ export default function ChecklistScreen() {
 				setIdChecklistAtivo(null);
 				setDadosPneus({});
 				setPneusPendentes([]);
+				setAvisosVinculo([]);
 				buscarVeiculoDireto(params.veiculo_id as string, params.placa as string);
 			}
 		}, [params.veiculo_id, params.placa])
 	);
+
+	const verificarVinculoOutroChecklist = async (idDoVeiculo: number, placaStr: string, idDoCavaloAtual: number = 0) => {
+		try {
+			const resposta = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_verificar_vinculo.php?veiculo_id=${idDoVeiculo}&id_atual=${idChecklistAtivo || 0}&cavalo_id=${idDoCavaloAtual}`);
+			const resultado = await resposta.json();
+			if (resultado.success && resultado.vinculado) {
+				const msg = `O implemento ${placaStr} está vinculado a um checklist (#${resultado.checklist_id}) do veículo ${resultado.cavalo_placa} (Mot: ${resultado.motorista || 'N/I'}).`;
+				setAvisosVinculo(prev => {
+					if (!prev.includes(msg)) return [...prev, msg];
+					return prev;
+				});
+			}
+		} catch (e) {
+			console.log("Erro ao verificar vínculo", e);
+		}
+	};
 
 	const buscarVeiculoDireto = async (idVeiculo: string, placaStr: string) => {
 		setIsLoading(true);
@@ -191,6 +210,12 @@ export default function ChecklistScreen() {
 			};
 			setVeiculo(veiculoFormatado);
 			carregarHistorico(veiculoFormatado.id);
+
+			const tipoTratado = String(veiculoFormatado.tipo || veiculoFormatado.veic_tx_tipo || '').toLowerCase();
+			const eCarreta = tipoTratado.includes('carreta') || tipoTratado.includes('implemento') || tipoTratado.includes('reboque') || tipoTratado.includes('dolly');
+			if (eCarreta) {
+				verificarVinculoOutroChecklist(veiculoFormatado.id, veiculoFormatado.placa, 0);
+			}
 		} else {
 			Alert.alert('Atenção', 'Não foi possível carregar os dados deste equipamento.');
 		}
@@ -300,7 +325,11 @@ export default function ChecklistScreen() {
 	};
 
 	const removerImplemento = (id: number) => {
+		const impRemovido = implementos.find(i => i.id === id);
 		setImplementos(implementos.filter(i => i.id !== id));
+		if (impRemovido) {
+			setAvisosVinculo(prev => prev.filter(aviso => !aviso.includes(impRemovido.placa)));
+		}
 	};
 
 	const iniciarNovoChecklist = async () => {
@@ -598,6 +627,8 @@ export default function ChecklistScreen() {
 			Alert.alert('Sucesso', res.message);
 			setModalPneuVisible(false);
 
+			setPneusPendentes(prev => prev.filter(p => p !== pneuSelecionado));
+
 			if (idChecklistAtivo) carregarCoresPneus(idChecklistAtivo);
 		}
 		else {
@@ -649,6 +680,7 @@ export default function ChecklistScreen() {
 		if (tipoBusca === 'implemento') {
 			if (!implementos.find(i => i.id === item.id) && item.id !== veiculo?.id) {
 				setImplementos([...implementos, item]);
+				verificarVinculoOutroChecklist(item.id, item.placa, veiculo?.id || 0);
 			}
 		}
 		else if (tipoBusca === 'motivo_laudo') {
@@ -982,6 +1014,22 @@ export default function ChecklistScreen() {
 						<Text style={{ fontSize: 13, color: '#666', marginTop: 10 }}>Marca/Modelo: {veiculo.marca} / {veiculo.modelo}</Text>
 					</View>
 
+					{avisosVinculo.length > 0 && (
+						<View style={{ backgroundColor: '#fff3cd', borderColor: '#ffeeba', borderWidth: 1, padding: 15, borderRadius: 8, marginBottom: 20 }}>
+							<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+								<Feather name="alert-triangle" size={18} color="#856404" />
+								<Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>
+									Veículo em Outro Checklist
+								</Text>
+							</View>
+							{avisosVinculo.map((aviso, idx) => (
+								<Text key={idx} style={{ color: '#856404', fontSize: 13, marginBottom: 4 }}>
+									• {aviso}
+								</Text>
+							))}
+						</View>
+					)}
+
 					{!idChecklistAtivo && (
 						<View style={{ flexDirection: 'row', marginBottom: 20 }}>
 							<TouchableOpacity
@@ -1007,7 +1055,7 @@ export default function ChecklistScreen() {
 
 					{!idChecklistAtivo && (
 						<View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 15, elevation: 2 }}>
-							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 0, alignItems: 'center', marginBottom: 20 }}>
 								<Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Histórico de Inspeções</Text>
 							</View>
 
@@ -1415,17 +1463,17 @@ export default function ChecklistScreen() {
 									<View style={styles.reportBox}>
 										<Text style={styles.groupTitle}>Aferições de Desgaste</Text>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>Sulco Original:</Text>
+											<Text style={styles.reportLabel}>mm Original:</Text>
 											<Text style={styles.reportValue}>{mmOrig.toFixed(1)} mm</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>Sulco Atual:</Text>
+											<Text style={styles.reportLabel}>mm Atual:</Text>
 											<Text style={[styles.reportValue, { color: mmAtual <= 2 && mmAtual > 0 ? '#E53935' : '#28a745' }]}>
 												{mmAtual.toFixed(1)} mm
 											</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>Milímetros Gastos:</Text>
+											<Text style={styles.reportLabel}>mm Gastos:</Text>
 											<Text style={styles.reportValue}>{mmGastos.toFixed(1)} mm</Text>
 										</View>
 									</View>
