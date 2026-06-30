@@ -30,9 +30,11 @@ interface ChassiProps {
 	qtdEstepes?: number;
 	dadosPneus?: { [posicao: string]: PneuData };
 	onPneuPress: (codigoPneu: string) => void;
+	startingAxleOffset?: number;
+	startingEstepeOffset?: number;
 }
 
-export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus = {}, onPneuPress }: ChassiProps) {
+export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus = {}, onPneuPress, startingAxleOffset = 0, startingEstepeOffset = 0 }: ChassiProps) {
 
 	const getColorHex = (corNome?: string) => {
 		if (!corNome) return '#dcdcdc';
@@ -129,8 +131,8 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 		}
 	};
 
-	let indiceGlobalEixo = 1;
-	let indiceGlobalEstepe = 1;
+	let indiceGlobalEixo = 1 + startingAxleOffset;
+	let indiceGlobalEstepe = 1 + startingEstepeOffset;
 
 	return (
 		<View style={styles.chassiMaster}>
@@ -272,37 +274,27 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 const styles = StyleSheet.create({
 	chassiMaster: { width: '100%', alignItems: 'center', marginVertical: 10 },
 	veiculoContainer: { width: '100%', alignItems: 'center', marginBottom: 15 },
-
 	cabineShape: { width: 120, height: 90, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, borderWidth: 2, borderColor: '#222', alignItems: 'center', marginBottom: 10, zIndex: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, overflow: 'hidden' },
 	paraChoque: { width: '90%', height: 6, backgroundColor: '#333', marginTop: 2, borderRadius: 4 },
 	paraBrisa: { width: '85%', height: 22, backgroundColor: '#1a1a1a', marginTop: 6, borderTopLeftRadius: 15, borderTopRightRadius: 15, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, borderWidth: 1, borderColor: '#000' },
-
 	tetoCabine: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' },
 	cabineText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 },
 	cabinePlaca: { fontSize: 13, fontWeight: '900', color: '#111', backgroundColor: '#fff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, overflow: 'hidden', borderWidth: 1, borderColor: '#aaa' },
-
 	engateContainer: { alignItems: 'center', justifyContent: 'center', height: 35, width: '100%', zIndex: 0, marginBottom: 5 },
 	barraEngate: { width: 8, height: 40, backgroundColor: '#2d2d2d' },
 	pinoEngate: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#555', position: 'absolute', top: 10, borderWidth: 2, borderColor: '#111' },
-
 	eixosContainer: { width: '100%', zIndex: 2, alignItems: 'center', position: 'relative', paddingVertical: 10 },
-
 	longarinaEsquerda: { position: 'absolute', top: 0, bottom: 0, left: '50%', marginLeft: -14, width: 8, backgroundColor: '#2d2d2d', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#111', zIndex: 0 },
 	longarinaDireita: { position: 'absolute', top: 0, bottom: 0, left: '50%', marginLeft: 6, width: 8, backgroundColor: '#2d2d2d', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#111', zIndex: 0 },
-
 	eixoHorizontalWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: 300, height: 70, position: 'relative' },
 	barraEixoHorizontal: { position: 'absolute', left: 20, right: 20, height: 16, backgroundColor: '#444', borderWidth: 1, borderColor: '#222', borderRadius: 2, zIndex: 1 },
-
 	grupoPneusEsquerda: { position: 'absolute', left: 0, flexDirection: 'row', gap: 4, zIndex: 3 },
 	grupoPneusDireita: { position: 'absolute', right: 0, flexDirection: 'row', gap: 4, zIndex: 3 },
-
 	pneu: { width: 55, height: 95, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 5 },
 	pneuInterno: { width: 55, height: 95, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 5 },
 	pneuEstepe: { width: 95, height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-
 	pneuText: { fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
 	pneuMmText: { color: '#fff', fontSize: 9, fontWeight: 'bold', marginTop: 2, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 3, borderRadius: 4, overflow: 'hidden' },
-
 	estepesWrapperLocal: { marginTop: 10, alignItems: 'center', zIndex: 3, width: '100%', paddingBottom: 15 },
 	estepeTitleLocal: { fontSize: 11, fontWeight: 'bold', color: '#666', marginBottom: 10, letterSpacing: 1 },
 	estepesContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }
