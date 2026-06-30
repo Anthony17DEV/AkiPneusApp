@@ -540,11 +540,17 @@ export default function ChecklistScreen() {
 
 	const handlePneuClick = (codigoPneu: string) => {
 		const pAtual = dadosPneus[codigoPneu] || {};
-		const dbData = pAtual.dados_completos || {};
+		const dbData = pAtual.dados_completos ? { ...pAtual.dados_completos } : {};
+		const isPendente = pneusPendentes.includes(codigoPneu);
 
-		if (dbData && (dbData.pneu_nb_id || dbData.id) && !pneusPendentes.includes(codigoPneu)) {
+		if (dbData && (dbData.pneu_nb_id || dbData.id) && !isPendente) {
 			abrirVisualizacaoPneu(codigoPneu, dbData);
 		} else {
+			if (isPendente) {
+				dbData.pneu_nb_id = '';
+				dbData.id = '';
+				dbData.pneu_tx_foto = '';
+			}
 			abrirEdicaoPneu(codigoPneu, dbData);
 		}
 	};
