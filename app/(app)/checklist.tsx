@@ -61,7 +61,6 @@ export default function ChecklistScreen() {
 	const [dadosPneus, setDadosPneus] = useState<{ [key: string]: any }>({});
 	const [pneusPendentes, setPneusPendentes] = useState<string[]>([]);
 
-	const [avisosVinculo, setAvisosVinculo] = useState<{ msg: string, checklist_id?: number, cavalo_id?: number, cavalo_placa?: string }[]>([]);
 	const [isModoIsolado, setIsModoIsolado] = useState(false);
 	const [offsetEixos, setOffsetEixos] = useState(0);
 	const [offsetEstepes, setOffsetEstepes] = useState(0);
@@ -173,7 +172,7 @@ export default function ChecklistScreen() {
 				setIdChecklistAtivo(null);
 				setDadosPneus({});
 				setPneusPendentes([]);
-				setAvisosVinculo([]);
+
 				setIsModoIsolado(false);
 				setOffsetEixos(0);
 				setOffsetEstepes(0);
@@ -182,30 +181,6 @@ export default function ChecklistScreen() {
 			}
 		}, [params.veiculo_id, params.placa])
 	);
-
-	const verificarVinculoOutroChecklist = async (idDoVeiculo: number, placaStr: string, idDoCavaloAtual: number = 0) => {
-		try {
-			const resposta = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_verificar_vinculo.php?veiculo_id=${idDoVeiculo}&id_atual=${idChecklistAtivo || 0}&cavalo_id=${idDoCavaloAtual}`);
-			const resultado = await resposta.json();
-			if (resultado.success && resultado.vinculado && resultado.checklist_id) {
-				const msg = `O implemento ${placaStr} está vinculado a um checklist do veículo ${resultado.cavalo_placa || 'N/I'}.`;
-
-				setAvisosVinculo(prev => {
-					if (!prev.some(a => a.checklist_id === resultado.checklist_id)) {
-						return [...prev, {
-							msg,
-							checklist_id: resultado.checklist_id,
-							cavalo_id: resultado.cavalo_id,
-							cavalo_placa: resultado.cavalo_placa
-						}];
-					}
-					return prev;
-				});
-			}
-		} catch (e) {
-			console.log("Erro ao verificar vínculo", e);
-		}
-	};
 
 	const entrarModoIsolado = async (checklistId: number, cavaloId: number) => {
 		setIsLoading(true);
@@ -255,7 +230,6 @@ export default function ChecklistScreen() {
 			carregarCoresPneus(checklistId);
 
 			setImplementos([]);
-			setAvisosVinculo([]);
 
 		} catch (e) {
 			console.log(e);
@@ -280,13 +254,6 @@ export default function ChecklistScreen() {
 			};
 			setVeiculo(veiculoFormatado);
 			carregarHistorico(veiculoFormatado.id);
-
-			const tipoTratado = String(veiculoFormatado.tipo || veiculoFormatado.veic_tx_tipo || '').toLowerCase();
-			const eCarreta = tipoTratado.includes('carreta') || tipoTratado.includes('implemento') || tipoTratado.includes('reboque') || tipoTratado.includes('dolly') || tipoTratado.includes('sr') || tipoTratado.includes('bau');
-
-			if (eCarreta) {
-				verificarVinculoOutroChecklist(veiculoFormatado.id, veiculoFormatado.placa, 0);
-			}
 		} else {
 			Alert.alert('Atenção', 'Não foi possível carregar os dados deste equipamento.');
 		}
@@ -398,9 +365,6 @@ export default function ChecklistScreen() {
 	const removerImplemento = (id: number) => {
 		const impRemovido = implementos.find(i => i.id === id);
 		setImplementos(implementos.filter(i => i.id !== id));
-		if (impRemovido) {
-			setAvisosVinculo(prev => prev.filter(aviso => !aviso.msg.includes(impRemovido.placa)));
-		}
 	};
 
 	const iniciarNovoChecklist = async () => {
@@ -457,8 +421,8 @@ export default function ChecklistScreen() {
 		}
 	};
 
-	const abrirChecklistAntigo = async (idDoChecklist: number, idVeiculoForcado?: number) => {
-		const idBase = idVeiculoForcado || veiculo?.id || 0;
+	const abrirChecklistAntigo = async (idDoChecklist: number) => {
+		const idBase = veiculo?.id || 0;
 
 		setIsModoIsolado(false);
 		setOffsetEixos(0);
@@ -764,7 +728,6 @@ export default function ChecklistScreen() {
 		if (tipoBusca === 'implemento') {
 			if (!implementos.find(i => i.id === item.id) && item.id !== veiculo?.id) {
 				setImplementos([...implementos, item]);
-				verificarVinculoOutroChecklist(item.id, item.placa, veiculo?.id || 0);
 			}
 		}
 		else if (tipoBusca === 'motivo_laudo') {
@@ -1098,34 +1061,6 @@ export default function ChecklistScreen() {
 						<Text style={{ fontSize: 13, color: '#666', marginTop: 10 }}>Marca/Modelo: {veiculo.marca} / {veiculo.modelo}</Text>
 					</View>
 
-					{avisosVinculo.length > 0 && (
-						<View style={{ backgroundColor: '#fff3cd', borderColor: '#ffeeba', borderWidth: 1, padding: 15, borderRadius: 8, marginBottom: 20 }}>
-							<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-								<Feather name="alert-triangle" size={18} color="#856404" />
-								<Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>
-									Veículo em Outro Checklist
-								</Text>
-							</View>
-							{avisosVinculo.map((aviso, idx) => (
-								<View key={idx} style={{ marginBottom: 12 }}>
-									<Text style={{ color: '#856404', fontSize: 13, marginBottom: 6 }}>
-										• {aviso.msg}
-									</Text>
-									{aviso.checklist_id && aviso.cavalo_id && (
-										<TouchableOpacity
-											style={{ backgroundColor: '#f39c12', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, alignSelf: 'flex-start' }}
-											onPress={() => entrarModoIsolado(aviso.checklist_id!, aviso.cavalo_id!)}
-										>
-											<Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
-												Editar {veiculo.placa} Isolado
-											</Text>
-										</TouchableOpacity>
-									)}
-								</View>
-							))}
-						</View>
-					)}
-
 					{!idChecklistAtivo && (
 						<View style={{ flexDirection: 'row', marginBottom: 20 }}>
 							<TouchableOpacity
@@ -1162,6 +1097,11 @@ export default function ChecklistScreen() {
 										<Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
 										<Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>Motorista: {h.chec_tx_motorista}</Text>
 										<Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
+										{h.is_implemento == 1 && h.cavalo_placa && (
+											<Text style={{ color: '#E53935', fontSize: 12, marginTop: 6, fontWeight: 'bold' }}>
+												* Inspecionado no veículo: {h.cavalo_placa}
+											</Text>
+										)}
 									</View>
 
 									<View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
@@ -1170,7 +1110,13 @@ export default function ChecklistScreen() {
 											<Text style={styles.btnImprimirHistoricoText} numberOfLines={1}>Exportar</Text>
 										</TouchableOpacity>
 
-										<TouchableOpacity style={[styles.btnModificarHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => abrirChecklistAntigo(h.chec_nb_id)}>
+										<TouchableOpacity style={[styles.btnModificarHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => {
+											if (h.is_implemento == 1 && h.cavalo_id) {
+												entrarModoIsolado(h.chec_nb_id, h.cavalo_id);
+											} else {
+												abrirChecklistAntigo(h.chec_nb_id);
+											}
+										}}>
 											<Feather name="edit-2" size={14} color="#fff" />
 											<Text style={styles.btnModificarHistoricoText} numberOfLines={1}>Editar</Text>
 										</TouchableOpacity>
