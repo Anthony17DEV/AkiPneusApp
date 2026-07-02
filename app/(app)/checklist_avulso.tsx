@@ -57,7 +57,8 @@ export default function ChecklistAvulsoScreen() {
 		motivo: true,
 		fotos: true,
 		recapabilidade: true,
-		tempo: true
+		tempo: true,
+		ordenacao: 'medida'
 	});
 
 	const [modalPreviewVisible, setModalPreviewVisible] = useState(false);
@@ -141,8 +142,11 @@ export default function ChecklistAvulsoScreen() {
 			Alert.alert('Atenção', 'Selecione pelo menos duas análises para consolidar.');
 			return;
 		}
-		setRelatorioTarget('consolidado');
-		setModalRelatorioVisible(true);
+		setModalConsolidarVisible(false);
+		setTimeout(() => {
+			setRelatorioTarget('consolidado');
+			setModalRelatorioVisible(true);
+		}, 400);
 	};
 
 	const abrirOpcoesRelatorioSingle = (id: number) => {
@@ -152,7 +156,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const confirmarGeracaoRelatorio = () => {
-		const qp = `p_geral=${opcoesRelatorio.geral ? 1 : 0}&p_prejuizo=${opcoesRelatorio.prejuizo ? 1 : 0}&p_motivo=${opcoesRelatorio.motivo ? 1 : 0}&p_fotos=${opcoesRelatorio.fotos ? 1 : 0}&p_recap=${opcoesRelatorio.recapabilidade ? 1 : 0}&p_tempo=${opcoesRelatorio.tempo ? 1 : 0}`;
+		const qp = `p_geral=${opcoesRelatorio.geral ? 1 : 0}&p_prejuizo=${opcoesRelatorio.prejuizo ? 1 : 0}&p_motivo=${opcoesRelatorio.motivo ? 1 : 0}&p_fotos=${opcoesRelatorio.fotos ? 1 : 0}&p_recap=${opcoesRelatorio.recapabilidade ? 1 : 0}&p_tempo=${opcoesRelatorio.tempo ? 1 : 0}&ordenacao=${opcoesRelatorio.ordenacao}`;
 
 		let urlApi = '';
 		let nomeArq = '';
@@ -168,7 +172,6 @@ export default function ChecklistAvulsoScreen() {
 			nomeArq = `Relatorio_Consolidado_${new Date().getTime()}`;
 			tp = `Relatório Consolidado (${selectedChecklists.length} Análises)`;
 
-			setModalConsolidarVisible(false);
 			setSelectedChecklists([]);
 			setTimeout(() => { carregarChecklists(); }, 1500);
 		}
@@ -181,15 +184,18 @@ export default function ChecklistAvulsoScreen() {
 		}
 	};
 
-	const renderOptionToggle = (key: keyof typeof opcoesRelatorio, label: string) => (
-		<TouchableOpacity
-			style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#eee' }}
-			onPress={() => setOpcoesRelatorio(prev => ({ ...prev, [key]: !prev[key] }))}
-		>
-			<Feather name={opcoesRelatorio[key] ? "check-square" : "square"} size={22} color={opcoesRelatorio[key] ? "#1967d2" : "#999"} style={{ marginRight: 10 }} />
-			<Text style={{ fontSize: 15, color: '#333' }}>{label}</Text>
-		</TouchableOpacity>
-	);
+	const renderOptionToggle = (key: keyof typeof opcoesRelatorio, label: string) => {
+		if (key === 'ordenacao') return null;
+		return (
+			<TouchableOpacity
+				style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#eee' }}
+				onPress={() => setOpcoesRelatorio(prev => ({ ...prev, [key]: !prev[key] }))}
+			>
+				<Feather name={opcoesRelatorio[key] ? "check-square" : "square"} size={22} color={opcoesRelatorio[key] ? "#1967d2" : "#999"} style={{ marginRight: 10 }} />
+				<Text style={{ fontSize: 15, color: '#333' }}>{label}</Text>
+			</TouchableOpacity>
+		);
+	};
 
 	const [modalPneuVisible, setModalPneuVisible] = useState(false);
 	const [fotosPneu, setFotosPneu] = useState<string[]>([]);
@@ -711,7 +717,7 @@ export default function ChecklistAvulsoScreen() {
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Pesquisar</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador'].includes(tipoBusca) && (
+						{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador', 'veiculo'].includes(tipoBusca) && (
 							<TouchableOpacity
 								style={styles.btnInserirBuscaDinamicaMini}
 								onPress={() => {
@@ -762,11 +768,19 @@ export default function ChecklistAvulsoScreen() {
 				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
-							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}
+							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : tipoBusca === 'veiculo' ? 'Veículo' : 'Modelo'}
 						</Text>
 
-						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') && (
-							<><Text style={styles.label}>* Nome</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder={tipoBusca === 'motivo_laudo' ? "Ex: Furo na lateral..." : "Ex: Reformadora Silva..."} /></>
+						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' || tipoBusca === 'veiculo') && (
+							<>
+								<Text style={styles.label}>* {tipoBusca === 'veiculo' ? 'Placa ou Código' : 'Nome'}</Text>
+								<TextInput
+									style={styles.inputModal}
+									value={formCadastro.nome}
+									onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })}
+									placeholder={tipoBusca === 'motivo_laudo' ? "Ex: Furo na lateral..." : tipoBusca === 'veiculo' ? "Ex: ABC-1234 ou 102030" : "Ex: Reformadora Silva..."}
+								/>
+							</>
 						)}
 
 						{tipoBusca === 'marca_pneu' && (
@@ -1475,6 +1489,23 @@ export default function ChecklistAvulsoScreen() {
 								{renderOptionToggle('recapabilidade', 'Índice de Recapabilidade')}
 								{renderOptionToggle('tempo', 'Tempo Médio da Carcaça')}
 							</View>
+
+							<Text style={[styles.label, { marginTop: 15, marginBottom: 5 }]}>Ordenar Listagem por:</Text>
+							<RNPickerSelect
+								placeholder={{}}
+								value={opcoesRelatorio.ordenacao}
+								onValueChange={(val) => setOpcoesRelatorio(prev => ({ ...prev, ordenacao: val }))}
+								items={[
+									{ label: 'Medida', value: 'medida', color: '#000' },
+									{ label: 'Marca', value: 'marca', color: '#000' },
+									{ label: 'Modelo', value: 'modelo', color: '#000' },
+									{ label: 'Motivo / Dano', value: 'motivo', color: '#000' },
+									{ label: 'Veículo (Placa/Código)', value: 'veiculo', color: '#000' }
+								]}
+								style={pickerStyles}
+								useNativeAndroidPickerStyle={false}
+								Icon={PickerIcon}
+							/>
 
 							<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
 								<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 48 }]} onPress={() => setModalRelatorioVisible(false)}>

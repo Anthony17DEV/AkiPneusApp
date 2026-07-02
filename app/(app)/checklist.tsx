@@ -61,6 +61,7 @@ export default function ChecklistScreen() {
 	const [dadosPneus, setDadosPneus] = useState<{ [key: string]: any }>({});
 	const [pneusPendentes, setPneusPendentes] = useState<string[]>([]);
 
+	const [avisosVinculo, setAvisosVinculo] = useState<{ msg: string, checklist_id?: number, cavalo_id?: number, cavalo_placa?: string }[]>([]);
 	const [isModoIsolado, setIsModoIsolado] = useState(false);
 	const [offsetEixos, setOffsetEixos] = useState(0);
 	const [offsetEstepes, setOffsetEstepes] = useState(0);
@@ -330,29 +331,43 @@ export default function ChecklistScreen() {
 		let pneusMesclados = { ...pneusAtuais };
 		let pendentesTemporarios: string[] = [];
 
-		const indexAtual = historico.findIndex(h => h.chec_nb_id === idDoChecklist);
+		const indexAtual = historico.findIndex(h => Number(h.chec_nb_id) === Number(idDoChecklist));
 		const eOMaisRecente = indexAtual === 0 || indexAtual === -1;
 
 		if (eOMaisRecente && historico.length > 0) {
-			const idAnterior = indexAtual === -1 ? historico[0].chec_nb_id : (historico.length > 1 ? historico[1].chec_nb_id : null);
+			let startIdx = indexAtual === -1 ? 0 : 1;
+			let promises = [];
+			let posicoesVarridas = new Set(Object.keys(pneusAtuais));
 
-			if (idAnterior) {
-				const resAntigo = await apiService.buscarPneusVeiculo(idAnterior);
-				if (resAntigo && resAntigo.success && resAntigo.data) {
-					const pneusAntigos = resAntigo.data;
+			for (let i = startIdx; i < Math.min(historico.length, startIdx + 5); i++) {
+				promises.push(apiService.buscarPneusVeiculo(historico[i].chec_nb_id));
+			}
 
-					Object.keys(pneusAntigos).forEach(posicao => {
-						if (!pneusMesclados[posicao]) {
-							const pneuClone = JSON.parse(JSON.stringify(pneusAntigos[posicao]));
-							if (pneuClone.dados_completos) {
-								pneuClone.dados_completos.pneu_nb_id = '';
-								pneuClone.dados_completos.id = '';
+			try {
+				const resultadosAntigos = await Promise.all(promises);
+
+				resultadosAntigos.forEach(resAntigo => {
+					if (resAntigo && resAntigo.success && resAntigo.data) {
+						const pneusAntigos = resAntigo.data;
+						Object.keys(pneusAntigos).forEach(posicao => {
+							if (!posicoesVarridas.has(posicao)) {
+								const pneuClone = JSON.parse(JSON.stringify(pneusAntigos[posicao]));
+								if (pneuClone.dados_completos) {
+									pneuClone.dados_completos.pneu_nb_id = '';
+									pneuClone.dados_completos.id = '';
+								}
+								pneuClone.pneu_nb_id = '';
+								pneuClone.id = '';
+
+								pneusMesclados[posicao] = pneuClone;
+								pendentesTemporarios.push(posicao);
+								posicoesVarridas.add(posicao);
 							}
-							pneusMesclados[posicao] = pneuClone;
-							pendentesTemporarios.push(posicao);
-						}
-					});
-				}
+						});
+					}
+				});
+			} catch (e) {
+				console.log('Erro ao buscar histórico profundo de pneus', e);
 			}
 		}
 
@@ -1060,6 +1075,34 @@ export default function ChecklistScreen() {
 						</View>
 						<Text style={{ fontSize: 13, color: '#666', marginTop: 10 }}>Marca/Modelo: {veiculo.marca} / {veiculo.modelo}</Text>
 					</View>
+
+					{avisosVinculo.length > 0 && (
+						<View style={{ backgroundColor: '#fff3cd', borderColor: '#ffeeba', borderWidth: 1, padding: 15, borderRadius: 8, marginBottom: 20 }}>
+							<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+								<Feather name="alert-triangle" size={18} color="#856404" />
+								<Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>
+									Veículo em Outro Checklist
+								</Text>
+							</View>
+							{avisosVinculo.map((aviso, idx) => (
+								<View key={idx} style={{ marginBottom: 12 }}>
+									<Text style={{ color: '#856404', fontSize: 13, marginBottom: 6 }}>
+										• {aviso.msg}
+									</Text>
+									{aviso.checklist_id && aviso.cavalo_id && (
+										<TouchableOpacity
+											style={{ backgroundColor: '#f39c12', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, alignSelf: 'flex-start' }}
+											onPress={() => entrarModoIsolado(aviso.checklist_id!, aviso.cavalo_id!)}
+										>
+											<Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
+												Editar {veiculo.placa} Isolado
+											</Text>
+										</TouchableOpacity>
+									)}
+								</View>
+							))}
+						</View>
+					)}
 
 					{!idChecklistAtivo && (
 						<View style={{ flexDirection: 'row', marginBottom: 20 }}>

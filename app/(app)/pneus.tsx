@@ -52,6 +52,9 @@ export default function PneusScreen() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 
+	const [modalRelatorioVisible, setModalRelatorioVisible] = useState(false);
+	const [opcoesRelatorio, setOpcoesRelatorio] = useState({ ordenacao: 'medida' });
+
 	const [fotosPneu, setFotosPneu] = useState<string[]>([]);
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
@@ -138,6 +141,34 @@ export default function PneusScreen() {
 		} finally {
 			if (isMounted.current) setIsCarregandoPreview(false);
 		}
+	};
+
+	const confirmarGeracaoRelatorio = () => {
+		setModalRelatorioVisible(false);
+
+		const queryParams = [
+			`ordenacao=${opcoesRelatorio.ordenacao}`,
+			`serie=${encodeURIComponent(filtroSerie)}`,
+			`dot=${encodeURIComponent(filtroDot)}`,
+			`placa=${encodeURIComponent(filtroPlaca)}`,
+			`cliente_id=${encodeURIComponent(filtroClienteId)}`,
+			`cliente_nome=${encodeURIComponent(filtroCliente)}`,
+			`ferro=${encodeURIComponent(filtroFerro)}`,
+			`id=${encodeURIComponent(filtroId)}`
+		].join('&');
+
+		const urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_lista_pneus.php?${queryParams}`;
+
+		let descFiltro = [];
+		if (filtroCliente) descFiltro.push(`Cli: ${filtroCliente}`);
+		if (filtroPlaca) descFiltro.push(`Plc: ${filtroPlaca}`);
+		if (filtroSerie) descFiltro.push(`Ser: ${filtroSerie}`);
+
+		const subtitulo = descFiltro.length > 0 ? `Filtros: ${descFiltro.join(' | ')}` : 'Todos os Pneus (Sem Filtro)';
+
+		setTimeout(() => {
+			abrirModalPreview(urlApi, `Lista_Pneus_${new Date().getTime()}`, 'Relatório Geral de Pneus', subtitulo);
+		}, 500);
 	};
 
 	const confirmSignOut = () => {
@@ -613,6 +644,10 @@ export default function PneusScreen() {
 				<View style={styles.actionRow}>
 					<TouchableOpacity style={styles.btnBuscar} onPress={carregarPneus}><Feather name="search" size={18} color="#fff" /><Text style={styles.btnText}>Buscar</Text></TouchableOpacity>
 					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}><Feather name="plus-circle" size={18} color="#ffffff" /><Text style={styles.btnInserirText}>Inserir</Text></TouchableOpacity>
+					<TouchableOpacity style={styles.btnRelatorioGeral} onPress={() => setModalRelatorioVisible(true)}>
+						<Feather name="printer" size={18} color="#fff" />
+						<Text style={styles.btnRelatorioGeralText}>Relatório</Text>
+					</TouchableOpacity>
 				</View>
 				<Text style={[styles.sectionTitle, { fontSize: 12, marginTop: 25, marginBottom: -5 }]}>Resultados ({pneus.length} registros)</Text>
 			</View>
@@ -1089,58 +1124,97 @@ export default function PneusScreen() {
 							</Modal>
 						)}
 
-						{modalPreviewVisible && (
-							<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalPreviewVisible(false)}>
-								<View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 999999, elevation: 999999 }]}>
-									<View style={{ width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }}>
-										<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-											<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Exportar Documento</Text>
-											<TouchableOpacity onPress={() => setModalPreviewVisible(false)}>
-												<Feather name="x" size={24} color="#333" />
-											</TouchableOpacity>
-										</View>
-
-										<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
-											<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
-											<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
-											<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
-											<Text style={{ fontSize: 11, color: '#999', marginTop: 15, textAlign: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
-												{previewData.nome}.pdf
-											</Text>
-										</View>
-
-										{isCarregandoPreview ? (
-											<View style={{ alignItems: 'center', paddingVertical: 20 }}>
-												<ActivityIndicator size="large" color="#0c6ead" />
-												<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A gerar documento em alta qualidade...</Text>
-											</View>
-										) : (
-											<View style={{ gap: 12, width: '100%' }}>
-												<TouchableOpacity
-													style={{ backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
-													onPress={visualizarPDFNativo}
-												>
-													<Feather name="eye" size={20} color="#fff" />
-													<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Visualizar Documento</Text>
-												</TouchableOpacity>
-
-												<TouchableOpacity
-													style={{ backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
-													onPress={compartilharDocumentoPDF}
-												>
-													<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
-													<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar / Partilhar</Text>
-												</TouchableOpacity>
-											</View>
-										)}
-									</View>
-								</View>
-							</Modal>
-						)}
-
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>
+
+			{modalPreviewVisible && (
+				<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalPreviewVisible(false)}>
+					<View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 999999, elevation: 999999 }]}>
+						<View style={{ width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }}>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+								<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Exportar Documento</Text>
+								<TouchableOpacity onPress={() => setModalPreviewVisible(false)}>
+									<Feather name="x" size={24} color="#333" />
+								</TouchableOpacity>
+							</View>
+
+							<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
+								<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
+								<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
+								<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
+								<Text style={{ fontSize: 11, color: '#999', marginTop: 15, textAlign: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+									{previewData.nome}.pdf
+								</Text>
+							</View>
+
+							{isCarregandoPreview ? (
+								<View style={{ alignItems: 'center', paddingVertical: 20 }}>
+									<ActivityIndicator size="large" color="#0c6ead" />
+									<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A gerar documento em alta qualidade...</Text>
+								</View>
+							) : (
+								<View style={{ gap: 12, width: '100%' }}>
+									<TouchableOpacity
+										style={{ backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+										onPress={visualizarPDFNativo}
+									>
+										<Feather name="eye" size={20} color="#fff" />
+										<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Visualizar Documento</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity
+										style={{ backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+										onPress={compartilharDocumentoPDF}
+									>
+										<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
+										<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar</Text>
+									</TouchableOpacity>
+								</View>
+							)}
+						</View>
+					</View>
+				</Modal>
+			)}
+
+			<Modal visible={modalRelatorioVisible} transparent={true} animationType="fade" onRequestClose={() => setModalRelatorioVisible(false)}>
+				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+						<View style={styles.modalSmall}>
+							<Text style={styles.modalTitle}>Opções do Relatório</Text>
+							<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Selecione a ordenação para a listagem geral de pneus:</Text>
+
+							<Text style={[styles.label, { marginTop: 5, marginBottom: 5 }]}>Ordenar Listagem por:</Text>
+							<RNPickerSelect
+								placeholder={{}}
+								value={opcoesRelatorio.ordenacao}
+								onValueChange={(val) => setOpcoesRelatorio(prev => ({ ...prev, ordenacao: val }))}
+								items={[
+									{ label: 'Medida', value: 'medida', color: '#000' },
+									{ label: 'Marca', value: 'marca', color: '#000' },
+									{ label: 'Modelo', value: 'modelo', color: '#000' },
+									{ label: 'Motivo / Dano', value: 'motivo', color: '#000' },
+									{ label: 'Veículo (Placa/Código)', value: 'veiculo', color: '#000' }
+								]}
+								style={pickerStyles}
+								useNativeAndroidPickerStyle={false}
+								Icon={() => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />}
+							/>
+
+							<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
+								<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 48 }]} onPress={() => setModalRelatorioVisible(false)}>
+									<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+								</TouchableOpacity>
+								<TouchableOpacity style={[styles.btnSalvar, { flex: 1, height: 48, marginTop: 0 }]} onPress={confirmarGeracaoRelatorio}>
+									<Feather name="download" size={18} color="#fff" style={{ marginRight: 8 }} />
+									<Text style={{ color: '#fff', fontWeight: 'bold' }}>Gerar PDF</Text>
+								</TouchableOpacity>
+							</View>
+						</View>
+					</ScrollView>
+				</KeyboardAvoidingView>
+			</Modal>
+
 		</View>
 	);
 }
@@ -1167,10 +1241,10 @@ const styles = StyleSheet.create({
 	inputFlex: { flex: 1, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000' },
 	searchIconBtn: { backgroundColor: '#0c6ead', width: 48, height: 48, justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderWidth: 1, borderColor: '#0c6ead' },
 
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
+	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
 	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginLeft: 8 },
-	btnRelatorioGeral: { backgroundColor: '#f39c12', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-	btnRelatorioGeralText: { color: '#fff', fontWeight: 'bold', fontSize: 12, marginLeft: 6 },
+	btnRelatorioGeral: { flex: 1, backgroundColor: '#f39c12', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginLeft: 8 },
+	btnRelatorioGeralText: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
 	btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
 	btnInserirText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
 
