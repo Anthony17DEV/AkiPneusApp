@@ -47,6 +47,8 @@ export default function ChecklistAvulsoScreen() {
 
 	const [modalConsolidarVisible, setModalConsolidarVisible] = useState(false);
 	const [selectedChecklists, setSelectedChecklists] = useState<number[]>([]);
+	const [filtroConsolidarMes, setFiltroConsolidarMes] = useState('');
+	const [filtroConsolidarAno, setFiltroConsolidarAno] = useState(new Date().getFullYear().toString());
 
 	const [modalRelatorioVisible, setModalRelatorioVisible] = useState(false);
 	const [relatorioTarget, setRelatorioTarget] = useState<'single' | 'consolidado' | null>(null);
@@ -917,6 +919,31 @@ export default function ChecklistAvulsoScreen() {
 		);
 	};
 
+	const checklistsFiltradosParaConsolidar = checklists.filter((item: any) => {
+		if (!filtroConsolidarMes && !filtroConsolidarAno) return true;
+		const partes = item.data.split('-');
+		if (partes.length !== 3) return true;
+
+		let passaMes = filtroConsolidarMes ? partes[1] === filtroConsolidarMes : true;
+		let passaAno = filtroConsolidarAno ? partes[0] === filtroConsolidarAno : true;
+
+		return passaMes && passaAno;
+	});
+
+	const toggleSelecionarTodosFiltrados = () => {
+		const idsFiltrados = checklistsFiltradosParaConsolidar.map((c: any) => c.id);
+		if (idsFiltrados.length === 0) return;
+
+		const todosJaSelecionados = idsFiltrados.every((id: number) => selectedChecklists.includes(id));
+
+		if (todosJaSelecionados) {
+			setSelectedChecklists(selectedChecklists.filter(id => !idsFiltrados.includes(id)));
+		} else {
+			const novosIds = idsFiltrados.filter((id: number) => !selectedChecklists.includes(id));
+			setSelectedChecklists([...selectedChecklists, ...novosIds]);
+		}
+	};
+
 	const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />;
 
 	return (
@@ -1286,30 +1313,6 @@ export default function ChecklistAvulsoScreen() {
 								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t.replace(',', '.') })} /></View>
 								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t.replace(',', '.') })} /></View>
 							</View>
-							<View style={styles.row}>
-								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Calib. Padrão (Lbs)</Text>
-									<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} />
-								</View>
-								<View style={styles.inputGroupH}>
-									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-										<Text style={[styles.label, { marginBottom: 0 }]}>Calib. Atual</Text>
-										<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, pressao: formPneu.pressao === 'S/A' ? '' : 'S/A' })}>
-											<Text style={{ fontSize: 11, color: formPneu.pressao === 'S/A' ? '#E53935' : '#0c6ead', fontWeight: 'bold' }}>
-												{formPneu.pressao === 'S/A' ? 'LIMPAR' : 'SEM ACESSO'}
-											</Text>
-										</TouchableOpacity>
-									</View>
-									<TextInput
-										style={[styles.inputModal, formPneu.pressao === 'S/A' ? { backgroundColor: '#ffebee', color: '#E53935', fontWeight: 'bold' } : {}]}
-										keyboardType={formPneu.pressao === 'S/A' ? 'default' : 'numeric'}
-										value={formPneu.pressao}
-										onChangeText={t => setFormPneu({ ...formPneu, pressao: t })}
-										placeholder="Lbs"
-										editable={formPneu.pressao !== 'S/A'}
-									/>
-								</View>
-							</View>
 
 							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
 							<View style={{ width: '100%', marginBottom: 15 }}>
@@ -1409,11 +1412,62 @@ export default function ChecklistAvulsoScreen() {
 					</View>
 
 					<View style={{ padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#ddd' }}>
-						<Text style={{ fontSize: 15, color: '#666' }}>Selecione as análises que deseja unir num único relatório PDF.</Text>
+						<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Filtre o período e selecione as análises para consolidar:</Text>
+
+						<View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+							<View style={{ flex: 2 }}>
+								<Text style={styles.label}>Mês</Text>
+								<RNPickerSelect
+									placeholder={{ label: 'Todos', value: '', color: '#999' }}
+									value={filtroConsolidarMes}
+									onValueChange={v => setFiltroConsolidarMes(v)}
+									items={[
+										{ label: 'Janeiro', value: '01', color: '#000' },
+										{ label: 'Fevereiro', value: '02', color: '#000' },
+										{ label: 'Março', value: '03', color: '#000' },
+										{ label: 'Abril', value: '04', color: '#000' },
+										{ label: 'Maio', value: '05', color: '#000' },
+										{ label: 'Junho', value: '06', color: '#000' },
+										{ label: 'Julho', value: '07', color: '#000' },
+										{ label: 'Agosto', value: '08', color: '#000' },
+										{ label: 'Setembro', value: '09', color: '#000' },
+										{ label: 'Outubro', value: '10', color: '#000' },
+										{ label: 'Novembro', value: '11', color: '#000' },
+										{ label: 'Dezembro', value: '12', color: '#000' },
+									]}
+									style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={styles.label}>Ano</Text>
+								<TextInput
+									style={[styles.inputModal, { marginBottom: 0 }]}
+									keyboardType="numeric"
+									maxLength={4}
+									value={filtroConsolidarAno}
+									onChangeText={setFiltroConsolidarAno}
+									placeholder="2024"
+								/>
+							</View>
+						</View>
+
+						<TouchableOpacity
+							style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 10 }}
+							onPress={toggleSelecionarTodosFiltrados}
+						>
+							<Feather
+								name={checklistsFiltradosParaConsolidar.length > 0 && checklistsFiltradosParaConsolidar.every((c: any) => selectedChecklists.includes(c.id)) ? "check-square" : "square"}
+								size={20}
+								color="#1967d2"
+							/>
+							<Text style={{ marginLeft: 8, color: '#1967d2', fontWeight: 'bold' }}>Selecionar todos os {checklistsFiltradosParaConsolidar.length} listados</Text>
+						</TouchableOpacity>
 					</View>
 
 					<FlatList
-						data={checklists}
+						data={checklistsFiltradosParaConsolidar}
 						keyExtractor={(item) => String(item.id)}
 
 						initialNumToRender={10}

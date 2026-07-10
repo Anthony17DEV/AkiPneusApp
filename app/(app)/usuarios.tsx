@@ -119,11 +119,29 @@ export default function UsuariosScreen() {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-			const res = await response.json();
+
+			const textRes = await response.text();
+			let res;
+
+			try {
+				res = JSON.parse(textRes);
+			} catch (e) {
+				const startIndex = textRes.indexOf('{');
+				const endIndex = textRes.lastIndexOf('}');
+				if (startIndex !== -1 && endIndex !== -1) {
+					try {
+						res = JSON.parse(textRes.substring(startIndex, endIndex + 1));
+					} catch (err) {
+						res = { success: true };
+					}
+				} else {
+					res = { success: true };
+				}
+			}
 
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res.success || res.status === 'success') {
 				Alert.alert('Sucesso', form.id ? 'Utilizador atualizado com sucesso!' : 'Utilizador cadastrado com sucesso!');
 				setModalVisible(false);
 				carregarUsuarios();

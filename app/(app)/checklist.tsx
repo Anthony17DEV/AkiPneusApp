@@ -91,13 +91,15 @@ export default function ChecklistScreen() {
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
 	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '' });
+	const [isSomenteLeitura, setIsSomenteLeitura] = useState(false);
 
 	const [formPneu, setFormPneu] = useState({
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
 		valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '',
 		grau: '', banda: '', banda_nome: '', reformador: '', reformador_id: '', observacao: '', motivo_recusa: '',
-		ref_mm_original: '', ref_valor: ''
+		ref_mm_original: '', ref_valor: '',
+		sulco_anterior: ''
 	});
 
 	const abrirModalPreview = async (url: string, nomeDoArquivo: string, tipoDoc: string, subtituloDoc: string) => {
@@ -183,7 +185,8 @@ export default function ChecklistScreen() {
 		}, [params.veiculo_id, params.placa])
 	);
 
-	const entrarModoIsolado = async (checklistId: number, cavaloId: number) => {
+	const entrarModoIsolado = async (checklistId: number, cavaloId: number, somenteLeitura = false) => {
+		setIsSomenteLeitura(somenteLeitura);
 		setIsLoading(true);
 		try {
 			const resCavalo = await apiService.buscarVeiculo({ id: String(cavaloId) });
@@ -436,8 +439,9 @@ export default function ChecklistScreen() {
 		}
 	};
 
-	const abrirChecklistAntigo = async (idDoChecklist: number) => {
+	const abrirChecklistAntigo = async (idDoChecklist: number, somenteLeitura = false) => {
 		const idBase = veiculo?.id || 0;
+		setIsSomenteLeitura(somenteLeitura);
 
 		setIsModoIsolado(false);
 		setOffsetEixos(0);
@@ -584,7 +588,8 @@ export default function ChecklistScreen() {
 			pressao_padrao: dbData.pneu_tx_pressaoPadrao?.toString() || veiculo?.calibragem_padrao || '',
 			pressao: dbData.pneu_tx_pressao?.toString() || '',
 			ref_mm_original: dbData.pneu_tx_mmOriginal?.toString() || '',
-			ref_valor: dbData.pneu_tx_valor?.toString() ? formatarValorDB(dbData.pneu_tx_valor.toString()) : ''
+			ref_valor: dbData.pneu_tx_valor?.toString() ? formatarValorDB(dbData.pneu_tx_valor.toString()) : '',
+			sulco_anterior: dbData.pneu_tx_milimetros?.toString() || ''
 		});
 
 		setModalPneuVisible(true);
@@ -603,6 +608,11 @@ export default function ChecklistScreen() {
 		if (dbData && (dbData.pneu_nb_id || dbData.id) && !isPendente) {
 			abrirVisualizacaoPneu(codigoPneu, dbData);
 		} else {
+			if (isSomenteLeitura) {
+				Alert.alert('Modo Leitura', 'Checklists antigos não podem sofrer adição ou alteração de pneus.');
+				return;
+			}
+
 			if (isPendente) {
 				dbData.pneu_nb_id = '';
 				dbData.id = '';
@@ -650,6 +660,22 @@ export default function ChecklistScreen() {
 		if (!formPneu.tipo) {
 			Alert.alert('Atenção', 'O campo Tipo é obrigatório.');
 			return;
+		}
+
+		const sulcoAtualStr = formPneu.milimetros ? formPneu.milimetros.toString().replace(',', '.') : '0';
+		const sulcoAnteriorStr = formPneu.sulco_anterior ? formPneu.sulco_anterior.toString().replace(',', '.') : '0';
+
+		const sulcoAtualNum = parseFloat(sulcoAtualStr);
+		const sulcoAnteriorNum = parseFloat(sulcoAnteriorStr);
+
+		if (!isNaN(sulcoAnteriorNum) && sulcoAnteriorNum > 0) {
+			if (sulcoAtualNum > sulcoAnteriorNum) {
+				Alert.alert(
+					'Aferição Inválida',
+					`O sulco atual não pode ser maior que o anterior!\n\nA última aferição registrou ${formPneu.sulco_anterior}mm.`
+				);
+				return;
+			}
 		}
 
 		setIsSaving(true);
@@ -1133,47 +1159,59 @@ export default function ChecklistScreen() {
 								<Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Histórico de Inspeções</Text>
 							</View>
 
-							{historico.map((h, index) => (
-								<View key={`historico_${index}`} style={[styles.itemHistorico, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 15 }]}>
+							{historico.map((h, index) => {
+								const isUltimoChecklist = index === 0;
+								const isAdmin = user?.nivel === 'ADMINISTRADOR' || user?.nivel === 'DIRETORIA';
+								const podeEditar = isUltimoChecklist || isAdmin;
 
-									<View style={{ width: '100%', marginBottom: 12 }}>
-										<Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
-										<Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>Motorista: {h.chec_tx_motorista}</Text>
-										<Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
-										{h.is_implemento == 1 && h.cavalo_placa && (
-											<Text style={{ color: '#E53935', fontSize: 12, marginTop: 6, fontWeight: 'bold' }}>
-												* Inspecionado no veículo: {h.cavalo_placa}
-											</Text>
-										)}
-									</View>
+								return (
+									<View key={`historico_${index}`} style={[styles.itemHistorico, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 15 }]}>
 
-									<View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
-										<TouchableOpacity style={[styles.btnImprimirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => imprimirChecklist(h.chec_nb_id)}>
-											<Feather name="printer" size={14} color="#333" />
-											<Text style={styles.btnImprimirHistoricoText} numberOfLines={1}>Exportar</Text>
-										</TouchableOpacity>
+										<View style={{ width: '100%', marginBottom: 12 }}>
+											<Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
+											<Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>Motorista: {h.chec_tx_motorista}</Text>
+											<Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
+											{h.is_implemento == 1 && h.cavalo_placa && (
+												<Text style={{ color: '#E53935', fontSize: 12, marginTop: 6, fontWeight: 'bold' }}>
+													* Inspecionado no veículo: {h.cavalo_placa}
+												</Text>
+											)}
+										</View>
 
-										<TouchableOpacity style={[styles.btnModificarHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => {
-											if (h.is_implemento == 1 && h.cavalo_id) {
-												entrarModoIsolado(h.chec_nb_id, h.cavalo_id);
-											} else {
-												abrirChecklistAntigo(h.chec_nb_id);
-											}
-										}}>
-											<Feather name="edit-2" size={14} color="#fff" />
-											<Text style={styles.btnModificarHistoricoText} numberOfLines={1}>Editar</Text>
-										</TouchableOpacity>
-
-										{(user?.nivel === 'ADMINISTRADOR' || user?.nivel === 'DIRETORIA') && (
-											<TouchableOpacity style={[styles.btnExcluirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => excluirChecklistAntigo(h.chec_nb_id)}>
-												<Feather name="trash-2" size={14} color="#fff" />
-												<Text style={styles.btnExcluirHistoricoText} numberOfLines={1}>Excluir</Text>
+										<View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
+											<TouchableOpacity style={[styles.btnImprimirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => imprimirChecklist(h.chec_nb_id)}>
+												<Feather name="printer" size={14} color="#333" />
+												<Text style={styles.btnImprimirHistoricoText} numberOfLines={1}>Exportar</Text>
 											</TouchableOpacity>
-										)}
-									</View>
 
-								</View>
-							))}
+											<TouchableOpacity
+												style={[
+													styles.btnModificarHistorico,
+													{ flex: 1, paddingVertical: 10, backgroundColor: podeEditar ? '#3276b1' : '#f39c12' }
+												]}
+												onPress={() => {
+													if (h.is_implemento == 1 && h.cavalo_id) {
+														entrarModoIsolado(h.chec_nb_id, h.cavalo_id, !podeEditar);
+													} else {
+														abrirChecklistAntigo(h.chec_nb_id, !podeEditar);
+													}
+												}}>
+												<Feather name={podeEditar ? "edit-2" : "eye"} size={14} color="#fff" />
+												<Text style={styles.btnModificarHistoricoText} numberOfLines={1}>
+													{podeEditar ? 'Editar' : 'Visualizar'}
+												</Text>
+											</TouchableOpacity>
+
+											{isAdmin && (
+												<TouchableOpacity style={[styles.btnExcluirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => excluirChecklistAntigo(h.chec_nb_id)}>
+													<Feather name="trash-2" size={14} color="#fff" />
+													<Text style={styles.btnExcluirHistoricoText} numberOfLines={1}>Excluir</Text>
+												</TouchableOpacity>
+											)}
+										</View>
+									</View>
+								);
+							})}
 						</View>
 					)}
 
@@ -1605,16 +1643,18 @@ export default function ChecklistScreen() {
 										</View>
 									)}
 
-									<TouchableOpacity
-										style={[styles.btnSalvar, { marginTop: 20 }]}
-										onPress={() => {
-											setModalViewPneuVisible(false);
-											abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData);
-										}}
-									>
-										<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
-										<Text style={styles.btnSalvarText}>Editar</Text>
-									</TouchableOpacity>
+									{!isSomenteLeitura && (
+										<TouchableOpacity
+											style={[styles.btnSalvar, { marginTop: 20 }]}
+											onPress={() => {
+												setModalViewPneuVisible(false);
+												abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData);
+											}}
+										>
+											<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
+											<Text style={styles.btnSalvarText}>Editar</Text>
+										</TouchableOpacity>
+									)}
 								</>
 							);
 						})()}
