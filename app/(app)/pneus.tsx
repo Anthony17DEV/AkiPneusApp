@@ -1124,6 +1124,53 @@ export default function PneusScreen() {
 							</Modal>
 						)}
 
+						{modalPreviewVisible && (
+							<View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 999999, elevation: 999999 }]}>
+								<View style={{ width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }}>
+									<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+										<Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Exportar Documento</Text>
+										<TouchableOpacity onPress={() => setModalPreviewVisible(false)}>
+											<Feather name="x" size={24} color="#333" />
+										</TouchableOpacity>
+									</View>
+
+									<View style={{ alignItems: 'center', marginBottom: 25, backgroundColor: '#f8f9fa', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#e9ecef' }}>
+										<MaterialCommunityIcons name="file-pdf-box" size={60} color="#E53935" />
+										<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 10, textAlign: 'center' }}>{previewData.tipo}</Text>
+										<Text style={{ fontSize: 13, color: '#666', marginTop: 5, textAlign: 'center' }}>{previewData.subtitulo}</Text>
+										<Text style={{ fontSize: 11, color: '#999', marginTop: 15, textAlign: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+											{previewData.nome}.pdf
+										</Text>
+									</View>
+
+									{isCarregandoPreview ? (
+										<View style={{ alignItems: 'center', paddingVertical: 20 }}>
+											<ActivityIndicator size="large" color="#0c6ead" />
+											<Text style={{ color: '#666', marginTop: 10, fontWeight: 'bold' }}>A gerar documento em alta qualidade...</Text>
+										</View>
+									) : (
+										<View style={{ gap: 12, width: '100%' }}>
+											<TouchableOpacity
+												style={{ backgroundColor: '#0c6ead', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+												onPress={visualizarPDFNativo}
+											>
+												<Feather name="eye" size={20} color="#fff" />
+												<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Visualizar Documento</Text>
+											</TouchableOpacity>
+
+											<TouchableOpacity
+												style={{ backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 8, width: '100%' }}
+												onPress={compartilharDocumentoPDF}
+											>
+												<MaterialCommunityIcons name="whatsapp" size={22} color="#fff" />
+												<Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 10 }}>Enviar</Text>
+											</TouchableOpacity>
+										</View>
+									)}
+								</View>
+							</View>
+						)}
+
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>

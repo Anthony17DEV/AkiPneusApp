@@ -40,7 +40,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const [modalNovoVisible, setModalNovoVisible] = useState(false);
 	const [showReformadosInput, setShowReformadosInput] = useState(false);
-	const [formNovo, setFormNovo] = useState({ data: '', cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '' });
+	const [formNovo, setFormNovo] = useState({ data: '', cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '' });
 
 	const [checklistAtivo, setChecklistAtivo] = useState<any>(null);
 	const [pneusPilha, setPneusPilha] = useState<any[]>([]);
@@ -359,7 +359,14 @@ export default function ChecklistAvulsoScreen() {
 		try {
 			const response = await fetch(API_AVULSO_URL, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'inserir', cliente_id: formNovo.cliente_id, data: formNovo.data, user_id: user?.id, qtd_reformados: parseInt(formNovo.qtdReformados) })
+				body: JSON.stringify({
+					acao: 'inserir',
+					cliente_id: formNovo.cliente_id,
+					data: formNovo.data,
+					user_id: user?.id,
+					qtd_reformados: parseInt(formNovo.qtdReformados),
+					valor_reformados: formNovo.valorReformados ? formNovo.valorReformados.replace(/\./g, '') : ''
+				})
 			});
 			const res = await response.json();
 
@@ -980,7 +987,7 @@ export default function ChecklistAvulsoScreen() {
 									<Text style={styles.btnText}>Buscar</Text>
 								</TouchableOpacity>
 								<TouchableOpacity style={styles.btnInserir} onPress={() => {
-									setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '' });
+									setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '' });
 									setShowReformadosInput(false);
 									setModalNovoVisible(true);
 								}}>
@@ -1135,19 +1142,33 @@ export default function ChecklistAvulsoScreen() {
 									<View>
 										<Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0c6ead', marginBottom: 10 }}>Pneus Reformados Entregues</Text>
 
-										<Text style={styles.label}>Quantidade de Pneus</Text>
-										<TextInput
-											style={styles.inputModal}
-											value={formNovo.qtdReformados}
-											onChangeText={t => setFormNovo({ ...formNovo, qtdReformados: t.replace(/\D/g, '') })}
-											placeholder="Ex: 25"
-											keyboardType="numeric"
-										/>
+										<View style={styles.row}>
+											<View style={styles.inputGroupH}>
+												<Text style={styles.label}>Quantidade</Text>
+												<TextInput
+													style={styles.inputModal}
+													value={formNovo.qtdReformados}
+													onChangeText={t => setFormNovo({ ...formNovo, qtdReformados: t.replace(/\D/g, '') })}
+													placeholder="Ex: 25"
+													keyboardType="numeric"
+												/>
+											</View>
+											<View style={styles.inputGroupH}>
+												<Text style={styles.label}>Valor Total (R$)</Text>
+												<TextInput
+													style={styles.inputModal}
+													value={formNovo.valorReformados}
+													onChangeText={t => setFormNovo({ ...formNovo, valorReformados: formatarMoeda(t) })}
+													placeholder="0,00"
+													keyboardType="numeric"
+												/>
+											</View>
+										</View>
 
 										<View style={{ flexDirection: 'row', gap: 10 }}>
 											<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => {
 												setShowReformadosInput(false);
-												setFormNovo({ ...formNovo, qtdReformados: '' });
+												setFormNovo({ ...formNovo, qtdReformados: '', valorReformados: '' });
 											}}>
 												<Text style={{ fontWeight: 'bold' }}>Cancelar Lote</Text>
 											</TouchableOpacity>
