@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const HeaderLogo = () => (
 	<Image
-		source={require('../../assets/images/solutires.png')}
+		source={require('../../assets/images/smart_pneus.png')}
 		style={{ width: 120, height: 40 }}
 		resizeMode="contain"
 	/>

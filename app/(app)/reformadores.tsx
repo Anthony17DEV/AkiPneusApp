@@ -2,7 +2,7 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import LogoSolutires from '../../assets/images/solutires.png';
+import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { apiService } from '../../src/services/apiService';
 
 interface Reformador {

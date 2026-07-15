@@ -1,63 +1,63 @@
-{
-  "expo": {
-    "name": "SoluTires",
-    "slug": "solutires-app-v3-limpo",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/miniatura.png",
-    "scheme": "solutiresapp",
-    "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/miniatura.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.cactus.solutires",
-      "buildNumber": "1",
-      "config": {
-        "googleMapsApiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
-      },
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para exibir o mapa de leads e registrar o local dos atendimentos.",
-        "NSPhotoLibraryUsageDescription": "O SoluTires precisa acessar suas fotos para que você possa anexar imagens de clientes, fachadas de postos e documentos.",
-        "NSCameraUsageDescription": "O SoluTires precisa usar a câmera para tirar fotos durante as visitas e digitalizar documentos em tempo real.",
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    },
-    "android": {
-      "versionCode": 1,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/miniatura.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.cactus.solutires3",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
-        }
-      }
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/miniatura.png"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-web-browser"
-    ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "baf4bb3f-3103-4815-b8d6-91b9c348cb00"
-      }
-    },
-    "owner": "cactustecnologia"
-  }
+﻿{
+	"expo": {
+		"name": "SmartPneus",
+		"slug": "smartpneus",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"icon": "./assets/images/miniatura.png",
+		"scheme": "smartpneusapp",
+		"userInterfaceStyle": "automatic",
+		"splash": {
+			"image": "./assets/images/miniatura.png",
+			"resizeMode": "contain",
+			"backgroundColor": "#ffffff"
+		},
+		"ios": {
+			"supportsTablet": true,
+			"bundleIdentifier": "com.cactus.smartpneus",
+			"buildNumber": "1",
+			"config": {
+				"googleMapsApiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
+			},
+			"infoPlist": {
+				"NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para exibir o mapa de leads e registrar o local dos atendimentos.",
+				"NSPhotoLibraryUsageDescription": "O SmartPneus precisa acessar suas fotos para que você possa anexar imagens de clientes, fachadas de postos e documentos.",
+				"NSCameraUsageDescription": "O SmartPneus precisa usar a câmera para tirar fotos durante as visitas e digitalizar documentos em tempo real.",
+				"ITSAppUsesNonExemptEncryption": false
+			}
+		},
+		"android": {
+			"versionCode": 1,
+			"adaptiveIcon": {
+				"foregroundImage": "./assets/images/miniatura.png",
+				"backgroundColor": "#ffffff"
+			},
+			"package": "com.cactus.smartpneus",
+			"config": {
+				"googleMaps": {
+					"apiKey": "AIzaSyB379C1FIzf0fwcbMgm8q4P5QGXmWEaSxs"
+				}
+			}
+		},
+		"web": {
+			"bundler": "metro",
+			"output": "static",
+			"favicon": "./assets/images/miniatura.png"
+		},
+		"plugins": [
+			"expo-router",
+			"expo-secure-store",
+			"expo-web-browser"
+		],
+		"experiments": {
+			"typedRoutes": true
+		},
+		"extra": {
+			"router": {},
+			"eas": {
+				"projectId": "baf4bb3f-3103-4815-b8d6-91b9c348cb00"
+			}
+		},
+		"owner": "cactustecnologia"
+	}
 }

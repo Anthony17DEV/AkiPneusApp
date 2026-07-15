@@ -17,7 +17,7 @@ import {
 import { apiService } from '../src/services/apiService';
 
 import FundoLogin from '../assets/images/fundo.jpeg';
-import Logo from '../assets/images/solutires.png';
+import Logo from '../assets/images/smart_pneus.png';
 import { FooterText } from '../components/FooterText';
 
 export default function EsqueciSenhaScreen() {

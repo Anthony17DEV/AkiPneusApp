@@ -8,7 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
-import LogoSolutires from '../../assets/images/solutires.png';
+import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
 
@@ -1021,11 +1021,16 @@ export default function ChecklistAvulsoScreen() {
 												<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
 												<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {item.cliente}</Text>
 											</View>
-											<View style={styles.cardInfoRow}>
-												<MaterialCommunityIcons name="tire" size={16} color="#666" style={{ marginRight: 8 }} />
-												<Text style={styles.cardInfoText}>
-													<Text style={{ fontWeight: 'bold' }}>Sucata:</Text> {item.pneus_qtd} pneus | <Text style={{ fontWeight: 'bold' }}>Reformados:</Text> {item.pneus_reformados_qtd || 0}
-												</Text>
+											<View style={[styles.cardInfoRow, { alignItems: 'flex-start' }]}>
+												<MaterialCommunityIcons name="tire" size={16} color="#666" style={{ marginRight: 8, marginTop: 2 }} />
+												<View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+													<Text style={{ fontSize: 13, color: '#E53935', fontWeight: 'bold', marginRight: 12 }}>
+														Sucata: {item.pneus_qtd}
+													</Text>
+													<Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold' }}>
+														Reformados: {item.pneus_reformados_qtd || 0}
+													</Text>
+												</View>
 											</View>
 											<View style={styles.cardInfoRow}>
 												<Feather name="shield" size={14} color="#666" style={{ marginRight: 8 }} />

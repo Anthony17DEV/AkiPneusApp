@@ -10,7 +10,7 @@ import {
 import { MaskedTextInput } from 'react-native-mask-text';
 import RNPickerSelect from 'react-native-picker-select';
 
-import LogoSolutires from '../../assets/images/solutires.png';
+import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
 

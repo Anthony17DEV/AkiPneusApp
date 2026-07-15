@@ -184,7 +184,7 @@ export default function PerfilScreen() {
 						)}
 					</TouchableOpacity>
 
-					<Text style={styles.userName}>{user?.nome || 'Usuário SoluTires'}</Text>
+					<Text style={styles.userName}>{user?.nome || 'Usuário SmartPneus'}</Text>
 					<View style={styles.nivelBadge}>
 						<Text style={styles.nivelText}>{user?.nivel || 'Analista'}</Text>
 					</View>
