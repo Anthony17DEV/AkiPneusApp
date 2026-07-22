@@ -53,6 +53,10 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 						const label = options.drawerLabel !== undefined ? options.drawerLabel : options.title !== undefined ? options.title : route.name;
 						const isFocused = props.state.index === index;
 
+						if (route.name === 'danos' && user?.nivel?.toUpperCase() !== 'ADMINISTRADOR') {
+							return null;
+						}
+
 						if ((options.drawerItemStyle as any)?.display === 'none' || route.name === 'checklist') {
 							return null;
 						}
@@ -204,6 +208,17 @@ export default function AppLayout() {
 					drawerLabel: 'Marcas Veículos',
 					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="car" size={size} color={color} />,
+				}}
+			/>
+
+			<Drawer.Screen
+				name="danos"
+				options={{
+					drawerLabel: 'Registro de Danos',
+					headerTitle: HeaderLogo,
+					drawerIcon: ({ color, size }) => (
+						<MaterialCommunityIcons name="car-wrench" size={size} color={color} />
+					),
 				}}
 			/>
 

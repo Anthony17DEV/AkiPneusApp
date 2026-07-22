@@ -138,6 +138,34 @@ export const apiService = {
 		}
 	},
 
+	listarDanos: async (busca = '') => {
+		try {
+			const response = await api.post('api_motivo_recusa.php', { acao: 'listar', busca });
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao listar danos:', error);
+			return { success: false, data: [] };
+		}
+	},
+	salvarDano: async (dano) => {
+		try {
+			const response = await api.post('api_motivo_recusa.php', dano);
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao salvar dano:', error);
+			return { success: false, message: 'Erro de conexão.' };
+		}
+	},
+	excluirDano: async (id) => {
+		try {
+			const response = await api.post('api_motivo_recusa.php', { acao: 'excluir', id });
+			return parseData(response.data);
+		} catch (error) {
+			console.error('Erro ao excluir dano:', error);
+			return { success: false, message: 'Erro de conexão.' };
+		}
+	},
+
 	salvarVeiculo: async (dadosVeiculo) => {
 		try {
 			const response = await api.post('api_veiculo_salvar.php', dadosVeiculo);

@@ -337,7 +337,17 @@ export default function ChecklistAvulsoScreen() {
 			if (!isMounted.current) return;
 
 			if (res.success) {
-				const mockChecklist = { id: res.id, data: formNovo.data, cliente: formNovo.cliente, usuario: formNovo.usuario, pneus_qtd: 0 };
+				const partesData = formNovo.data.split('/');
+				const dataIso = partesData.length === 3 ? `${partesData[2]}-${partesData[1]}-${partesData[0]}` : formNovo.data;
+
+				const mockChecklist = {
+					id: res.id,
+					data: dataIso,
+					cliente: formNovo.cliente,
+					usuario: formNovo.usuario,
+					pneus_qtd: 0
+				};
+
 				setChecklistAtivo(mockChecklist);
 				setPneusPilha([]);
 				setModalNovoVisible(false);
@@ -487,6 +497,24 @@ export default function ChecklistAvulsoScreen() {
 			setFotosPneu([]);
 		}
 
+		setModalPneuVisible(true);
+	};
+
+	const duplicarPneu = (pneuOriginal: any) => {
+		resetFormPneu();
+
+		setFormPneu({
+			...formPneu,
+			referencia: pneuOriginal.referencia || '',
+			referencia_nome: pneuOriginal.referencia_nome || pneuOriginal.referencia || '',
+			marca: pneuOriginal.marca || '',
+			modelo: pneuOriginal.modelo || '',
+			dot: pneuOriginal.dot || '',
+			id: ''
+		});
+
+		setFotosPneu([]);
+		setFotoAmpliada(null);
 		setModalPneuVisible(true);
 	};
 
@@ -908,18 +936,29 @@ export default function ChecklistAvulsoScreen() {
 									</Text>
 								)}
 								<Text style={styles.stackedPneuStatus}>
-									Série: {pneu.serie || 'S/N'} | S: {pneu.milimetros}mm
+									DOT: {pneu.dot || 'S/A'} | S: {pneu.milimetros}mm
 								</Text>
 							</View>
 							<MaterialCommunityIcons name="tire" size={28} color="#aaa" style={styles.stackedPneuIcon} />
 						</TouchableOpacity>
 
-						<TouchableOpacity
-							style={{ position: 'absolute', top: 10, right: -15, zIndex: 10, padding: 10, backgroundColor: '#ffffff', borderRadius: 20, elevation: 5 }}
-							onPress={() => excluirPneuItem(pneu.id)}
-						>
-							<Feather name="trash-2" size={16} color="#E53935" />
-						</TouchableOpacity>
+						<View style={{ position: 'absolute', top: 10, right: -15, zIndex: 10, gap: 2 }}>
+
+							<TouchableOpacity
+								style={{ padding: 10, backgroundColor: '#ffffff', borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2 }}
+								onPress={() => excluirPneuItem(pneu.id)}
+							>
+								<Feather name="trash-2" size={16} color="#E53935" />
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								style={{ padding: 10, backgroundColor: '#ffffff', borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2 }}
+								onPress={() => duplicarPneu(pneu)}
+							>
+								<Feather name="copy" size={16} color="#0c6ead" />
+							</TouchableOpacity>
+
+						</View>
 					</View>
 				))}
 			</View>
