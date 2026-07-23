@@ -200,7 +200,7 @@ export default function ReferenciasScreen() {
 
 							<View style={styles.cardActions}>
 								<View style={styles.actionButtonsRow}>
-									<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push(`/marcas?ref_id=${item.id}&ref_nome=${encodeURIComponent(item.nome)}`)}>
+									<TouchableOpacity style={styles.btnActionSecondary} onPress={() => router.push({ pathname: '/marcas', params: { referencia_nome: item.nome } })}>
 										<Feather name="list" size={14} color="#333" />
 										<Text style={styles.btnActionTextSecondary}>Ver Marcas</Text>
 									</TouchableOpacity>

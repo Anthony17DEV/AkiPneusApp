@@ -10,7 +10,7 @@ import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService } from '../../src/services/apiService';
+import { api, apiService } from '../../src/services/apiService';
 
 export default function ChecklistAvulsoScreen() {
 	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
@@ -256,8 +256,10 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const formatarValorDB = (val: any) => {
-		if (!val) return '';
-		let str = String(val);
+		if (val === undefined || val === null || val === '') return '';
+		let str = String(val).trim();
+		if (str === '0' || str === '0.00' || str === '0,00' || str === '.00') return '0,00';
+
 		if (str.includes(',')) {
 			str = str.replace(/\./g, '').replace(',', '.');
 		} else {
@@ -613,29 +615,26 @@ export default function ChecklistAvulsoScreen() {
 
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		if (tipo === 'entidade') {
-			try {
-				const res = await apiService.buscarClientes(user?.id, user?.nivel, { nome: termo }, 1);
-				if (!isMounted.current) return;
-				if (res && res.success) {
-					setResultadosBusca(res.data.map((c: any) => ({ id: c.id, nome: c.nome })));
-				} else {
-					setResultadosBusca([]);
-				}
-			} catch (e) {
-				if (isMounted.current) setResultadosBusca([]);
+		try {
+			const res = await api.post('api_busca_dinamica.php', { tipo: tipo, busca: termo });
+
+			if (res.data && res.data.success) {
+				setResultadosBusca(res.data.data);
+			} else {
+				setResultadosBusca([]);
 			}
-		} else {
-			const extras = { referencia_id: formPneu.referencia, marca_atual: formPneu.marca };
-			const res = await apiService.buscarDinamica(tipo, termo, extras);
-			if (!isMounted.current) return;
-			setResultadosBusca(res && res.success ? res.data : []);
+		} catch (error) {
+			console.error("Erro na busca dinâmica", error);
+			setResultadosBusca([]);
+		} finally {
+			setIsSearching(false);
 		}
-		if (isMounted.current) setIsSearching(false);
 	};
 
 	const selecionarItemBusca = (item: any) => {
-		if (tipoBusca === 'entidade') { setFormNovo({ ...formNovo, cliente: item.nome, cliente_id: item.id }); }
+		if (tipoBusca === 'entidade') {
+			setFormNovo({ ...formNovo, cliente: item.nome, cliente_id: item.id });
+		}
 		else if (tipoBusca === 'motivo_laudo') {
 			setFormPneu({ ...formPneu, motivo_recusa: item.nome });
 		}
@@ -646,27 +645,43 @@ export default function ChecklistAvulsoScreen() {
 			setFormPneu({ ...formPneu, placa: item.nome, veiculo_id: item.id });
 		}
 		else if (tipoBusca === 'referencia_pneu') {
+			const rawMm = item.mmOriginal ?? item.mmoriginal ?? item.sulco ?? item.refe_tx_mmOriginal ?? '';
+			const rawValor = item.valor ?? item.preco ?? item.refe_tx_valor ?? '';
+
+			const refMm = rawMm ? String(rawMm).replace(',', '.') : '';
+			const refVal = formatarValorDB(rawValor);
+
 			setFormPneu({
 				...formPneu,
 				referencia: item.id || item.refe_nb_id,
 				referencia_nome: item.nome || item.refe_tx_nome,
-				marca: '', modelo: '', mm_original: '', valor: '', ref_mm_original: '', ref_valor: ''
+				marca: item.marca || item.refe_tx_marca || '',
+				modelo: item.modelo || item.refe_tx_modelo || '',
+				mm_original: refMm,
+				valor: refVal,
+				ref_mm_original: refMm,
+				ref_valor: refVal
 			});
 		}
 		else if (tipoBusca === 'marca_pneu') {
 			setFormPneu({
 				...formPneu,
 				marca: item.nome || item.refe_tx_marca,
-				modelo: '', mm_original: '', valor: '', ref_mm_original: '', ref_valor: ''
+				modelo: '',
+				mm_original: formPneu.ref_mm_original || '',
+				valor: formPneu.ref_valor || ''
 			});
 		}
 		else if (tipoBusca === 'modelo_pneu') {
-			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : (item.refe_tx_mmOriginal || '');
-			const refVal = item.isNewModel ? (formCadastro.valor || '') : formatarValorDB(item.refe_tx_valor || '');
+			const rawMm = item.mmOriginal ?? item.mmoriginal ?? item.sulco ?? item.refe_tx_mmOriginal ?? '';
+			const rawValor = item.valor ?? item.preco ?? item.refe_tx_valor ?? '';
+
+			const refMm = rawMm ? String(rawMm).replace(',', '.') : '';
+			const refVal = formatarValorDB(rawValor);
 
 			setFormPneu({
 				...formPneu,
-				modelo: item.nome || item.refe_tx_modelo,
+				modelo: item.nome || item.refe_tx_modelo || item.modelo,
 				ref_mm_original: refMm,
 				ref_valor: refVal,
 				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
@@ -674,15 +689,21 @@ export default function ChecklistAvulsoScreen() {
 			});
 		}
 		else if (tipoBusca === 'banda') {
-			const valFormatado = item.isNewModel ? (formCadastro.valor || '') : formatarValorDB(item.valor || '');
+			const rawValor = item.valor ?? item.band_tx_valor ?? item.preco ?? '';
+			const rawSulco = item.sulco ?? item.band_tx_sulco ?? item.mmOriginal ?? item.mmoriginal ?? '';
+
+			const valFormatado = formatarValorDB(rawValor);
+			const sulcoBanda = rawSulco ? String(rawSulco).replace(',', '.') : formPneu.mm_original;
+
 			setFormPneu({
 				...formPneu,
-				banda: item.id,
-				banda_nome: item.nome || item.banda,
-				mm_original: item.isNewModel ? formCadastro.sulco : (item.sulco ? String(item.sulco) : formPneu.mm_original),
+				banda: item.id || item.band_nb_id,
+				banda_nome: item.nome || item.banda || item.band_tx_modelo,
+				mm_original: sulcoBanda,
 				valor: valFormatado || formPneu.valor
 			});
 		}
+
 		setModalBuscaVisible(false);
 	};
 

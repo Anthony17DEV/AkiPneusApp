@@ -53,20 +53,22 @@ export default function MarcasScreen() {
 		setIsLoading(true);
 		try {
 			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca_referencia: '', busca_marca: '' })
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					acao: 'listar',
+					busca_marca: filtroBusca,
+					busca_referencia: params?.referencia_nome || params?.nome || params?.referencia || ''
+				})
 			});
-			const res = await response.json();
-
-			if (!isMounted.current) return;
-
-			if (res.success) {
-				setMarcas(res.data);
+			const result = await response.json();
+			if (result.success) {
+				if (isMounted.current) setMarcas(result.data || []);
 			} else {
-				setMarcas([]);
+				if (isMounted.current) setMarcas([]);
 			}
 		} catch (error) {
-			if (isMounted.current) console.log('Erro ignorado no listar');
+			Alert.alert("Erro", "Falha ao carregar as marcas.");
 		} finally {
 			if (isMounted.current) setIsLoading(false);
 		}
