@@ -615,20 +615,42 @@ export default function ChecklistAvulsoScreen() {
 
 	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
 		setIsSearching(true);
-		try {
-			const res = await api.post('api_busca_dinamica.php', { tipo: tipo, busca: termo });
 
-			if (res.data && res.data.success) {
-				setResultadosBusca(res.data.data);
-			} else {
-				setResultadosBusca([]);
+		if (tipo === 'entidade') {
+			try {
+				const res = await apiService.buscarClientes(user?.id, user?.nivel, { nome: termo }, 1);
+				if (!isMounted.current) return;
+				if (res && res.success) {
+					setResultadosBusca(res.data.map((c: any) => ({ id: c.id, nome: c.nome })));
+				} else {
+					setResultadosBusca([]);
+				}
+			} catch (e) {
+				if (isMounted.current) setResultadosBusca([]);
 			}
-		} catch (error) {
-			console.error("Erro na busca dinâmica", error);
-			setResultadosBusca([]);
-		} finally {
-			setIsSearching(false);
+		} else {
+			try {
+				const res = await api.post('api_busca_dinamica.php', {
+					tipo: tipo,
+					busca: termo,
+					referencia_id: formPneu.referencia,
+					marca_atual: formPneu.marca
+				});
+
+				if (!isMounted.current) return;
+
+				if (res.data && res.data.success) {
+					setResultadosBusca(res.data.data);
+				} else {
+					setResultadosBusca([]);
+				}
+			} catch (error) {
+				console.error("Erro na busca dinâmica", error);
+				if (isMounted.current) setResultadosBusca([]);
+			}
 		}
+
+		if (isMounted.current) setIsSearching(false);
 	};
 
 	const selecionarItemBusca = (item: any) => {
