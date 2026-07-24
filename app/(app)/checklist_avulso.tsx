@@ -667,22 +667,16 @@ export default function ChecklistAvulsoScreen() {
 			setFormPneu({ ...formPneu, placa: item.nome, veiculo_id: item.id });
 		}
 		else if (tipoBusca === 'referencia_pneu') {
-			const rawMm = item.mmOriginal ?? item.mmoriginal ?? item.sulco ?? item.refe_tx_mmOriginal ?? '';
-			const rawValor = item.valor ?? item.preco ?? item.refe_tx_valor ?? '';
-
-			const refMm = rawMm ? String(rawMm).replace(',', '.') : '';
-			const refVal = formatarValorDB(rawValor);
-
 			setFormPneu({
 				...formPneu,
 				referencia: item.id || item.refe_nb_id,
 				referencia_nome: item.nome || item.refe_tx_nome,
-				marca: item.marca || item.refe_tx_marca || '',
-				modelo: item.modelo || item.refe_tx_modelo || '',
-				mm_original: refMm,
-				valor: refVal,
-				ref_mm_original: refMm,
-				ref_valor: refVal
+				marca: '',
+				modelo: '',
+				mm_original: '',
+				valor: '',
+				ref_mm_original: '',
+				ref_valor: ''
 			});
 		}
 		else if (tipoBusca === 'marca_pneu') {
@@ -690,20 +684,22 @@ export default function ChecklistAvulsoScreen() {
 				...formPneu,
 				marca: item.nome || item.refe_tx_marca,
 				modelo: '',
-				mm_original: formPneu.ref_mm_original || '',
-				valor: formPneu.ref_valor || ''
+				mm_original: '',
+				valor: '',
+				ref_mm_original: '',
+				ref_valor: ''
 			});
 		}
 		else if (tipoBusca === 'modelo_pneu') {
-			const rawMm = item.mmOriginal ?? item.mmoriginal ?? item.sulco ?? item.refe_tx_mmOriginal ?? '';
-			const rawValor = item.valor ?? item.preco ?? item.refe_tx_valor ?? '';
+			const rawMm = item.mmOriginal ?? item.refe_tx_mmOriginal ?? '';
+			const rawValor = item.valor ?? item.refe_tx_valor ?? '';
 
-			const refMm = rawMm ? String(rawMm).replace(',', '.') : '';
-			const refVal = formatarValorDB(rawValor);
+			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : String(rawMm).replace(',', '.');
+			const refVal = item.isNewModel ? (formCadastro.valor || '') : formatarValorDB(rawValor);
 
 			setFormPneu({
 				...formPneu,
-				modelo: item.nome || item.refe_tx_modelo || item.modelo,
+				modelo: item.nome || item.refe_tx_modelo,
 				ref_mm_original: refMm,
 				ref_valor: refVal,
 				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
@@ -711,21 +707,19 @@ export default function ChecklistAvulsoScreen() {
 			});
 		}
 		else if (tipoBusca === 'banda') {
-			const rawValor = item.valor ?? item.band_tx_valor ?? item.preco ?? '';
-			const rawSulco = item.sulco ?? item.band_tx_sulco ?? item.mmOriginal ?? item.mmoriginal ?? '';
+			const rawValor = item.valor ?? item.band_tx_valor ?? '';
+			const rawSulco = item.sulco ?? item.band_tx_sulco ?? '';
 
-			const valFormatado = formatarValorDB(rawValor);
-			const sulcoBanda = rawSulco ? String(rawSulco).replace(',', '.') : formPneu.mm_original;
+			const valFormatado = item.isNewModel ? (formCadastro.valor || '') : formatarValorDB(rawValor);
 
 			setFormPneu({
 				...formPneu,
-				banda: item.id || item.band_nb_id,
-				banda_nome: item.nome || item.banda || item.band_tx_modelo,
-				mm_original: sulcoBanda,
+				banda: item.id,
+				banda_nome: item.nome || item.banda,
+				mm_original: item.isNewModel ? formCadastro.sulco : (rawSulco ? String(rawSulco).replace(',', '.') : formPneu.mm_original),
 				valor: valFormatado || formPneu.valor
 			});
 		}
-
 		setModalBuscaVisible(false);
 	};
 
