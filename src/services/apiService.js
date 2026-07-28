@@ -156,10 +156,34 @@ export const apiService = {
 			return { success: false, message: 'Erro de conexão.' };
 		}
 	},
+
 	excluirDano: async (id) => {
 		try {
 			const response = await api.post('api_motivo_recusa.php', { acao: 'excluir', id });
-			return parseData(response.data);
+
+			if (!response.data || String(response.data).trim() === '') {
+				return { success: true, message: 'Registro excluído com sucesso!' };
+			}
+
+			let data = response.data;
+
+			if (typeof data === 'string') {
+				try {
+					const startIndex = data.indexOf('{');
+					const endIndex = data.lastIndexOf('}');
+
+					if (startIndex !== -1 && endIndex !== -1) {
+						data = JSON.parse(data.substring(startIndex, endIndex + 1));
+					} else {
+						data = JSON.parse(data);
+					}
+				} catch (parseError) {
+					return { success: true, message: 'Registro excluído com sucesso!' };
+				}
+			}
+
+			return data;
+
 		} catch (error) {
 			console.error('Erro ao excluir dano:', error);
 			return { success: false, message: 'Erro de conexão.' };

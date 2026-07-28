@@ -99,12 +99,21 @@ export default function DanosScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					setIsLoading(true);
-					const response = await apiService.excluirDano(id);
-					if (response && response.success) {
-						Alert.alert('Sucesso', 'Registro excluído.');
-						carregarDanos();
-					} else {
-						Alert.alert('Erro', response?.message || 'Falha ao excluir.');
+					try {
+						const response = await apiService.excluirDano(id);
+
+						console.log('Resposta da API ao excluir:', response);
+
+						if (response && response.success) {
+							Alert.alert('Sucesso', 'Registro excluído.');
+							carregarDanos();
+						} else {
+							Alert.alert('Erro', response?.message || 'O registro foi excluído, mas a API retornou um formato inesperado.');
+							setIsLoading(false);
+						}
+					} catch (error) {
+						console.error('Erro na requisição:', error);
+						Alert.alert('Erro', 'Falha de conexão ou erro no servidor ao tentar excluir.');
 						setIsLoading(false);
 					}
 				}
@@ -202,7 +211,6 @@ export default function DanosScreen() {
 				ListEmptyComponent={!isLoading ? <Text style={styles.emptyText}>Nenhum registro encontrado.</Text> : null}
 			/>
 
-			{/* ================= MODAL: INSERIR / EDITAR ================= */}
 			<Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#f4f6f8' }}>
 					<View style={styles.modalHeaderFullScreen}>

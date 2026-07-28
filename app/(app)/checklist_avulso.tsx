@@ -346,6 +346,7 @@ export default function ChecklistAvulsoScreen() {
 					id: res.id,
 					data: dataIso,
 					cliente: formNovo.cliente,
+					cliente_id: formNovo.cliente_id,
 					usuario: formNovo.usuario,
 					pneus_qtd: 0
 				};
@@ -750,7 +751,11 @@ export default function ChecklistAvulsoScreen() {
 
 			if (tipoBusca === 'veiculo') {
 				url = 'https://sistemascactus.com/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
-				dadosCadastro = { tipo: 'veiculo_incompleto', nome: formCadastro.nome };
+				dadosCadastro = {
+					tipo: 'veiculo_incompleto',
+					nome: formCadastro.nome,
+					cliente_id: checklistAtivo?.cliente_id || ''
+				};
 			}
 
 			const response = await fetch(url, {
