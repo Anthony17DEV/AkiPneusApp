@@ -50,6 +50,12 @@ export default function ChecklistAvulsoScreen() {
 	const [filtroConsolidarMes, setFiltroConsolidarMes] = useState('');
 	const [filtroConsolidarAno, setFiltroConsolidarAno] = useState(new Date().getFullYear().toString());
 
+	const [modalComparativoVisible, setModalComparativoVisible] = useState(false);
+	const [compMes1, setCompMes1] = useState('');
+	const [compAno1, setCompAno1] = useState(new Date().getFullYear().toString());
+	const [compMes2, setCompMes2] = useState('');
+	const [compAno2, setCompAno2] = useState(new Date().getFullYear().toString());
+
 	const [modalRelatorioVisible, setModalRelatorioVisible] = useState(false);
 	const [relatorioTarget, setRelatorioTarget] = useState<'single' | 'consolidado' | null>(null);
 	const [relatorioTargetId, setRelatorioTargetId] = useState<number | null>(null);
@@ -184,6 +190,39 @@ export default function ChecklistAvulsoScreen() {
 				abrirModalPreview(urlApi, nomeArq, tp, 'Controle de Pneus e Sucatas');
 			}, 500);
 		}
+	};
+
+	const gerarRelatorioComparativo = () => {
+		if (!compMes1 || !compAno1 || !compMes2 || !compAno2) {
+			Alert.alert('Atenção', 'Selecione os dois períodos completos (Mês e Ano) para comparar.');
+			return;
+		}
+
+		const ids1 = checklists.filter(c => {
+			const partes = c.data.split('-');
+			if (partes.length !== 3) return false;
+			return partes[1] === compMes1 && partes[0] === compAno1;
+		}).map(c => c.id);
+
+		const ids2 = checklists.filter(c => {
+			const partes = c.data.split('-');
+			if (partes.length !== 3) return false;
+			return partes[1] === compMes2 && partes[0] === compAno2;
+		}).map(c => c.id);
+
+		if (ids1.length === 0 || ids2.length === 0) {
+			Alert.alert('Atenção', 'Não há análises listadas para um dos meses selecionados. Certifique-se de buscar as datas correspondentes na tela principal primeiro (usando Data Inicial e Data Final).');
+			return;
+		}
+
+		setModalComparativoVisible(false);
+
+		setTimeout(() => {
+			const urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_comparativo.php?ids1=${ids1.join(',')}&ids2=${ids2.join(',')}&m1=${compMes1}&a1=${compAno1}&m2=${compMes2}&a2=${compAno2}`;
+			const nomeArq = `Comparativo_Mes${compMes1}_vs_Mes${compMes2}`;
+			const tp = `Relatório Comparativo de Sucatas`;
+			abrirModalPreview(urlApi, nomeArq, tp, `Comparativo Mês ${compMes1}/${compAno1} vs Mês ${compMes2}/${compAno2}`);
+		}, 500);
 	};
 
 	const renderOptionToggle = (key: keyof typeof opcoesRelatorio, label: string) => {
@@ -522,7 +561,17 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarPneu = async () => {
-		if (!formPneu.serie || !formPneu.milimetros) { Alert.alert('Atenção', 'Série e Sulco são obrigatórios.'); return; }
+		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original).replace(',', '.'));
+
+		if (!formPneu.mm_original || isNaN(sulcoOriginalNum) || sulcoOriginalNum <= 0) {
+			Alert.alert('Atenção', 'O Sulco Original é obrigatório! Caso não tenha carregado automaticamente, preencha manualmente.');
+			return;
+		}
+
+		if (!formPneu.serie || !formPneu.milimetros) {
+			Alert.alert('Atenção', 'Série e Sulco atual são obrigatórios.');
+			return;
+		}
 
 		if (formPneu.dot && formPneu.dot !== 'S/A') {
 			if (formPneu.dot.length !== 4) {
@@ -844,7 +893,7 @@ export default function ChecklistAvulsoScreen() {
 	const renderCadastroDinamico = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, width: '100%' }}>
-				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40, paddingBottom: Platform.OS === 'android' ? 60 : 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
 							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : tipoBusca === 'veiculo' ? 'Veículo' : 'Modelo'}
@@ -1042,7 +1091,7 @@ export default function ChecklistAvulsoScreen() {
 				<FlatList
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
-					extraData={[modalConsolidarVisible, selectedChecklists, modalRelatorioVisible, opcoesRelatorio]}
+					extraData={[modalConsolidarVisible, selectedChecklists, modalRelatorioVisible, opcoesRelatorio, modalComparativoVisible, compMes1, compMes2, compAno1, compAno2]}
 
 					initialNumToRender={10}
 					maxToRenderPerBatch={10}
@@ -1062,25 +1111,35 @@ export default function ChecklistAvulsoScreen() {
 								<View style={{ width: '48%' }}><Text style={styles.label}>Usuário</Text><TextInput style={styles.input} placeholder="Nome do utilizador" value={filtroUsuario} onChangeText={setFiltroUsuario} /></View>
 							</View>
 
-							<View style={styles.actionRow}>
-								<TouchableOpacity style={styles.btnBuscar} onPress={carregarChecklists}>
-									<Feather name="search" size={18} color="#fff" />
-									<Text style={styles.btnText}>Buscar</Text>
-								</TouchableOpacity>
-								<TouchableOpacity style={styles.btnInserir} onPress={() => {
-									setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '' });
-									setShowReformadosInput(false);
-									setModalNovoVisible(true);
-								}}>
-									<Feather name="plus-circle" size={18} color="#ffffff" />
-									<Text style={styles.btnInserirText}>Inserir</Text>
-								</TouchableOpacity>
+							<View style={{ flexDirection: 'column', gap: 10, marginTop: 15 }}>
+								<View style={{ flexDirection: 'row', gap: 10 }}>
+									<TouchableOpacity style={[styles.btnBuscar, { flex: 1, marginRight: 0 }]} onPress={carregarChecklists}>
+										<Feather name="search" size={18} color="#fff" />
+										<Text style={styles.btnText}>Buscar</Text>
+									</TouchableOpacity>
+									<TouchableOpacity style={[styles.btnInserir, { flex: 1, marginRight: 0 }]} onPress={() => {
+										setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '' });
+										setShowReformadosInput(false);
+										setModalNovoVisible(true);
+									}}>
+										<Feather name="plus-circle" size={18} color="#ffffff" />
+										<Text style={styles.btnInserirText}>Inserir</Text>
+									</TouchableOpacity>
+								</View>
 
-								<TouchableOpacity style={styles.btnConsolidar} onPress={abrirModalConsolidar}>
-									<Feather name="layers" size={18} color="#ffffff" />
-									<Text style={styles.btnInserirText}>Consolidar</Text>
-								</TouchableOpacity>
+								<View style={{ flexDirection: 'row', gap: 10 }}>
+									<TouchableOpacity style={[styles.btnConsolidar, { flex: 1, marginRight: 0 }]} onPress={abrirModalConsolidar}>
+										<Feather name="layers" size={18} color="#ffffff" />
+										<Text style={styles.btnInserirText}>Consolidar</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity style={[styles.btnConsolidar, { flex: 1, backgroundColor: '#8E24AA', marginRight: 0 }]} onPress={() => setModalComparativoVisible(true)}>
+										<Feather name="pie-chart" size={18} color="#ffffff" />
+										<Text style={styles.btnInserirText}>Comparativo</Text>
+									</TouchableOpacity>
+								</View>
 							</View>
+
 							<Text style={[styles.sectionTitle, { marginTop: 25 }]}>Resultados ({checklists.length})</Text>
 						</View>
 					}
@@ -1192,7 +1251,7 @@ export default function ChecklistAvulsoScreen() {
 
 			<Modal visible={modalNovoVisible} transparent={true} animationType="fade" onRequestClose={() => setModalNovoVisible(false)}>
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
-					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 						<View style={styles.modalSmall}>
 							<Text style={styles.modalTitle}>Nova Análise / Lote</Text>
 							<Text style={styles.label}>* Data</Text>
@@ -1417,8 +1476,24 @@ export default function ChecklistAvulsoScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Sulco Orig. (mm)</Text><TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.mm_original} onChangeText={t => setFormPneu({ ...formPneu, mm_original: t.replace(',', '.') })} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>* Sulco Atual (mm)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t.replace(',', '.') })} /></View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>* Sulco Orig. (mm)</Text>
+									<TextInput
+										style={[
+											styles.inputModal,
+											(parseFloat(String(formPneu.ref_mm_original).replace(',', '.')) > 0) ? { backgroundColor: '#eee', color: '#666' } : {}
+										]}
+										keyboardType="numeric"
+										value={formPneu.mm_original}
+										onChangeText={t => setFormPneu({ ...formPneu, mm_original: t.replace(',', '.') })}
+										placeholder="Ex: 18"
+										editable={!(parseFloat(String(formPneu.ref_mm_original).replace(',', '.')) > 0)}
+									/>
+								</View>
+								<View style={styles.inputGroupH}>
+									<Text style={styles.label}>* Sulco Atual (mm)</Text>
+									<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.milimetros} onChangeText={t => setFormPneu({ ...formPneu, milimetros: t.replace(',', '.') })} />
+								</View>
 							</View>
 
 							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
@@ -1487,7 +1562,7 @@ export default function ChecklistAvulsoScreen() {
 									{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
 								</TouchableOpacity>
 							</View>
-							<View style={{ height: 40 }} />
+							<View style={{ height: Platform.OS === 'android' ? 60 : 40 }} />
 						</ScrollView>
 
 						{fotoAmpliada && (
@@ -1614,7 +1689,7 @@ export default function ChecklistAvulsoScreen() {
 						}
 					/>
 
-					<View style={{ padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', gap: 10 }}>
+					<View style={{ padding: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', gap: 10 }}>
 						<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalConsolidarVisible(false)}>
 							<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
 						</TouchableOpacity>
@@ -1635,9 +1710,61 @@ export default function ChecklistAvulsoScreen() {
 				</View>
 			</Modal>
 
+			<Modal visible={modalComparativoVisible} animationType="slide" onRequestClose={() => setModalComparativoVisible(false)}>
+				<View style={{ flex: 1, backgroundColor: '#f4f6f8' }}>
+					<View style={styles.modalHeaderFullScreen}>
+						<TouchableOpacity onPress={() => setModalComparativoVisible(false)} style={{ padding: 5 }}>
+							<Feather name="arrow-left" size={24} color="#fff" />
+						</TouchableOpacity>
+						<Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Gerar Comparativo</Text>
+						<View style={{ width: 30 }} />
+					</View>
+
+					<View style={{ padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#ddd' }}>
+						<Text style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>
+							Selecione os dois meses para o comparativo. Lembre-se que as análises dos dois meses precisam estar carregadas na tela inicial (Faça uma busca sem data ou que englobe os dois períodos primeiro).
+						</Text>
+
+						<Text style={[styles.sectionTitle, { marginTop: 0, fontSize: 15 }]}>Período 1 (Mês Base)</Text>
+						<View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+							<View style={{ flex: 2 }}>
+								<Text style={styles.label}>Mês</Text>
+								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#999' }} value={compMes1} onValueChange={setCompMes1} items={[{ label: 'Janeiro', value: '01', color: '#000' }, { label: 'Fevereiro', value: '02', color: '#000' }, { label: 'Março', value: '03', color: '#000' }, { label: 'Abril', value: '04', color: '#000' }, { label: 'Maio', value: '05', color: '#000' }, { label: 'Junho', value: '06', color: '#000' }, { label: 'Julho', value: '07', color: '#000' }, { label: 'Agosto', value: '08', color: '#000' }, { label: 'Setembro', value: '09', color: '#000' }, { label: 'Outubro', value: '10', color: '#000' }, { label: 'Novembro', value: '11', color: '#000' }, { label: 'Dezembro', value: '12', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={styles.label}>Ano</Text>
+								<TextInput style={[styles.inputModal, { marginBottom: 0 }]} keyboardType="numeric" maxLength={4} value={compAno1} onChangeText={setCompAno1} placeholder="2024" />
+							</View>
+						</View>
+
+						<Text style={[styles.sectionTitle, { marginTop: 0, fontSize: 15 }]}>Período 2 (Mês a ser Comparado)</Text>
+						<View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+							<View style={{ flex: 2 }}>
+								<Text style={styles.label}>Mês</Text>
+								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#999' }} value={compMes2} onValueChange={setCompMes2} items={[{ label: 'Janeiro', value: '01', color: '#000' }, { label: 'Fevereiro', value: '02', color: '#000' }, { label: 'Março', value: '03', color: '#000' }, { label: 'Abril', value: '04', color: '#000' }, { label: 'Maio', value: '05', color: '#000' }, { label: 'Junho', value: '06', color: '#000' }, { label: 'Julho', value: '07', color: '#000' }, { label: 'Agosto', value: '08', color: '#000' }, { label: 'Setembro', value: '09', color: '#000' }, { label: 'Outubro', value: '10', color: '#000' }, { label: 'Novembro', value: '11', color: '#000' }, { label: 'Dezembro', value: '12', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={styles.label}>Ano</Text>
+								<TextInput style={[styles.inputModal, { marginBottom: 0 }]} keyboardType="numeric" maxLength={4} value={compAno2} onChangeText={setCompAno2} placeholder="2024" />
+							</View>
+						</View>
+					</View>
+
+					<View style={{ padding: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', gap: 10, marginTop: 'auto' }}>
+						<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalComparativoVisible(false)}>
+							<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+						</TouchableOpacity>
+						<TouchableOpacity style={[styles.btnSalvar, { flex: 2, backgroundColor: '#8E24AA' }]} onPress={gerarRelatorioComparativo}>
+							<Feather name="pie-chart" size={18} color="#fff" style={{ marginRight: 8 }} />
+							<Text style={{ color: '#fff', fontWeight: 'bold' }}>Comparar</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</Modal>
+
 			<Modal visible={modalRelatorioVisible} transparent={true} animationType="fade" onRequestClose={() => setModalRelatorioVisible(false)}>
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
-					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 						<View style={styles.modalSmall}>
 							<Text style={styles.modalTitle}>Opções do Relatório</Text>
 							<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Selecione os indicadores que deseja incluir no PDF:</Text>
