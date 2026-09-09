@@ -1,8 +1,6 @@
-﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Drawer } from 'expo-router/drawer';
-import React from 'react';
+import { Drawer, DrawerContentComponentProps, DrawerContentScrollView, DrawerItem } from 'expo-router/drawer';
 import { Alert, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -142,18 +140,27 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="clientes"
 				options={{
-					drawerLabel: 'Clientes',
+					drawerLabel: 'Checklist',
 					headerTitle: HeaderLogo,
-					drawerIcon: ({ color, size }) => <Feather name="users" size={size} color={color} />,
+					drawerIcon: ({ color, size }) => (
+						<Feather name="check-square" size={size} color={color} />
+					),
 				}}
 			/>
 
 			<Drawer.Screen
 				name="veiculos"
 				options={{
-					drawerLabel: 'Check-List Veículos',
+					drawerLabel: 'Check-List Ve�culos',
 					headerTitle: HeaderLogo,
-					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="truck-outline" size={size} color={color} />,
+					drawerIcon: ({ color, size }) => (
+						<MaterialCommunityIcons
+							name="truck-outline"
+							size={size}
+							color={color}
+						/>
+					),
+					drawerItemStyle: { display: 'none' },
 				}}
 			/>
 

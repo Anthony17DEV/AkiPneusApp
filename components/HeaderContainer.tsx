@@ -1,5 +1,5 @@
-﻿import { Feather } from '@expo/vector-icons';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { Feather } from '@expo/vector-icons';
+import { DrawerActions, useNavigation } from 'expo-router/react-navigation';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

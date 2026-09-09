@@ -1,8 +1,8 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useNavigation } from 'expo-router/react-navigation';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
@@ -20,8 +20,6 @@ interface Veiculo {
 	proprietario: string; proprietario_id: string;
 	foto: string;
 }
-
-const UFS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'];
 
 const TIPOS_VEICULOS = [
 	{ label: 'Caminhão', value: 'CAMINHÃO', color: '#000' },
@@ -307,8 +305,16 @@ export default function VeiculosScreen() {
 	const removerFotoNova = (index: number) => { setFotosNovas(fotosNovas.filter((_, i) => i !== index)); };
 
 	const salvarVeiculo = async () => {
-		if (!form.marca_id || !form.tipoRodado) {
-			Alert.alert('Atenção', 'Os campos Marca e Tipo de Rodado são obrigatórios.');
+		if (
+			!form.proprietario_id ||
+			!form.tipo ||
+			!form.tipoRodado ||
+			!form.estepe
+		) {
+			Alert.alert(
+				'Atenção',
+				'Preencha os campos obrigatórios: Cliente, Tipo Veículo, Tipo Rodado e Estepe.'
+			);
 			return;
 		}
 		setIsSaving(true);
@@ -431,19 +437,23 @@ export default function VeiculosScreen() {
 				<View style={styles.modalHeaderBusca}>
 					<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca.toUpperCase()}</Text>
 					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{(tipoBusca === 'marca' || tipoBusca === 'modelo') && (
-							<TouchableOpacity
-								style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
-								onPress={() => {
-									setFormCadastro({ nome: '' });
-									setModalBuscaVisible(false);
-									setModalCadastroVisible(true);
-								}}
-							>
-								<Feather name="plus-circle" size={14} color="#28a745" />
-								<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
-							</TouchableOpacity>
-						)}
+						{(
+							tipoBusca === 'marca' ||
+							tipoBusca === 'modelo' ||
+							tipoBusca === 'entidade'
+						) && (
+								<TouchableOpacity
+									style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
+									onPress={() => {
+										setFormCadastro({ nome: '' });
+										setModalBuscaVisible(false);
+										setModalCadastroVisible(true);
+									}}
+								>
+									<Feather name="plus-circle" size={14} color="#28a745" />
+									<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
+								</TouchableOpacity>
+							)}
 						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}>
 							<Feather name="x" size={24} color="#333" />
 						</TouchableOpacity>
@@ -461,19 +471,24 @@ export default function VeiculosScreen() {
 					/>
 				</View>
 
-				{termoComboBusca.trim().length > 0 && (tipoBusca === 'marca' || tipoBusca === 'modelo') && (
-					<TouchableOpacity
-						style={styles.btnInserirBuscaDinamica}
-						onPress={() => {
-							setFormCadastro({ nome: termoComboBusca.trim() });
-							setModalBuscaVisible(false);
-							setModalCadastroVisible(true);
-						}}
-					>
-						<Feather name="plus-circle" size={18} color="#28a745" />
-						<Text style={styles.btnInserirBuscaDinamicaText}>Cadastrar Novo: "{termoComboBusca.trim()}"</Text>
-					</TouchableOpacity>
-				)}
+				{termoComboBusca.trim().length > 0 &&
+					(
+						tipoBusca === 'marca' ||
+						tipoBusca === 'modelo' ||
+						tipoBusca === 'entidade'
+					) && (
+						<TouchableOpacity
+							style={styles.btnInserirBuscaDinamica}
+							onPress={() => {
+								setFormCadastro({ nome: termoComboBusca.trim() });
+								setModalBuscaVisible(false);
+								setModalCadastroVisible(true);
+							}}
+						>
+							<Feather name="plus-circle" size={18} color="#28a745" />
+							<Text style={styles.btnInserirBuscaDinamicaText}>Cadastrar Novo: "{termoComboBusca.trim()}"</Text>
+						</TouchableOpacity>
+					)}
 
 				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
 					<FlatList
@@ -503,7 +518,12 @@ export default function VeiculosScreen() {
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
 			<View style={styles.modalSmall}>
 				<Text style={styles.modalTitle}>
-					Cadastrar Nova {tipoBusca === 'marca' ? 'Marca' : 'Modelo'}
+					{tipoBusca === 'marca'
+						? 'Cadastrar Nova Marca'
+						: tipoBusca === 'modelo'
+							? 'Cadastrar Novo Modelo'
+							: 'Cadastrar Novo Cliente'
+					}
 				</Text>
 
 				<Text style={styles.label}>* Nome {tipoBusca === 'modelo' && `(Para a marca ${form.marca})`}</Text>
@@ -511,8 +531,17 @@ export default function VeiculosScreen() {
 				<TextInput
 					style={styles.input}
 					value={formCadastro.nome}
-					onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })}
-					placeholder={`Nome da ${tipoBusca}...`}
+					onChangeText={t =>
+						setFormCadastro({
+							...formCadastro,
+							nome: t
+						})
+					}
+					placeholder={
+						tipoBusca === 'entidade'
+							? 'Nome do Cliente...'
+							: `Nome da ${tipoBusca}...`
+					}
 				/>
 				<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
 					<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 50 }]} onPress={() => setModalCadastroVisible(false)}>
@@ -717,7 +746,7 @@ export default function VeiculosScreen() {
 							<Text style={styles.groupTitle}>1. Informações do Veículo</Text>
 
 							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>Cliente</Text>
+								<Text style={styles.label}>* Cliente</Text>
 								<View style={styles.inputWithIcon}>
 									<TextInput
 										style={[styles.inputFlex, params.cliente_id ? { backgroundColor: '#eee', color: '#666' } : {}]}
@@ -752,11 +781,6 @@ export default function VeiculosScreen() {
 								</View>
 							</View>
 
-							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Renavam</Text><TextInput style={styles.input} value={form.renavam} onChangeText={t => setForm({ ...form, renavam: t })} keyboardType="numeric" /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>UF</Text><RNPickerSelect placeholder={{ label: 'UF', value: '', color: '#666' }} value={form.uf} onValueChange={v => setForm({ ...form, uf: v })} items={UFS.map(u => ({ label: u, value: u, color: '#000' }))} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} /></View>
-							</View>
-
 							<View style={styles.inputGroupFull}>
 								<Text style={styles.label}>* Marca</Text>
 								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('marca')}>
@@ -774,35 +798,8 @@ export default function VeiculosScreen() {
 							</View>
 
 							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Ano Fab.</Text><TextInput style={styles.input} value={form.ano} onChangeText={t => setForm({ ...form, ano: t })} keyboardType="numeric" maxLength={4} /></View>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Ano Mod.</Text><TextInput style={styles.input} value={form.anoModelo} onChangeText={t => setForm({ ...form, anoModelo: t })} keyboardType="numeric" maxLength={4} /></View>
-							</View>
-
-							<View style={styles.row}>
-								<View style={styles.inputGroupH}><Text style={styles.label}>Cor</Text><TextInput style={styles.input} value={form.cor} onChangeText={t => setForm({ ...form, cor: t })} /></View>
 								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Combustível</Text>
-									<RNPickerSelect
-										placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
-										value={form.combustivel?.toUpperCase()}
-										onValueChange={v => setForm({ ...form, combustivel: v })}
-										items={[
-											{ label: 'Gasolina', value: 'GASOLINA', color: '#000' },
-											{ label: 'Etanol', value: 'ETANOL', color: '#000' },
-											{ label: 'Flex', value: 'FLEX', color: '#000' },
-											{ label: 'Diesel', value: 'DIESEL', color: '#000' },
-											{ label: 'Elétrico', value: 'ELÉTRICO', color: '#000' }
-										]}
-										style={pickerStyles}
-										useNativeAndroidPickerStyle={false}
-										Icon={PickerIcon}
-									/>
-								</View>
-							</View>
-
-							<View style={styles.row}>
-								<View style={styles.inputGroupH}>
-									<Text style={styles.label}>Estepe (Qntd)</Text>
+									<Text style={styles.label}>* Estepe (Qntd)</Text>
 									<RNPickerSelect
 										placeholder={{ label: 'Selecione...', value: '', color: '#666' }}
 										value={form.estepe}
@@ -825,22 +822,35 @@ export default function VeiculosScreen() {
 								</View>
 							</View>
 
-							<Text style={styles.groupTitle}>2. Informações da Carga</Text>
+							<Text style={styles.groupTitle}>2. Configurações do Veículo</Text>
 
 							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>Tipo Veículo</Text>
-								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v, tipoRodado: '' })} items={TIPOS_VEICULOS} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+								<Text style={styles.label}>* Tipo Veículo</Text>
+
+								<RNPickerSelect
+									placeholder={{
+										label: 'Selecione...',
+										value: '',
+										color: '#666'
+									}}
+									value={form.tipo}
+									onValueChange={v =>
+										setForm({
+											...form,
+											tipo: v,
+											tipoRodado: ''
+										})
+									}
+									items={TIPOS_VEICULOS}
+									style={pickerStyles}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
 							</View>
 
 							<View style={styles.inputGroupFull}>
 								<Text style={styles.label}>* Tipo Rodado</Text>
 								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipoRodado} onValueChange={v => setForm({ ...form, tipoRodado: v })} items={getRodadoOptions()} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
-							</View>
-
-							<View style={styles.row}>
-								<View style={styles.inputGroup31}><Text style={styles.label}>Tara Kg</Text><TextInput style={styles.input} value={form.taraKg} onChangeText={t => setForm({ ...form, taraKg: t })} keyboardType="numeric" /></View>
-								<View style={styles.inputGroup31}><Text style={styles.label}>Cap. Kg</Text><TextInput style={styles.input} value={form.capacidadeKg} onChangeText={t => setForm({ ...form, capacidadeKg: t })} keyboardType="numeric" /></View>
-								<View style={styles.inputGroup31}><Text style={styles.label}>Cap. M3</Text><TextInput style={styles.input} value={form.capacidadeM3} onChangeText={t => setForm({ ...form, capacidadeM3: t })} keyboardType="numeric" /></View>
 							</View>
 
 							<Text style={[styles.groupTitle, { zIndex: -1, elevation: -1 }]}>3. Fotos do Veículo</Text>

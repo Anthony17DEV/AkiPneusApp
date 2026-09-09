@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
+import { DrawerContentComponentProps, DrawerContentScrollView, DrawerItemList } from 'expo-router/drawer';
 import PlaceholderAvatar from 'assets/images/avatar_placeholder.png';
 import React from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
