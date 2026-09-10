@@ -1,6 +1,6 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { apiService } from '../../src/services/apiService';
@@ -32,7 +32,6 @@ export default function ModelosScreen() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const [filtroRef, setFiltroRef] = useState('');
 	const [filtroMarca, setFiltroMarca] = useState('');
 	const [filtroModelo, setFiltroModelo] = useState('');
 
@@ -65,19 +64,28 @@ export default function ModelosScreen() {
 		return formatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 	};
 
-	const carregarModelos = async (refStr = filtroRef, marcaStr = filtroMarca, modStr = filtroModelo) => {
+	const carregarModelos = async (
+		marcaStr = filtroMarca,
+		modStr = filtroModelo
+	) => {
 		setIsLoading(true);
 		try {
 			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca_referencia: refStr, busca_marca: marcaStr, busca_modelo: modStr })
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					acao: 'listar',
+					busca_referencia: '',
+					busca_marca: marcaStr,
+					busca_modelo: modStr
+				})
 			});
 			const res = await response.json();
 
 			if (!isMounted.current) return;
 
 			if (res.success) {
-				setModelos(res.data);
+				setModelos(res.data || []);
 			} else {
 				setModelos([]);
 			}
@@ -89,17 +97,17 @@ export default function ModelosScreen() {
 	};
 
 	useEffect(() => {
-		const refParam = params.referencia_nome as string || '';
-		const marcaParam = params.marca_nome as string || '';
-		setFiltroRef(refParam);
+		const marcaParam = (params.marca_nome as string) || '';
+
 		setFiltroMarca(marcaParam);
-		carregarModelos(refParam, marcaParam, filtroModelo);
-	}, [params.referencia_nome, params.marca_nome]);
+		setFiltroModelo('');
+		carregarModelos(marcaParam, '');
+	}, [params.marca_nome]);
 
 	const resetForm = () => {
 		setForm({
 			id: '',
-			referencia: filtroRef || '',
+			referencia: '',
 			marca: filtroMarca || '',
 			modelo: '',
 			mmOriginal: '',
@@ -209,29 +217,34 @@ export default function ModelosScreen() {
 		<View style={styles.container}>
 
 			<View style={styles.filterSection}>
-				<Text style={styles.sectionTitle}>Gerenciar Modelos de Pneus</Text>
+				<Text style={styles.sectionTitle}>Tipos de Pneus por Marca</Text>
 
 				{!!params?.marca_nome && (
-					<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push({ pathname: '/marcas', params: { referencia_nome: params.referencia_nome } })}>
+					<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/marcas')}>
 						<Feather name="arrow-left" size={16} color="#333" />
 						<Text style={styles.btnVoltarClienteText}>Voltar para Marcas</Text>
 					</TouchableOpacity>
 				)}
 
-				<View style={styles.row}>
-					<View style={styles.inputGroupH}>
-						<Text style={styles.label}>Referência</Text>
-						<TextInput style={styles.input} placeholder="Ex: 295/80" value={filtroRef} onChangeText={t => setFiltroRef(t.replace(/,/g, '.'))} />
-					</View>
-					<View style={styles.inputGroupH}>
-						<Text style={styles.label}>Marca</Text>
-						<TextInput style={styles.input} placeholder="Ex: Michelin" value={filtroMarca} onChangeText={setFiltroMarca} />
-					</View>
+				<View style={styles.inputGroupFull}>
+					<Text style={styles.label}>Marca</Text>
+					<TextInput
+						style={styles.input}
+						placeholder="Ex: Michelin"
+						value={filtroMarca}
+						onChangeText={setFiltroMarca}
+					/>
 				</View>
 
 				<View style={styles.inputGroupFull}>
-					<Text style={styles.label}>Modelo</Text>
-					<TextInput style={styles.input} placeholder="Ex: XTE2" value={filtroModelo} onChangeText={setFiltroModelo} />
+					<Text style={styles.label}>Tipo / Modelo do Pneu</Text>
+					<TextInput
+						style={styles.input}
+						placeholder="Ex: XTE2"
+						value={filtroModelo}
+						onChangeText={setFiltroModelo}
+						onSubmitEditing={() => carregarModelos()}
+					/>
 				</View>
 
 				<View style={styles.actionRow}>

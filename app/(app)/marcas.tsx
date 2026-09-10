@@ -1,6 +1,6 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { apiService } from '../../src/services/apiService';
@@ -12,9 +12,13 @@ interface MarcaPneu {
 	qtd_modelos: number;
 }
 
+interface MarcaAgrupada {
+	marca: string;
+	qtd_modelos: number;
+}
+
 export default function MarcasScreen() {
 	const router = useRouter();
-	const params = useLocalSearchParams();
 	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_marcas.php';
 
 	const isMounted = useRef(true);
@@ -58,7 +62,7 @@ export default function MarcasScreen() {
 				body: JSON.stringify({
 					acao: 'listar',
 					busca_marca: filtroBusca,
-					busca_referencia: params?.referencia_nome || params?.nome || params?.referencia || ''
+					busca_referencia: ''
 				})
 			});
 			const result = await response.json();
@@ -75,15 +79,15 @@ export default function MarcasScreen() {
 	};
 
 	useEffect(() => {
-		const refParam = params.referencia_nome as string || '';
-		if (refParam) setFiltroBusca(refParam);
 		carregarMarcas();
-	}, [params.referencia_nome]);
+	}, []);
 
 	const resetForm = () => {
 		setForm({
-			referenciaAntiga: '', marcaAntiga: '',
-			referenciaNova: (params.referencia_nome as string) || '', marcaNova: ''
+			referenciaAntiga: '',
+			marcaAntiga: '',
+			referenciaNova: '',
+			marcaNova: ''
 		});
 	};
 
@@ -217,25 +221,34 @@ export default function MarcasScreen() {
 	};
 
 	const marcasFiltradas = marcas.filter((m) => {
-		const termo = filtroBusca.toLowerCase();
-		return (
-			(m.referencia && m.referencia.toLowerCase().includes(termo)) ||
-			(m.marca && m.marca.toLowerCase().includes(termo))
-		);
+		const termo = filtroBusca.trim().toLowerCase();
+		return !termo || (m.marca && m.marca.toLowerCase().includes(termo));
 	});
+
+	const marcasAgrupadas = (Object.values(
+		marcasFiltradas.reduce<Record<string, MarcaAgrupada>>((acc, item) => {
+			const chave = String(item.marca || '').trim().toUpperCase();
+
+			if (!chave) return acc;
+
+			if (!acc[chave]) {
+				acc[chave] = {
+					marca: item.marca.trim(),
+					qtd_modelos: Number(item.qtd_modelos || 0),
+				};
+			} else {
+				acc[chave].qtd_modelos += Number(item.qtd_modelos || 0);
+			}
+
+			return acc;
+		}, {})
+	) as MarcaAgrupada[]).sort((a, b) => a.marca.localeCompare(b.marca));
 
 	return (
 		<View style={styles.container}>
 
 			<View style={styles.filterSection}>
-				<Text style={styles.sectionTitle}>Gerenciar Marcas de Pneus</Text>
-
-				{!!params?.referencia_nome && (
-					<TouchableOpacity style={styles.btnVoltarCliente} onPress={() => router.push('/referencias')}>
-						<Feather name="arrow-left" size={16} color="#333" />
-						<Text style={styles.btnVoltarClienteText}>Voltar para Referências</Text>
-					</TouchableOpacity>
-				)}
+				<Text style={styles.sectionTitle}>Marcas de Pneus</Text>
 
 				<View style={styles.inputGroupFull}>
 					<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
@@ -248,7 +261,7 @@ export default function MarcasScreen() {
 					</View>
 					<TextInput
 						style={styles.input}
-						placeholder="Referência ou Marca..."
+						placeholder="Digite a marca..."
 						value={filtroBusca}
 						onChangeText={setFiltroBusca}
 					/>
@@ -267,7 +280,7 @@ export default function MarcasScreen() {
 				</View>
 
 				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-					Resultados ({marcasFiltradas.length})
+					Resultados ({marcasAgrupadas.length})
 				</Text>
 
 				{isLoading && marcas.length === 0 && (
@@ -279,8 +292,8 @@ export default function MarcasScreen() {
 			</View>
 
 			<FlatList
-				data={marcasFiltradas}
-				keyExtractor={(item, index) => String(item.id || index)}
+				data={marcasAgrupadas}
+				keyExtractor={(item) => item.marca.toUpperCase()}
 
 				initialNumToRender={10}
 				maxToRenderPerBatch={10}
@@ -293,10 +306,22 @@ export default function MarcasScreen() {
 					<View style={styles.card}>
 						<View style={styles.cardHeader}>
 							<View style={{ flex: 1 }}>
-								<Text style={styles.cardTitle} numberOfLines={1}>{item.marca}</Text>
-								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-									<MaterialCommunityIcons name="tire" size={14} color="#666" style={{ marginRight: 6 }} />
-									<Text style={styles.cardSubTitle} numberOfLines={1}>Ref: {item.referencia}</Text>
+								<View
+									style={{
+										flexDirection: 'row',
+										alignItems: 'center'
+									}}
+								>
+									<MaterialCommunityIcons
+										name="tire"
+										size={22}
+										color="#0c6ead"
+										style={{ marginRight: 10 }}
+									/>
+
+									<Text style={styles.cardTitle}>
+										{item.marca}
+									</Text>
 								</View>
 							</View>
 							<View style={styles.statusBadge}>
@@ -308,21 +333,19 @@ export default function MarcasScreen() {
 							<View style={styles.actionButtonsRow}>
 								<TouchableOpacity
 									style={styles.btnActionSecondary}
-									onPress={() => router.push({ pathname: '/modelos', params: { referencia_nome: item.referencia, marca_nome: item.marca } })}
+									onPress={() =>
+										router.push({
+											pathname: '/modelos',
+											params: {
+												marca_nome: item.marca
+											}
+										})
+									}
 								>
 									<MaterialCommunityIcons name="tag-multiple" size={14} color="#333" />
 									<Text style={styles.btnActionTextSecondary}>Modelos</Text>
 								</TouchableOpacity>
 
-								<TouchableOpacity style={styles.btnEditarCard} onPress={() => handleEditar(item)}>
-									<Feather name="edit-2" size={14} color="#ffffff" />
-									<Text style={styles.btnEditarCardText}>Editar</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity style={styles.btnExcluirCard} onPress={() => excluirMarca(item.referencia, item.marca)}>
-									<Feather name="trash-2" size={14} color="#ffffff" />
-									<Text style={styles.btnExcluirCardText}>Excluir</Text>
-								</TouchableOpacity>
 							</View>
 						</View>
 					</View>
@@ -488,7 +511,7 @@ const styles = StyleSheet.create({
 	cardActions: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa', alignItems: 'flex-end' },
 	actionButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', width: '100%' },
 
-	btnActionSecondary: { backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15, marginRight: 8 },
+	btnActionSecondary: { flex: 1, backgroundColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, borderRadius: 8, paddingHorizontal: 15 },
 	btnActionTextSecondary: { color: '#333', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
 	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },

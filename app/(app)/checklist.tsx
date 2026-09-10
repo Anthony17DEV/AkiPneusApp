@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
@@ -29,6 +29,8 @@ interface Veiculo {
 	veic_tx_tipo?: string;
 	cor?: string;
 	veic_tx_cor?: string;
+	proprietario?: string;
+	proprietario_id?: string | number;
 }
 
 export default function ChecklistScreen() {
@@ -60,6 +62,8 @@ export default function ChecklistScreen() {
 
 	const [dadosPneus, setDadosPneus] = useState<{ [key: string]: any }>({});
 	const [pneusPendentes, setPneusPendentes] = useState<string[]>([]);
+	const [posicoesRetiradas, setPosicoesRetiradas] = useState<string[]>([]);
+	const [pneusRecusados, setPneusRecusados] = useState<any[]>([]);
 
 	const [avisosVinculo, setAvisosVinculo] = useState<{ msg: string, checklist_id?: number, cavalo_id?: number, cavalo_placa?: string }[]>([]);
 	const [isModoIsolado, setIsModoIsolado] = useState(false);
@@ -92,6 +96,9 @@ export default function ChecklistScreen() {
 	const [isCadastrando, setIsCadastrando] = useState(false);
 	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '' });
 	const [isSomenteLeitura, setIsSomenteLeitura] = useState(false);
+	const [valorPodeEditar, setValorPodeEditar] = useState(true);
+	const [pneuPodeSerRetirado, setPneuPodeSerRetirado] = useState(false);
+	const [isRetirandoPneu, setIsRetirandoPneu] = useState(false);
 
 	const [formPneu, setFormPneu] = useState({
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
@@ -175,6 +182,8 @@ export default function ChecklistScreen() {
 				setIdChecklistAtivo(null);
 				setDadosPneus({});
 				setPneusPendentes([]);
+				setPosicoesRetiradas([]);
+				setPneusRecusados([]);
 
 				setIsModoIsolado(false);
 				setOffsetEixos(0);
@@ -312,8 +321,21 @@ export default function ChecklistScreen() {
 
 	const carregarHistorico = async (idVeiculo: number) => {
 		const res = await apiService.listarChecklists(idVeiculo);
+
 		if (!isMounted.current) return;
-		if (res && res.success) setHistorico(res.data);
+
+		if (!res || !res.success || !Array.isArray(res.data)) {
+			setHistorico([]);
+			return;
+		}
+		const historicoNormalizado = res.data.map((checklist: any) => ({
+			...checklist,
+			implementos_placas: Array.isArray(checklist.implementos_placas)
+				? checklist.implementos_placas.filter(Boolean)
+				: []
+		}));
+
+		setHistorico(historicoNormalizado);
 	};
 
 	const formatarDataLocal = (dataStr: string) => {
@@ -324,12 +346,27 @@ export default function ChecklistScreen() {
 		return dataStr;
 	};
 
-	const carregarCoresPneus = async (idDoChecklist: number) => {
+	const carregarCoresPneus = async (idDoChecklist: number, posicoesBloqueadasExtras: string[] = []) => {
 		const resAtual = await apiService.buscarPneusVeiculo(idDoChecklist);
 		let pneusAtuais: any = {};
-		if (resAtual && resAtual.success && resAtual.data) {
-			pneusAtuais = resAtual.data;
+		let retiradasServidor: string[] = [];
+		let recusadosServidor: any[] = [];
+
+		if (resAtual && resAtual.success) {
+			pneusAtuais = resAtual.data || {};
+			retiradasServidor = Array.isArray(resAtual.posicoes_retiradas)
+				? resAtual.posicoes_retiradas.map((p: any) => String(p))
+				: [];
+			recusadosServidor = Array.isArray(resAtual.pneus_recusados)
+				? resAtual.pneus_recusados
+				: [];
 		}
+
+		const posicoesBloqueadas = Array.from(new Set([
+			...posicoesRetiradas,
+			...retiradasServidor,
+			...posicoesBloqueadasExtras
+		]));
 
 		let pneusMesclados = { ...pneusAtuais };
 		let pendentesTemporarios: string[] = [];
@@ -340,7 +377,10 @@ export default function ChecklistScreen() {
 		if (eOMaisRecente && historico.length > 0) {
 			let startIdx = indexAtual === -1 ? 0 : 1;
 			let promises = [];
-			let posicoesVarridas = new Set(Object.keys(pneusAtuais));
+			let posicoesVarridas = new Set([
+				...Object.keys(pneusAtuais),
+				...posicoesBloqueadas
+			]);
 
 			for (let i = startIdx; i < Math.min(historico.length, startIdx + 5); i++) {
 				promises.push(apiService.buscarPneusVeiculo(historico[i].chec_nb_id));
@@ -356,11 +396,20 @@ export default function ChecklistScreen() {
 							if (!posicoesVarridas.has(posicao)) {
 								const pneuClone = JSON.parse(JSON.stringify(pneusAntigos[posicao]));
 								if (pneuClone.dados_completos) {
+									pneuClone.dados_completos.pneu_id_origem =
+										pneuClone.dados_completos.pneu_nb_id || pneuClone.dados_completos.id || '';
+									pneuClone.dados_completos.checklist_id_origem =
+										pneuClone.dados_completos.pneu_nb_checklist || '';
+
 									pneuClone.dados_completos.pneu_nb_id = '';
 									pneuClone.dados_completos.id = '';
+									pneuClone.dados_completos.tem_checklist_anterior = true;
+									pneuClone.dados_completos.valor_editavel = false;
 								}
 								pneuClone.pneu_nb_id = '';
 								pneuClone.id = '';
+								pneuClone.tem_checklist_anterior = true;
+								pneuClone.valor_editavel = false;
 
 								pneusMesclados[posicao] = pneuClone;
 								pendentesTemporarios.push(posicao);
@@ -376,8 +425,14 @@ export default function ChecklistScreen() {
 
 		if (!isMounted.current) return;
 
+		setPosicoesRetiradas(prev => Array.from(new Set([
+			...prev,
+			...retiradasServidor,
+			...posicoesBloqueadasExtras
+		])));
 		setDadosPneus(pneusMesclados);
 		setPneusPendentes(pendentesTemporarios);
+		setPneusRecusados(recusadosServidor);
 	};
 
 	const removerImplemento = (id: number) => {
@@ -432,6 +487,8 @@ export default function ChecklistScreen() {
 			setModalNovoChecklist(false);
 			setIdChecklistAtivo(res.checklist_id);
 			setFormNovoCheck({ motorista: '', odometro: '' });
+			setPosicoesRetiradas([]);
+			setPneusRecusados([]);
 
 			carregarCoresPneus(res.checklist_id);
 		} else {
@@ -446,6 +503,8 @@ export default function ChecklistScreen() {
 		setIsModoIsolado(false);
 		setOffsetEixos(0);
 		setOffsetEstepes(0);
+		setPosicoesRetiradas([]);
+		setPneusRecusados([]);
 
 		setIdChecklistAtivo(idDoChecklist);
 		carregarCoresPneus(idDoChecklist);
@@ -495,6 +554,8 @@ export default function ChecklistScreen() {
 
 		setIdChecklistAtivo(null);
 		setImplementos([]);
+		setPosicoesRetiradas([]);
+		setPneusRecusados([]);
 
 		setIsModoIsolado(false);
 		setOffsetEixos(0);
@@ -554,8 +615,45 @@ export default function ChecklistScreen() {
 		);
 	};
 
-	const abrirEdicaoPneu = (codigoPneu: string, dbData: any) => {
+	const abrirEdicaoPneu = (codigoPneu: string, dbData: any, bloquearValorPorHistorico = false) => {
 		setPneuSelecionado(codigoPneu);
+
+		const jaExistePneuNaPosicao = Boolean(
+			bloquearValorPorHistorico ||
+			dbData?.pneu_nb_id ||
+			dbData?.id ||
+			dbData?.pneu_id_origem ||
+			dbData?.pneu_tx_serie ||
+			dbData?.pneu_tx_modelo
+		);
+		setPneuPodeSerRetirado(jaExistePneuNaPosicao);
+
+		const flagHistorico = dbData?.tem_checklist_anterior;
+		const flagEditavel = dbData?.valor_editavel;
+
+		const temHistorico =
+			bloquearValorPorHistorico ||
+			flagHistorico === true ||
+			flagHistorico === 1 ||
+			flagHistorico === '1';
+
+		const apiBloqueouEdicao =
+			flagEditavel === false ||
+			flagEditavel === 0 ||
+			flagEditavel === '0';
+
+		const podeEditarValor = !temHistorico && !apiBloqueouEdicao;
+		setValorPodeEditar(podeEditarValor);
+
+		const valorCarregadoRaw =
+			dbData?.valor_carregado ??
+			dbData?.pneu_tx_valor ??
+			'';
+
+		const valorCarregadoFormatado =
+			valorCarregadoRaw !== '' && valorCarregadoRaw !== null && valorCarregadoRaw !== undefined
+				? formatarValorDB(valorCarregadoRaw)
+				: '';
 
 		if (dbData.pneu_tx_foto) {
 			const nomesFotos = dbData.pneu_tx_foto.split(',');
@@ -571,7 +669,7 @@ export default function ChecklistScreen() {
 			referencia_nome: dbData.referencia_nome || (dbData.pneu_tx_referencia ? `Referência #${dbData.pneu_tx_referencia}` : ''),
 			marca: dbData.pneu_tx_marca || '',
 			modelo: dbData.pneu_tx_modelo || '',
-			valor: dbData.pneu_tx_valor?.toString() ? formatarValorDB(dbData.pneu_tx_valor.toString()) : '',
+			valor: valorCarregadoFormatado,
 			dot: dbData.pneu_tx_dot || '',
 			serie: dbData.pneu_tx_serie || '',
 			ferro: dbData.pneu_tx_ferro || '',
@@ -588,7 +686,7 @@ export default function ChecklistScreen() {
 			pressao_padrao: dbData.pneu_tx_pressaoPadrao?.toString() || veiculo?.calibragem_padrao || '',
 			pressao: dbData.pneu_tx_pressao?.toString() || '',
 			ref_mm_original: dbData.pneu_tx_mmOriginal?.toString() || '',
-			ref_valor: dbData.pneu_tx_valor?.toString() ? formatarValorDB(dbData.pneu_tx_valor.toString()) : '',
+			ref_valor: valorCarregadoFormatado,
 			sulco_anterior: dbData.pneu_tx_milimetros?.toString() || ''
 		});
 
@@ -617,9 +715,112 @@ export default function ChecklistScreen() {
 				dbData.pneu_nb_id = '';
 				dbData.id = '';
 				dbData.pneu_tx_foto = '';
+				dbData.tem_checklist_anterior = true;
+				dbData.valor_editavel = false;
 			}
-			abrirEdicaoPneu(codigoPneu, dbData);
+			abrirEdicaoPneu(codigoPneu, dbData, isPendente);
 		}
+	};
+
+	const retirarPneu = (codigoPneu: string, dbData: any) => {
+		if (isSomenteLeitura) {
+			Alert.alert('Modo Leitura', 'Este checklist não permite retirada de pneus.');
+			return;
+		}
+
+		const indiceChecklist = historico.findIndex(
+			h => Number(h.chec_nb_id) === Number(idChecklistAtivo)
+		);
+		const checklistMaisRecente = indiceChecklist === -1 || indiceChecklist === 0;
+
+		if (!checklistMaisRecente) {
+			Alert.alert(
+				'Atenção',
+				'A retirada de pneus só pode ser feita no checklist mais recente.'
+			);
+			return;
+		}
+
+		const dados = dbData || {};
+		const pneuId = Number(dados.pneu_nb_id || dados.id || 0);
+		const ehPneuPendente = pneusPendentes.includes(codigoPneu) || pneuId <= 0;
+
+		Alert.alert(
+			'Retirar Pneu',
+			`Deseja realmente retirar o pneu da posição ${codigoPneu}?\\n\\nA posição ficará livre para cadastrar um novo pneu.`,
+			[
+				{ text: 'Cancelar', style: 'cancel' },
+				{
+					text: 'Retirar',
+					style: 'destructive',
+					onPress: async () => {
+						if (ehPneuPendente) {
+							setPosicoesRetiradas(prev => Array.from(new Set([...prev, codigoPneu])));
+							setDadosPneus(prev => {
+								const novo = { ...prev };
+								delete novo[codigoPneu];
+								return novo;
+							});
+							setPneusPendentes(prev => prev.filter(p => p !== codigoPneu));
+							setModalPneuVisible(false);
+							setModalViewPneuVisible(false);
+
+							Alert.alert(
+								'Posição Liberada',
+								'O pneu anterior foi retirado desta posição. Toque na posição novamente para cadastrar o novo pneu.'
+							);
+							return;
+						}
+
+						setIsRetirandoPneu(true);
+						try {
+							const response = await fetch(
+								'https://sistemascactus.com/apicactus/akipneus/api_pneu_retirar.php',
+								{
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										pneu_id: pneuId,
+										checklist_id: dados.pneu_nb_checklist || idChecklistAtivo,
+										veiculo_id: dados.pneu_nb_veiculo || veiculo?.id
+									})
+								}
+							);
+
+							const res = await response.json();
+							if (!isMounted.current) return;
+
+							if (!res?.success) {
+								Alert.alert('Erro', res?.message || 'Não foi possível retirar o pneu.');
+								return;
+							}
+
+							setPosicoesRetiradas(prev => Array.from(new Set([...prev, codigoPneu])));
+							setDadosPneus(prev => {
+								const novo = { ...prev };
+								delete novo[codigoPneu];
+								return novo;
+							});
+							setPneusPendentes(prev => prev.filter(p => p !== codigoPneu));
+							setModalPneuVisible(false);
+							setModalViewPneuVisible(false);
+
+							if (idChecklistAtivo) {
+								await carregarCoresPneus(idChecklistAtivo, [codigoPneu]);
+							}
+
+							Alert.alert('Sucesso', res.message || 'Pneu retirado do veículo com sucesso.');
+						} catch (error) {
+							if (isMounted.current) {
+								Alert.alert('Erro', 'Falha na conexão ao retirar o pneu.');
+							}
+						} finally {
+							if (isMounted.current) setIsRetirandoPneu(false);
+						}
+					}
+				}
+			]
+		);
 	};
 
 	const tirarFotoPneu = async () => {
@@ -713,12 +914,58 @@ export default function ChecklistScreen() {
 
 		setIsSaving(false);
 		if (res && res.success) {
-			Alert.alert('Sucesso', res.message);
 			setModalPneuVisible(false);
-
 			setPneusPendentes(prev => prev.filter(p => p !== pneuSelecionado));
 
-			if (idChecklistAtivo) carregarCoresPneus(idChecklistAtivo);
+			const pneuFoiRetirado =
+				res.pneu_retirado === true ||
+				res.pneu_retirado === 1 ||
+				res.pneu_retirado === '1';
+
+			if (pneuFoiRetirado) {
+				setPosicoesRetiradas(prev => Array.from(new Set([...prev, pneuSelecionado])));
+				setDadosPneus(prev => {
+					const novo = { ...prev };
+					delete novo[pneuSelecionado];
+					return novo;
+				});
+
+				if (idChecklistAtivo) {
+					await carregarCoresPneus(idChecklistAtivo, [pneuSelecionado]);
+				}
+
+				const pneuIdLaudo = res.pneu_id || formPneu.id;
+				const gerouLaudo =
+					res.gerou_laudo === true ||
+					res.gerou_laudo === 1 ||
+					res.gerou_laudo === '1';
+
+				const botoes: any[] = [{ text: 'OK' }];
+				if (gerouLaudo && pneuIdLaudo) {
+					botoes.push({
+						text: 'Visualizar Laudo',
+						onPress: () => {
+							const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${pneuIdLaudo}`;
+							abrirModalPreview(
+								url,
+								`Laudo_Pneu_${pneuIdLaudo}`,
+								'Laudo Técnico de Pneu',
+								`Pneu #${pneuIdLaudo}`
+							);
+						}
+					});
+				}
+
+				Alert.alert(
+					'Pneu Recusado',
+					res.message || 'Laudo gerado e pneu retirado do veículo. A posição está livre para um novo pneu.',
+					botoes
+				);
+			} else {
+				setPosicoesRetiradas(prev => prev.filter(p => p !== pneuSelecionado));
+				if (idChecklistAtivo) await carregarCoresPneus(idChecklistAtivo);
+				Alert.alert('Sucesso', res.message);
+			}
 		}
 		else {
 			Alert.alert('Erro', res?.message || 'Falha ao salvar pneu.');
@@ -731,16 +978,39 @@ export default function ChecklistScreen() {
 		setIsSearching(true);
 
 		if (tipo === 'veiculo' || tipo === 'implemento') {
-			const res = await apiService.buscarVeiculo({ busca: termo });
+			const clienteIdSelecionado = String(
+				params.cliente_id ||
+				veiculo?.proprietario_id ||
+				''
+			);
+
+			const filtros: any = {
+				busca: termo
+			};
+
+			if (tipo === 'implemento' && clienteIdSelecionado) {
+				filtros.cliente_id = clienteIdSelecionado;
+			}
+
+			const res = await apiService.buscarVeiculo(filtros);
 			if (!isMounted.current) return;
 
 			if (res && res.success) {
 				let listaVeiculos = res.data;
 
 				if (tipo === 'implemento') {
+					const tiposPermitidos = ['CARRETA', 'DOLLY', 'OUTROS'];
+
 					listaVeiculos = listaVeiculos.filter((v: any) => {
-						const tipoTratado = String(v.tipo || v.veic_tx_tipo || '').toLowerCase();
-						return tipoTratado.includes('carreta') || tipoTratado.includes('dolly') || tipoTratado.includes('implemento') || tipoTratado.includes('reboque') || tipoTratado.includes('equipamento') || tipoTratado.includes('outros') || tipoTratado.includes('sr') || tipoTratado.includes('bau');
+						const tipoTratado = String(
+							v.tipo ||
+							v.veic_tx_tipo ||
+							''
+						)
+							.trim()
+							.toUpperCase();
+
+						return tiposPermitidos.includes(tipoTratado);
 					});
 				}
 
@@ -780,43 +1050,137 @@ export default function ChecklistScreen() {
 		else if (tipoBusca === 'referencia_pneu') {
 			setFormPneu({
 				...formPneu,
+
 				referencia: item.id || item.refe_nb_id,
 				referencia_nome: item.nome || item.refe_tx_nome,
-				marca: item.isNewModel ? (formCadastro.marca || '') : '',
-				modelo: item.isNewModel ? (formCadastro.modelo || '') : '',
+
+				marca: item.isNewModel
+					? (formCadastro.marca || '')
+					: '',
+
+				modelo: item.isNewModel
+					? (formCadastro.modelo || '')
+					: '',
+
+				mm_original: '',
+				ref_mm_original: '',
+				valor: valorPodeEditar ? '' : formPneu.valor,
+				ref_valor: valorPodeEditar ? '' : (formPneu.ref_valor || formPneu.valor),
 			});
 		}
 		else if (tipoBusca === 'marca_pneu') {
 			setFormPneu({
 				...formPneu,
-				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
+
+				referencia_nome: item.isNewModel
+					? (formCadastro.nome || formPneu.referencia_nome)
+					: formPneu.referencia_nome,
+
 				marca: item.nome || item.refe_tx_marca,
+
 				modelo: '',
+
+				mm_original: '',
+				ref_mm_original: '',
+				valor: valorPodeEditar ? '' : formPneu.valor,
+				ref_valor: valorPodeEditar ? '' : (formPneu.ref_valor || formPneu.valor),
 			});
 		}
 		else if (tipoBusca === 'modelo_pneu') {
-			const refMm = item.isNewModel ? (formCadastro.mmOriginal || formPneu.mm_original) : (item.refe_tx_mmOriginal || formPneu.mm_original);
-			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || formPneu.valor) : formatarValorDB(item.refe_tx_valor || formPneu.valor);
+			const rawMm =
+				item.mmOriginal ??
+				item.refe_tx_mmOriginal ??
+				item.mm_original ??
+				item.pneu_tx_mmOriginal ??
+				'';
+
+			const rawValor =
+				item.valor ??
+				item.refe_tx_valor ??
+				item.ref_valor ??
+				'';
+
+			const refMm = item.isNewModel
+				? (formCadastro.mmOriginal || '')
+				: String(rawMm).replace(',', '.');
+
+			const refVal = item.isNewModel
+				? formatarValorDB(formCadastro.valor || '')
+				: formatarValorDB(rawValor);
 
 			setFormPneu({
 				...formPneu,
-				referencia: item.isNewModel ? item.id : formPneu.referencia,
-				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
-				marca: item.isNewModel ? (formCadastro.marca || formPneu.marca) : (item.refe_tx_marca || formPneu.marca),
-				modelo: item.nome || item.refe_tx_modelo,
+
+				referencia: item.isNewModel
+					? item.id
+					: formPneu.referencia,
+
+				referencia_nome: item.isNewModel
+					? (formCadastro.nome || formPneu.referencia_nome)
+					: formPneu.referencia_nome,
+
+				marca: item.isNewModel
+					? (formCadastro.marca || formPneu.marca)
+					: (item.refe_tx_marca || item.marca || formPneu.marca),
+
+				modelo:
+					item.nome ||
+					item.refe_tx_modelo ||
+					item.modelo ||
+					'',
+
 				ref_mm_original: refMm,
-				ref_valor: refVal,
-				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
-				valor: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.valor : refVal
+				ref_valor: valorPodeEditar ? refVal : (formPneu.ref_valor || formPneu.valor),
+
+				mm_original:
+					formPneu.tipo === 'Reformado' && formPneu.banda
+						? formPneu.mm_original
+						: refMm,
+
+				valor: !valorPodeEditar
+					? formPneu.valor
+					: (formPneu.tipo === 'Reformado' && formPneu.banda
+						? formPneu.valor
+						: refVal)
 			});
 		}
 		else if (tipoBusca === 'banda') {
+			const rawSulco =
+				item.sulco ??
+				item.band_tx_sulco ??
+				'';
+
+			const rawValor =
+				item.valor ??
+				item.band_tx_valor ??
+				'';
+
 			setFormPneu({
 				...formPneu,
+
 				banda: item.id,
-				banda_nome: item.nome || item.banda,
-				mm_original: item.isNewModel ? formCadastro.sulco : (item.sulco ? String(item.sulco) : formPneu.mm_original),
-				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(item.valor || '') || formPneu.valor)
+
+				banda_nome:
+					item.nome ||
+					item.banda ||
+					'',
+
+				mm_original: item.isNewModel
+					? formCadastro.sulco
+					: (
+						rawSulco
+							? String(rawSulco).replace(',', '.')
+							: formPneu.mm_original
+					),
+
+				valor: !valorPodeEditar
+					? formPneu.valor
+					: (item.isNewModel
+						? formatarValorDB(formCadastro.valor || '')
+						: (
+							formatarValorDB(rawValor) ||
+							formPneu.valor
+						))
 			});
 		}
 
@@ -884,6 +1248,25 @@ export default function ChecklistScreen() {
 		} finally {
 			if (isMounted.current) setIsCadastrando(false);
 		}
+	};
+
+	const imprimirLaudoPneuRecusado = (pneu: any) => {
+		const pneuId = pneu?.pneu_nb_id || pneu?.id;
+		if (!pneuId) {
+			Alert.alert('Atenção', 'Não foi possível identificar o pneu recusado para gerar o laudo.');
+			return;
+		}
+
+		const posicao = pneu?.laud_tx_posicao || pneu?.pneu_tx_posicao || '';
+		const serie = pneu?.pneu_tx_serie || 'S/A';
+		const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${pneuId}`;
+
+		abrirModalPreview(
+			url,
+			`Laudo_Pneu_Recusado_${pneuId}`,
+			'Laudo de Pneu Recusado',
+			`${posicao ? `Posição ${posicao} • ` : ''}Série ${serie}`
+		);
 	};
 
 	const renderPreviewContent = () => (
@@ -1176,6 +1559,30 @@ export default function ChecklistScreen() {
 													* Inspecionado no veículo: {h.cavalo_placa}
 												</Text>
 											)}
+											{h.implementos_placas?.length > 0 && (
+												<View style={{ marginTop: 6 }}>
+													<Text
+														style={{
+															color: '#666',
+															fontSize: 13,
+															fontWeight: '600'
+														}}
+													>
+														Implementos:
+													</Text>
+
+													<Text
+														style={{
+															color: '#0c6ead',
+															fontSize: 13,
+															fontWeight: 'bold',
+															marginTop: 2
+														}}
+													>
+														{h.implementos_placas.join(' • ')}
+													</Text>
+												</View>
+											)}
 										</View>
 
 										<View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
@@ -1246,6 +1653,51 @@ export default function ChecklistScreen() {
 								/>
 							</View>
 
+							{pneusRecusados.length > 0 && (
+								<View style={styles.recusadosContainer}>
+									<View style={styles.recusadosHeader}>
+										<View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+											<Feather name="alert-triangle" size={20} color="#C62828" />
+											<Text style={styles.recusadosTitle}>Pneus Recusados</Text>
+										</View>
+										<View style={styles.recusadosBadge}>
+											<Text style={styles.recusadosBadgeText}>{pneusRecusados.length}</Text>
+										</View>
+									</View>
+
+									<Text style={styles.recusadosDescricao}>
+										Pneus retirados deste checklist por motivo de recusa. O histórico permanece salvo e o laudo pode ser emitido a qualquer momento.
+									</Text>
+
+									{pneusRecusados.map((pneu: any, index: number) => {
+										const posicao = pneu.laud_tx_posicao || pneu.pneu_tx_posicao || '--';
+										const serie = pneu.pneu_tx_serie || 'S/A';
+										const marcaModelo = [pneu.pneu_tx_marca, pneu.pneu_tx_modelo].filter(Boolean).join(' / ');
+
+										return (
+											<View key={`recusado_${pneu.laud_nb_id || pneu.pneu_nb_id || index}`} style={styles.recusadoCard}>
+												<View style={{ flex: 1, paddingRight: 10 }}>
+													<Text style={styles.recusadoPosicao}>Posição {posicao}</Text>
+													<Text style={styles.recusadoInfo}>Série: {serie}</Text>
+													{!!marcaModelo && <Text style={styles.recusadoInfo}>{marcaModelo}</Text>}
+													<Text style={styles.recusadoMotivo} numberOfLines={3}>
+														Motivo: {pneu.laud_tx_motivo || pneu.pneu_tx_situacao || 'Não informado'}
+													</Text>
+												</View>
+
+												<TouchableOpacity
+													style={styles.btnLaudoRecusado}
+													onPress={() => imprimirLaudoPneuRecusado(pneu)}
+												>
+													<Feather name="printer" size={16} color="#fff" />
+													<Text style={styles.btnLaudoRecusadoText}>Laudo</Text>
+												</TouchableOpacity>
+											</View>
+										);
+									})}
+								</View>
+							)}
+
 							<View style={{ height: 40 }} />
 						</>
 					)}
@@ -1305,7 +1757,9 @@ export default function ChecklistScreen() {
 												...formPneu,
 												tipo: v || 'Novo', grau: '', banda: '', banda_nome: '', reformador: '', reformador_id: '',
 												mm_original: (formPneu.modelo || formPneu.banda) ? (formPneu.ref_mm_original || formPneu.mm_original) : '',
-												valor: (formPneu.modelo || formPneu.banda) ? (formPneu.ref_valor || formPneu.valor) : ''
+												valor: valorPodeEditar
+													? ((formPneu.modelo || formPneu.banda) ? (formPneu.ref_valor || formPneu.valor) : '')
+													: formPneu.valor
 											});
 										} else {
 											setFormPneu({ ...formPneu, tipo: v });
@@ -1413,8 +1867,37 @@ export default function ChecklistScreen() {
 						<Text style={styles.groupTitle}>Aferições</Text>
 
 						<View style={{ width: '100%', marginBottom: 15 }}>
-							<Text style={styles.label}>Valor (R$)</Text>
-							<TextInput style={styles.inputModal} keyboardType="numeric" value={formPneu.valor} onChangeText={t => setFormPneu({ ...formPneu, valor: formatarMoeda(t) })} placeholder="0,00" />
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+								<Text style={[styles.label, { marginBottom: 0 }]}>Valor (R$)</Text>
+
+								{!valorPodeEditar && (
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Feather name="lock" size={12} color="#777" />
+										<Text style={{ fontSize: 11, color: '#777', marginLeft: 4 }}>Valor já registrado</Text>
+									</View>
+								)}
+							</View>
+
+							<TextInput
+								style={[
+									styles.inputModal,
+									!valorPodeEditar && { backgroundColor: '#eeeeee', color: '#666' }
+								]}
+								keyboardType="numeric"
+								value={formPneu.valor}
+								onChangeText={t => {
+									if (!valorPodeEditar) return;
+									setFormPneu({ ...formPneu, valor: formatarMoeda(t) });
+								}}
+								placeholder="0,00"
+								editable={valorPodeEditar}
+							/>
+
+							{!valorPodeEditar && (
+								<Text style={{ fontSize: 11, color: '#888', marginTop: 5 }}>
+									O valor não pode ser alterado porque este pneu já possui checklist anterior.
+								</Text>
+							)}
 						</View>
 
 						<View style={styles.row}>
@@ -1461,6 +1944,15 @@ export default function ChecklistScreen() {
 							</TouchableOpacity>
 						</View>
 
+						{formPneu.motivo_recusa ? (
+							<View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#fff3cd', borderWidth: 1, borderColor: '#ffe69c', borderRadius: 8, padding: 12, marginTop: -5, marginBottom: 15 }}>
+								<Feather name="alert-triangle" size={18} color="#856404" style={{ marginRight: 8, marginTop: 1 }} />
+								<Text style={{ flex: 1, color: '#856404', fontSize: 12, lineHeight: 17, fontWeight: '600' }}>
+									Ao gravar com motivo de recusa, o laudo será gerado e este pneu será retirado do veículo. A posição ficará disponível para cadastrar outro pneu.
+								</Text>
+							</View>
+						) : null}
+
 						<Text style={styles.label}>Observações (Opcional)</Text>
 						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
 
@@ -1488,6 +1980,27 @@ export default function ChecklistScreen() {
 									</View>
 								))}
 							</ScrollView>
+						)}
+
+						{pneuPodeSerRetirado && !isSomenteLeitura && !formPneu.motivo_recusa && (historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo)) <= 0) && (
+							<TouchableOpacity
+								style={[styles.btnRetirarPneu, { marginTop: 20 }]}
+								disabled={isRetirandoPneu}
+								onPress={() => {
+									const pAtual = dadosPneus[pneuSelecionado] || {};
+									const dadosAtuais = pAtual.dados_completos ? { ...pAtual.dados_completos } : { ...formPneu };
+									retirarPneu(pneuSelecionado, dadosAtuais);
+								}}
+							>
+								{isRetirandoPneu ? (
+									<ActivityIndicator color="#fff" />
+								) : (
+									<>
+										<Feather name="log-out" size={18} color="#fff" />
+										<Text style={styles.btnRetirarPneuText}>Retirar Pneu</Text>
+									</>
+								)}
+							</TouchableOpacity>
 						)}
 
 						<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
@@ -1547,7 +2060,7 @@ export default function ChecklistScreen() {
 
 							const mmOrig = getFloatDb(db.pneu_tx_mmOriginal);
 							const mmAtual = getFloatDb(db.pneu_tx_milimetros);
-							const valor = getFloatDb(db.pneu_tx_valor);
+							const valor = getFloatDb(db.valor_carregado ?? db.pneu_tx_valor);
 
 							const mmGastos = (mmOrig > 0 && mmAtual >= 0 && mmOrig > mmAtual) ? (mmOrig - mmAtual) : 0;
 
@@ -1643,17 +2156,36 @@ export default function ChecklistScreen() {
 										</View>
 									)}
 
-									{!isSomenteLeitura && (
-										<TouchableOpacity
-											style={[styles.btnSalvar, { marginTop: 20 }]}
-											onPress={() => {
-												setModalViewPneuVisible(false);
-												abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData);
-											}}
-										>
-											<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
-											<Text style={styles.btnSalvarText}>Editar</Text>
-										</TouchableOpacity>
+									{!isSomenteLeitura && (historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo)) <= 0) && (
+										<View style={{ marginTop: 20, gap: 10 }}>
+											<TouchableOpacity
+												style={styles.btnSalvar}
+												onPress={() => {
+													setModalViewPneuVisible(false);
+													abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData);
+												}}
+											>
+												<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
+												<Text style={styles.btnSalvarText}>Editar</Text>
+											</TouchableOpacity>
+
+											{!isSucata && (
+												<TouchableOpacity
+													style={styles.btnRetirarPneu}
+													disabled={isRetirandoPneu}
+													onPress={() => retirarPneu(viewData.codigoPneu, viewData.dbData)}
+												>
+													{isRetirandoPneu ? (
+														<ActivityIndicator color="#fff" />
+													) : (
+														<>
+															<Feather name="log-out" size={18} color="#fff" />
+															<Text style={styles.btnRetirarPneuText}>Retirar Pneu</Text>
+														</>
+													)}
+												</TouchableOpacity>
+											)}
+										</View>
 									)}
 								</>
 							);
@@ -1729,6 +2261,8 @@ const styles = StyleSheet.create({
 	btnIniciar: { backgroundColor: '#63c77b', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', padding: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 0 },
 	btnSalvarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+	btnRetirarPneu: { backgroundColor: '#E53935', flexDirection: 'row', padding: 15, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+	btnRetirarPneuText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
 
 	btnImprimir: { backgroundColor: '#3276b1', flexDirection: 'row', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 0 },
 	btnImprimirText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
@@ -1737,6 +2271,19 @@ const styles = StyleSheet.create({
 	btnFotoText: { marginLeft: 10, color: '#666', fontWeight: 'bold' },
 	fotoContainer: { marginRight: 15, marginTop: 10, position: 'relative' },
 	fotoPreview: { width: 100, height: 100, borderRadius: 8 },
+
+	recusadosContainer: { backgroundColor: '#fff', borderRadius: 12, marginTop: 15, padding: 15, elevation: 2, borderWidth: 1, borderColor: '#ffcdd2' },
+	recusadosHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+	recusadosTitle: { color: '#C62828', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+	recusadosBadge: { minWidth: 28, height: 28, paddingHorizontal: 8, borderRadius: 14, backgroundColor: '#ffebee', alignItems: 'center', justifyContent: 'center' },
+	recusadosBadgeText: { color: '#C62828', fontSize: 13, fontWeight: 'bold' },
+	recusadosDescricao: { color: '#666', fontSize: 12, lineHeight: 17, marginBottom: 12 },
+	recusadoCard: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#f5d7d9', paddingVertical: 12 },
+	recusadoPosicao: { color: '#333', fontSize: 14, fontWeight: 'bold', marginBottom: 3 },
+	recusadoInfo: { color: '#666', fontSize: 12, marginTop: 2 },
+	recusadoMotivo: { color: '#C62828', fontSize: 12, fontWeight: '600', marginTop: 5, lineHeight: 16 },
+	btnLaudoRecusado: { backgroundColor: '#C62828', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, height: 40, borderRadius: 8 },
+	btnLaudoRecusadoText: { color: '#fff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
 	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
 	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },

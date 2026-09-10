@@ -241,10 +241,11 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="marcas"
 				options={{
-					drawerLabel: 'Marcas',
+					drawerLabel: 'Marcas de Pneus',
 					headerTitle: HeaderLogo,
-					drawerIcon: ({ color, size }) => <Feather name="bookmark" size={size} color={color} />,
-					drawerItemStyle: { display: 'none' },
+					drawerIcon: ({ color, size }) => (
+						<MaterialCommunityIcons name="tire" size={size} color={color} />
+					),
 				}}
 			/>
 

@@ -685,8 +685,8 @@ export default function VeiculosScreen() {
 												placa: item.placa,
 												eixos: item.eixos,
 												rodado: item.rodado,
-												cliente_id: params?.cliente_id,
-												cliente_nome: params?.cliente_nome
+												cliente_id: item.proprietario_id || params?.cliente_id || '',
+												cliente_nome: item.proprietario || params?.cliente_nome || ''
 											}
 										})}
 									>
