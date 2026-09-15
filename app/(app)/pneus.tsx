@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
@@ -20,6 +20,8 @@ interface Pneu {
 	valor?: string | number; mm_original?: string; milimetros?: string; pressao_padrao?: string; pressao?: string;
 	observacao?: string; referencia_id?: string; marca_id?: string; modelo_id?: string; banda_id?: string; veiculo_id?: string;
 	foto?: string; pneu_tx_foto?: string; motivo_recusa?: string; laud_tx_motivo?: string;
+	laudo_id?: string | number; laudo_checklist_id?: string | number; laudo_posicao?: string;
+	situacao?: string; situacao_exibicao?: string; status?: string; origem?: string;
 	cliente?: string; proprietario?: string; cliente_id?: string; proprietario_id?: string;
 }
 
@@ -76,6 +78,7 @@ export default function PneusScreen() {
 		valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo', grau: '', banda: '', banda_id: '', reformador: '', reformador_id: '',
 		mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
 		placa_associada: '', veiculo_id: '', motivo_recusa: '',
+		laudo_id: '', laudo_checklist_id: '',
 		ref_mm_original: '', ref_valor: '',
 		cliente: '', cliente_id: ''
 	});
@@ -257,6 +260,7 @@ export default function PneusScreen() {
 			valor: '', dot: '', serie: '', ferro: '', tipo: 'Novo', grau: '', banda: '', banda_id: '', reformador: '', reformador_id: '',
 			mm_original: '', milimetros: '', pressao_padrao: '', pressao: '', observacao: '',
 			placa_associada: '', veiculo_id: '', motivo_recusa: '',
+			laudo_id: '', laudo_checklist_id: '',
 			ref_mm_original: '', ref_valor: '',
 			cliente: preNome, cliente_id: preId
 		});
@@ -282,6 +286,8 @@ export default function PneusScreen() {
 			observacao: item.observacao || '',
 			placa_associada: item.placa_associada || '', veiculo_id: item.veiculo_id || '',
 			motivo_recusa: item.motivo_recusa || item.laud_tx_motivo || '',
+			laudo_id: item.laudo_id ? String(item.laudo_id) : '',
+			laudo_checklist_id: item.laudo_checklist_id !== undefined && item.laudo_checklist_id !== null ? String(item.laudo_checklist_id) : '',
 			ref_mm_original: item.mm_original || '',
 			cliente: item.cliente || item.proprietario || '',
 			cliente_id: item.cliente_id || item.proprietario_id || ''
@@ -671,11 +677,13 @@ export default function PneusScreen() {
 					showsVerticalScrollIndicator={false}
 					renderItem={({ item }) => {
 						const isAvulso = !item.placa_associada || item.placa_associada.trim() === '';
-						const isSucata = !!item.motivo_recusa || !!item.laud_tx_motivo;
+						const motivoRecusa = String(item.motivo_recusa || item.laud_tx_motivo || '').trim();
+						const situacaoApi = String(item.situacao_exibicao || item.situacao || '').trim().toUpperCase();
+						const isSucata = !!motivoRecusa || situacaoApi === 'SUCATA' || situacaoApi === 'RECUSADO';
 
-						const statusPneu = isSucata ? 'SUCATA' : 'RODANDO';
-						const colorStatusPneu = isSucata ? '#E53935' : '#1967d2';
-						const bgStatusPneu = isSucata ? '#ffebee' : '#e8f0fe';
+						const statusPneu = isSucata ? 'SUCATA' : (situacaoApi === 'RETIRADO' ? 'RETIRADO' : 'RODANDO');
+						const colorStatusPneu = isSucata ? '#E53935' : (statusPneu === 'RETIRADO' ? '#856404' : '#1967d2');
+						const bgStatusPneu = isSucata ? '#ffebee' : (statusPneu === 'RETIRADO' ? '#fff3cd' : '#e8f0fe');
 
 						return (
 							<View style={styles.card}>
@@ -712,6 +720,15 @@ export default function PneusScreen() {
 										<Feather name="layers" size={14} color="#666" style={{ marginRight: 8 }} />
 										<Text style={styles.cardInfoText}><Text style={{ fontWeight: 'bold' }}>Tipo:</Text> {item.tipo}  •  <Text style={{ fontWeight: 'bold' }}>Reformas:</Text> {item.qtde_reforma}</Text>
 									</View>
+
+									{!!motivoRecusa && (
+										<View style={styles.cardInfoRow}>
+											<Feather name="alert-triangle" size={14} color="#E53935" style={{ marginRight: 8 }} />
+											<Text style={[styles.cardInfoText, { color: '#E53935' }]}>
+												<Text style={{ fontWeight: 'bold' }}>Motivo:</Text> {motivoRecusa}
+											</Text>
+										</View>
+									)}
 
 									{item.tipo !== 'Novo' && (
 										<View style={styles.cardInfoRow}>

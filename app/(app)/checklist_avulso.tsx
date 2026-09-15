@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
@@ -60,12 +60,18 @@ export default function ChecklistAvulsoScreen() {
 	const [relatorioTarget, setRelatorioTarget] = useState<'single' | 'consolidado' | null>(null);
 	const [relatorioTargetId, setRelatorioTargetId] = useState<number | null>(null);
 	const [opcoesRelatorio, setOpcoesRelatorio] = useState({
-		geral: true,
-		prejuizo: true,
-		motivo: true,
-		fotos: true,
+		resumo: true,
+		medidas: true,
+		marcas: true,
+		condicao: true,
 		recapabilidade: true,
-		tempo: true,
+		desempenhoMarca: true,
+		vidaUtil: true,
+		danos: true,
+		listagem: true,
+		resumoFinanceiro: true,
+		balanco: true,
+		evidencias: true,
 		ordenacao: 'medida'
 	});
 
@@ -164,19 +170,34 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const confirmarGeracaoRelatorio = () => {
-		const qp = `p_geral=${opcoesRelatorio.geral ? 1 : 0}&p_prejuizo=${opcoesRelatorio.prejuizo ? 1 : 0}&p_motivo=${opcoesRelatorio.motivo ? 1 : 0}&p_fotos=${opcoesRelatorio.fotos ? 1 : 0}&p_recap=${opcoesRelatorio.recapabilidade ? 1 : 0}&p_tempo=${opcoesRelatorio.tempo ? 1 : 0}&ordenacao=${opcoesRelatorio.ordenacao}`;
+		const qp = [
+			`p_resumo=${opcoesRelatorio.resumo ? 1 : 0}`,
+			`p_medidas=${opcoesRelatorio.medidas ? 1 : 0}`,
+			`p_marcas=${opcoesRelatorio.marcas ? 1 : 0}`,
+			`p_condicao=${opcoesRelatorio.condicao ? 1 : 0}`,
+			`p_recapabilidade=${opcoesRelatorio.recapabilidade ? 1 : 0}`,
+			`p_desempenho_marca=${opcoesRelatorio.desempenhoMarca ? 1 : 0}`,
+			`p_vida_util=${opcoesRelatorio.vidaUtil ? 1 : 0}`,
+			`p_danos=${opcoesRelatorio.danos ? 1 : 0}`,
+			`p_listagem=${opcoesRelatorio.listagem ? 1 : 0}`,
+			`p_resumo_financeiro=${opcoesRelatorio.resumoFinanceiro ? 1 : 0}`,
+			`p_balanco=${opcoesRelatorio.balanco ? 1 : 0}`,
+			`p_evidencias=${opcoesRelatorio.evidencias ? 1 : 0}`,
+			`ordenacao=${opcoesRelatorio.ordenacao}`,
+			`_ts=${Date.now()}`
+		].join('&');
 
 		let urlApi = '';
 		let nomeArq = '';
 		let tp = '';
 
 		if (relatorioTarget === 'single' && relatorioTargetId) {
-			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}`;
+			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}&_ts=${Date.now()}`;
 			nomeArq = `Analise_Sucata_${relatorioTargetId}`;
 			tp = 'Análise Avulsa de Sucata';
 		} else if (relatorioTarget === 'consolidado') {
 			const idsStr = selectedChecklists.join(',');
-			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}`;
+			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}&_ts=${Date.now()}`;
 			nomeArq = `Relatorio_Consolidado_${new Date().getTime()}`;
 			tp = `Relatório Consolidado (${selectedChecklists.length} Análises)`;
 
@@ -1770,30 +1791,40 @@ export default function ChecklistAvulsoScreen() {
 							<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Selecione os indicadores que deseja incluir no PDF:</Text>
 
 							<View>
-								{renderOptionToggle('geral', 'Resumo (Aprovados x Recusados)')}
-								{renderOptionToggle('prejuizo', 'Prejuízo Potencial')}
-								{renderOptionToggle('motivo', 'Motivos da Recusa')}
-								{renderOptionToggle('fotos', 'Listagem com Fotos (Evidências)')}
-								{renderOptionToggle('recapabilidade', 'Índice de Recapabilidade')}
-								{renderOptionToggle('tempo', 'Tempo Médio da Carcaça')}
+								{renderOptionToggle('resumo', 'Resumo da Análise')}
+								{renderOptionToggle('medidas', 'MEDIDAS: Detalhamento por Medidas')}
+								{renderOptionToggle('marcas', 'MARCAS: Detalhamento por Marcas')}
+								{renderOptionToggle('condicao', 'CONDIÇÃO: Novo vs Reformado')}
+								{renderOptionToggle('recapabilidade', 'RECAPABILIDADE: Grau de Recapagem')}
+								{renderOptionToggle('desempenhoMarca', 'DESEMPENHO DA MARCA: Fim de Vida por Ciclo')}
+								{renderOptionToggle('vidaUtil', 'VIDA ÚTIL: Histórico por Ano do DOT')}
+								{renderOptionToggle('danos', 'DANOS: Detalhamento de Danos (Motivos)')}
+								{renderOptionToggle('listagem', 'Listagem de Pneus')}
+								{renderOptionToggle('resumoFinanceiro', 'Resumo Financeiro (Sucata)')}
+								{renderOptionToggle('balanco', 'Balanço Geral: Investimento vs Prejuízo')}
+								{renderOptionToggle('evidencias', 'Evidências Fotográficas')}
 							</View>
 
-							<Text style={[styles.label, { marginTop: 15, marginBottom: 5 }]}>Ordenar Listagem por:</Text>
-							<RNPickerSelect
-								placeholder={{}}
-								value={opcoesRelatorio.ordenacao}
-								onValueChange={(val) => setOpcoesRelatorio(prev => ({ ...prev, ordenacao: val }))}
-								items={[
-									{ label: 'Medida', value: 'medida', color: '#000' },
-									{ label: 'Marca', value: 'marca', color: '#000' },
-									{ label: 'Modelo', value: 'modelo', color: '#000' },
-									{ label: 'Motivo / Dano', value: 'motivo', color: '#000' },
-									{ label: 'Veículo (Placa/Código)', value: 'veiculo', color: '#000' }
-								]}
-								style={pickerStyles}
-								useNativeAndroidPickerStyle={false}
-								Icon={PickerIcon}
-							/>
+							{opcoesRelatorio.listagem && (
+								<>
+									<Text style={[styles.label, { marginTop: 15, marginBottom: 5 }]}>Ordenar Listagem de Pneus por:</Text>
+									<RNPickerSelect
+										placeholder={{}}
+										value={opcoesRelatorio.ordenacao}
+										onValueChange={(val) => setOpcoesRelatorio(prev => ({ ...prev, ordenacao: val }))}
+										items={[
+											{ label: 'Medida', value: 'medida', color: '#000' },
+											{ label: 'Marca', value: 'marca', color: '#000' },
+											{ label: 'Modelo', value: 'modelo', color: '#000' },
+											{ label: 'Motivo / Dano', value: 'motivo', color: '#000' },
+											{ label: 'Veículo (Placa/Código)', value: 'veiculo', color: '#000' }
+										]}
+										style={pickerStyles}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								</>
+							)}
 
 							<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
 								<TouchableOpacity style={[styles.btnDefault, { flex: 1, height: 48 }]} onPress={() => setModalRelatorioVisible(false)}>
