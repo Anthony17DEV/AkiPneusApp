@@ -51,10 +51,36 @@ export default function ChecklistAvulsoScreen() {
 	const [filtroConsolidarAno, setFiltroConsolidarAno] = useState(new Date().getFullYear().toString());
 
 	const [modalComparativoVisible, setModalComparativoVisible] = useState(false);
-	const [compMes1, setCompMes1] = useState('');
+	const [compTipo, setCompTipo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
+	const [compPeriodo1, setCompPeriodo1] = useState('');
 	const [compAno1, setCompAno1] = useState(new Date().getFullYear().toString());
-	const [compMes2, setCompMes2] = useState('');
+	const [compPeriodo2, setCompPeriodo2] = useState('');
 	const [compAno2, setCompAno2] = useState(new Date().getFullYear().toString());
+
+	const mesesComparativo = [
+		{ label: 'Janeiro', value: '01', color: '#000' }, { label: 'Fevereiro', value: '02', color: '#000' },
+		{ label: 'Março', value: '03', color: '#000' }, { label: 'Abril', value: '04', color: '#000' },
+		{ label: 'Maio', value: '05', color: '#000' }, { label: 'Junho', value: '06', color: '#000' },
+		{ label: 'Julho', value: '07', color: '#000' }, { label: 'Agosto', value: '08', color: '#000' },
+		{ label: 'Setembro', value: '09', color: '#000' }, { label: 'Outubro', value: '10', color: '#000' },
+		{ label: 'Novembro', value: '11', color: '#000' }, { label: 'Dezembro', value: '12', color: '#000' }
+	];
+
+	const opcoesPeriodoComparativo = compTipo === 'mensal'
+		? mesesComparativo
+		: compTipo === 'trimestral'
+			? [
+				{ label: '1º Trimestre (Jan - Mar)', value: '1', color: '#000' },
+				{ label: '2º Trimestre (Abr - Jun)', value: '2', color: '#000' },
+				{ label: '3º Trimestre (Jul - Set)', value: '3', color: '#000' },
+				{ label: '4º Trimestre (Out - Dez)', value: '4', color: '#000' }
+			]
+			: [
+				{ label: '1º Semestre (Jan - Jun)', value: '1', color: '#000' },
+				{ label: '2º Semestre (Jul - Dez)', value: '2', color: '#000' }
+			];
+
+	const labelPeriodoComparativo = compTipo === 'mensal' ? 'Mês' : compTipo === 'trimestral' ? 'Trimestre' : 'Semestre';
 
 	const [modalRelatorioVisible, setModalRelatorioVisible] = useState(false);
 	const [relatorioTarget, setRelatorioTarget] = useState<'single' | 'consolidado' | null>(null);
@@ -214,35 +240,36 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const gerarRelatorioComparativo = () => {
-		if (!compMes1 || !compAno1 || !compMes2 || !compAno2) {
-			Alert.alert('Atenção', 'Selecione os dois períodos completos (Mês e Ano) para comparar.');
+		const ano1Valido = /^\d{4}$/.test(compAno1);
+		const ano2Valido = /^\d{4}$/.test(compAno2);
+
+		if (!ano1Valido || !ano2Valido) {
+			Alert.alert('Atenção', 'Informe um ano válido com 4 dígitos para os dois períodos.');
 			return;
 		}
 
-		const ids1 = checklists.filter(c => {
-			const partes = c.data.split('-');
-			if (partes.length !== 3) return false;
-			return partes[1] === compMes1 && partes[0] === compAno1;
-		}).map(c => c.id);
-
-		const ids2 = checklists.filter(c => {
-			const partes = c.data.split('-');
-			if (partes.length !== 3) return false;
-			return partes[1] === compMes2 && partes[0] === compAno2;
-		}).map(c => c.id);
-
-		if (ids1.length === 0 || ids2.length === 0) {
-			Alert.alert('Atenção', 'Não há análises listadas para um dos meses selecionados. Certifique-se de buscar as datas correspondentes na tela principal primeiro (usando Data Inicial e Data Final).');
+		if (compTipo !== 'anual' && (!compPeriodo1 || !compPeriodo2)) {
+			Alert.alert('Atenção', `Selecione o ${labelPeriodoComparativo.toLowerCase()} dos dois períodos.`);
 			return;
 		}
 
 		setModalComparativoVisible(false);
 
+		const tipoNome = compTipo === 'mensal' ? 'Mensal' : compTipo === 'trimestral' ? 'Trimestral' : compTipo === 'semestral' ? 'Semestral' : 'Anual';
+		const qp = [
+			`tipo=${encodeURIComponent(compTipo)}`,
+			`periodo1=${encodeURIComponent(compTipo === 'anual' ? '' : compPeriodo1)}`,
+			`ano1=${encodeURIComponent(compAno1)}`,
+			`periodo2=${encodeURIComponent(compTipo === 'anual' ? '' : compPeriodo2)}`,
+			`ano2=${encodeURIComponent(compAno2)}`,
+			`_ts=${Date.now()}`
+		].join('&');
+
 		setTimeout(() => {
-			const urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_comparativo.php?ids1=${ids1.join(',')}&ids2=${ids2.join(',')}&m1=${compMes1}&a1=${compAno1}&m2=${compMes2}&a2=${compAno2}`;
-			const nomeArq = `Comparativo_Mes${compMes1}_vs_Mes${compMes2}`;
-			const tp = `Relatório Comparativo de Sucatas`;
-			abrirModalPreview(urlApi, nomeArq, tp, `Comparativo Mês ${compMes1}/${compAno1} vs Mês ${compMes2}/${compAno2}`);
+			const urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_comparativo.php?${qp}`;
+			const nomeArq = `Comparativo_${tipoNome}_${compAno1}_vs_${compAno2}_${new Date().getTime()}`;
+			const tp = `Relatório Comparativo ${tipoNome} de Sucatas`;
+			abrirModalPreview(urlApi, nomeArq, tp, `Comparativo ${tipoNome}: ${compAno1} vs ${compAno2}`);
 		}, 500);
 	};
 
@@ -1112,7 +1139,7 @@ export default function ChecklistAvulsoScreen() {
 				<FlatList
 					data={checklists}
 					keyExtractor={(item) => String(item.id)}
-					extraData={[modalConsolidarVisible, selectedChecklists, modalRelatorioVisible, opcoesRelatorio, modalComparativoVisible, compMes1, compMes2, compAno1, compAno2]}
+					extraData={[modalConsolidarVisible, selectedChecklists, modalRelatorioVisible, opcoesRelatorio, modalComparativoVisible, compTipo, compPeriodo1, compPeriodo2, compAno1, compAno2]}
 
 					initialNumToRender={10}
 					maxToRenderPerBatch={10}
@@ -1741,37 +1768,77 @@ export default function ChecklistAvulsoScreen() {
 						<View style={{ width: 30 }} />
 					</View>
 
-					<View style={{ padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#ddd' }}>
+					<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
 						<Text style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>
-							Selecione os dois meses para o comparativo. Lembre-se que as análises dos dois meses precisam estar carregadas na tela inicial (Faça uma busca sem data ou que englobe os dois períodos primeiro).
+							Escolha o tipo de comparação e os dois períodos. O relatório consulta diretamente todas as análises cadastradas no banco dentro de cada período.
 						</Text>
 
-						<Text style={[styles.sectionTitle, { marginTop: 0, fontSize: 15 }]}>Período 1 (Mês Base)</Text>
+						<Text style={styles.label}>Tipo de Comparativo</Text>
+						<RNPickerSelect
+							placeholder={{}}
+							value={compTipo}
+							onValueChange={(value) => {
+								setCompTipo(value);
+								setCompPeriodo1('');
+								setCompPeriodo2('');
+							}}
+							items={[
+								{ label: 'Mensal', value: 'mensal', color: '#000' },
+								{ label: 'Trimestral', value: 'trimestral', color: '#000' },
+								{ label: 'Semestral', value: 'semestral', color: '#000' },
+								{ label: 'Anual', value: 'anual', color: '#000' }
+							]}
+							style={pickerStyles}
+							useNativeAndroidPickerStyle={false}
+							Icon={PickerIcon}
+						/>
+
+						<Text style={[styles.sectionTitle, { marginTop: 10, fontSize: 15 }]}>Período 1 (Base)</Text>
 						<View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
-							<View style={{ flex: 2 }}>
-								<Text style={styles.label}>Mês</Text>
-								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#999' }} value={compMes1} onValueChange={setCompMes1} items={[{ label: 'Janeiro', value: '01', color: '#000' }, { label: 'Fevereiro', value: '02', color: '#000' }, { label: 'Março', value: '03', color: '#000' }, { label: 'Abril', value: '04', color: '#000' }, { label: 'Maio', value: '05', color: '#000' }, { label: 'Junho', value: '06', color: '#000' }, { label: 'Julho', value: '07', color: '#000' }, { label: 'Agosto', value: '08', color: '#000' }, { label: 'Setembro', value: '09', color: '#000' }, { label: 'Outubro', value: '10', color: '#000' }, { label: 'Novembro', value: '11', color: '#000' }, { label: 'Dezembro', value: '12', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
-							</View>
-							<View style={{ flex: 1 }}>
+							{compTipo !== 'anual' && (
+								<View style={{ flex: 2 }}>
+									<Text style={styles.label}>{labelPeriodoComparativo}</Text>
+									<RNPickerSelect
+										placeholder={{ label: `Selecione o ${labelPeriodoComparativo.toLowerCase()}...`, value: '', color: '#999' }}
+										value={compPeriodo1}
+										onValueChange={setCompPeriodo1}
+										items={opcoesPeriodoComparativo}
+										style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								</View>
+							)}
+							<View style={{ flex: compTipo === 'anual' ? 1 : 1 }}>
 								<Text style={styles.label}>Ano</Text>
-								<TextInput style={[styles.inputModal, { marginBottom: 0 }]} keyboardType="numeric" maxLength={4} value={compAno1} onChangeText={setCompAno1} placeholder="2024" />
+								<TextInput style={[styles.inputModal, { marginBottom: 0 }]} keyboardType="numeric" maxLength={4} value={compAno1} onChangeText={t => setCompAno1(t.replace(/\D/g, ''))} placeholder="2026" />
 							</View>
 						</View>
 
-						<Text style={[styles.sectionTitle, { marginTop: 0, fontSize: 15 }]}>Período 2 (Mês a ser Comparado)</Text>
+						<Text style={[styles.sectionTitle, { marginTop: 0, fontSize: 15 }]}>Período 2 (Comparação)</Text>
 						<View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-							<View style={{ flex: 2 }}>
-								<Text style={styles.label}>Mês</Text>
-								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#999' }} value={compMes2} onValueChange={setCompMes2} items={[{ label: 'Janeiro', value: '01', color: '#000' }, { label: 'Fevereiro', value: '02', color: '#000' }, { label: 'Março', value: '03', color: '#000' }, { label: 'Abril', value: '04', color: '#000' }, { label: 'Maio', value: '05', color: '#000' }, { label: 'Junho', value: '06', color: '#000' }, { label: 'Julho', value: '07', color: '#000' }, { label: 'Agosto', value: '08', color: '#000' }, { label: 'Setembro', value: '09', color: '#000' }, { label: 'Outubro', value: '10', color: '#000' }, { label: 'Novembro', value: '11', color: '#000' }, { label: 'Dezembro', value: '12', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
-							</View>
-							<View style={{ flex: 1 }}>
+							{compTipo !== 'anual' && (
+								<View style={{ flex: 2 }}>
+									<Text style={styles.label}>{labelPeriodoComparativo}</Text>
+									<RNPickerSelect
+										placeholder={{ label: `Selecione o ${labelPeriodoComparativo.toLowerCase()}...`, value: '', color: '#999' }}
+										value={compPeriodo2}
+										onValueChange={setCompPeriodo2}
+										items={opcoesPeriodoComparativo}
+										style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, marginBottom: 0 }, inputAndroid: { ...pickerStyles.inputAndroid, marginBottom: 0 } }}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								</View>
+							)}
+							<View style={{ flex: compTipo === 'anual' ? 1 : 1 }}>
 								<Text style={styles.label}>Ano</Text>
-								<TextInput style={[styles.inputModal, { marginBottom: 0 }]} keyboardType="numeric" maxLength={4} value={compAno2} onChangeText={setCompAno2} placeholder="2024" />
+								<TextInput style={[styles.inputModal, { marginBottom: 0 }]} keyboardType="numeric" maxLength={4} value={compAno2} onChangeText={t => setCompAno2(t.replace(/\D/g, ''))} placeholder="2026" />
 							</View>
 						</View>
-					</View>
+					</ScrollView>
 
-					<View style={{ padding: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', gap: 10, marginTop: 'auto' }}>
+					<View style={{ padding: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', gap: 10 }}>
 						<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalComparativoVisible(false)}>
 							<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
 						</TouchableOpacity>
@@ -1796,7 +1863,7 @@ export default function ChecklistAvulsoScreen() {
 								{renderOptionToggle('marcas', 'MARCAS: Detalhamento por Marcas')}
 								{renderOptionToggle('condicao', 'CONDIÇÃO: Novo vs Reformado')}
 								{renderOptionToggle('recapabilidade', 'RECAPABILIDADE: Grau de Recapagem')}
-								{renderOptionToggle('desempenhoMarca', 'DESEMPENHO DA MARCA: Fim de Vida por Ciclo')}
+								{renderOptionToggle('desempenhoMarca', 'RANKING DE DESEMPENHO POR MARCAS')}
 								{renderOptionToggle('vidaUtil', 'VIDA ÚTIL: Histórico por Ano do DOT')}
 								{renderOptionToggle('danos', 'DANOS: Detalhamento de Danos (Motivos)')}
 								{renderOptionToggle('listagem', 'Listagem de Pneus')}
