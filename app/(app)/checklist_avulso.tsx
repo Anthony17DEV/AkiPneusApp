@@ -609,7 +609,20 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarPneu = async () => {
+		const referenciaId = String(formPneu.referencia || '').trim();
 		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original).replace(',', '.'));
+
+		// A referência salva no pneu precisa ser o ID numérico exato de referencia_pneu.
+		// Isso evita manter um ID antigo depois da troca de marca/modelo.
+		if (!/^\d+$/.test(referenciaId)) {
+			Alert.alert('Atenção', 'Selecione uma referência, marca e modelo válidos antes de salvar.');
+			return;
+		}
+
+		if (!formPneu.marca || !formPneu.modelo) {
+			Alert.alert('Atenção', 'Marca e Modelo são obrigatórios. Selecione-os novamente para vincular a referência correta.');
+			return;
+		}
 
 		if (!formPneu.mm_original || isNaN(sulcoOriginalNum) || sulcoOriginalNum <= 0) {
 			Alert.alert('Atenção', 'O Sulco Original é obrigatório! Caso não tenha carregado automaticamente, preencha manualmente.');
@@ -645,6 +658,9 @@ export default function ChecklistAvulsoScreen() {
 				checklist_id: checklistAtivo.id,
 				user_id: user?.id,
 				...formPneu,
+				// Envia explicitamente o ID exato já resolvido pela seleção do modelo.
+				referencia: referenciaId,
+				referencia_id: referenciaId,
 				valor: formPneu.valor.replace(/\./g, ''),
 				fotos_novas: fotosNovas,
 				fotos_antigas: fotosAntigas
@@ -681,9 +697,7 @@ export default function ChecklistAvulsoScreen() {
 			}
 		} catch (e) {
 			if (isMounted.current) {
-				Alert.alert('Aviso', 'A API não respondeu. Teste local salvo!');
-				carregarPneusDoChecklist(checklistAtivo.id);
-				setModalPneuVisible(false);
+				Alert.alert('Erro', 'A API não respondeu. Nenhuma alteração foi confirmada no servidor.');
 			}
 		}
 		if (isMounted.current) setIsSaving(false);
@@ -793,11 +807,30 @@ export default function ChecklistAvulsoScreen() {
 			const rawValor = item.valor ?? item.refe_tx_valor ?? '';
 
 			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : String(rawMm).replace(',', '.');
-			const refVal = item.isNewModel ? (formCadastro.valor || '') : formatarValorDB(rawValor);
+			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || rawValor) : formatarValorDB(rawValor);
+
+			// api_busca_dinamica devolve referencia_id = refe_nb_id da linha REAL
+			// de Referência + Marca + Modelo. É este ID que precisa ir para pneu_tx_referencia.
+			const referenciaIdExata = String(
+				item.referencia_id ??
+				item.refe_nb_id ??
+				(item.isNewModel ? item.id : '')
+			).trim();
+			const referenciaNomeExata = item.referencia ?? item.refe_tx_nome ?? (item.isNewModel ? formCadastro.nome : formPneu.referencia_nome);
+			const marcaExata = item.marca ?? item.refe_tx_marca ?? (item.isNewModel ? formCadastro.marca : formPneu.marca);
+			const modeloExato = item.nome || item.refe_tx_modelo || (item.isNewModel ? formCadastro.modelo : '');
+
+			if (!/^\d+$/.test(referenciaIdExata)) {
+				Alert.alert('Erro', 'Não foi possível identificar o ID exato da referência deste modelo. Selecione novamente a referência, marca e modelo.');
+				return;
+			}
 
 			setFormPneu({
 				...formPneu,
-				modelo: item.nome || item.refe_tx_modelo,
+				referencia: referenciaIdExata,
+				referencia_nome: referenciaNomeExata || formPneu.referencia_nome,
+				marca: marcaExata || formPneu.marca,
+				modelo: modeloExato,
 				ref_mm_original: refMm,
 				ref_valor: refVal,
 				mm_original: (formPneu.tipo === 'Reformado' && formPneu.banda) ? formPneu.mm_original : refMm,
@@ -872,7 +905,16 @@ export default function ChecklistAvulsoScreen() {
 				} else if (tipoBusca === 'marca_pneu') {
 					selecionarItemBusca({ id: res.id || formCadastro.marca, nome: formCadastro.marca, isNewModel: true });
 				} else if (tipoBusca === 'modelo_pneu') {
-					selecionarItemBusca({ id: res.id, nome: formCadastro.modelo, mmOriginal: formCadastro.mmOriginal, valor: dadosCadastro.valor, isNewModel: true });
+					selecionarItemBusca({
+						id: res.id,
+						referencia_id: res.id,
+						referencia: formCadastro.nome,
+						marca: formCadastro.marca,
+						nome: formCadastro.modelo,
+						mmOriginal: formCadastro.mmOriginal,
+						valor: dadosCadastro.valor,
+						isNewModel: true
+					});
 				} else if (tipoBusca === 'banda') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true, sulco: formCadastro.sulco, valor: formCadastro.valor });
 				}

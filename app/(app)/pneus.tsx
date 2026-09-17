@@ -365,6 +365,23 @@ export default function PneusScreen() {
 	const removerFoto = (index: number) => { setFotosPneu(fotosPneu.filter((_, i) => i !== index)); };
 
 	const salvarPneu = async () => {
+		const referenciaId = String(form.referencia_id || '').trim();
+		const marcaSelecionada = String(form.marca || '').trim();
+		const modeloSelecionado = String(form.modelo || '').trim();
+
+		if (!/^\d+$/.test(referenciaId)) {
+			Alert.alert(
+				'Atenção',
+				'Selecione novamente a Referência, a Marca e o Modelo. A referência interna do pneu está inválida.'
+			);
+			return;
+		}
+
+		if (!marcaSelecionada || !modeloSelecionado) {
+			Alert.alert('Atenção', 'Referência, Marca e Modelo são obrigatórios.');
+			return;
+		}
+
 		if (form.dot && form.dot !== 'S/A') {
 			if (form.dot.length !== 4) {
 				Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.');
@@ -393,6 +410,10 @@ export default function PneusScreen() {
 
 			const dadosParaSalvar = {
 				...form,
+				referencia_id: referenciaId,
+				referencia: String(form.referencia || '').trim(),
+				marca: marcaSelecionada,
+				modelo: modeloSelecionado,
 				reformador_id: form.reformador_id,
 				reformador_nome: form.reformador,
 				pneu_tx_reformador: form.reformador,
@@ -505,19 +526,57 @@ export default function PneusScreen() {
 				modelo: '', modelo_id: ''
 			});
 		} else if (tipoBusca === 'modelo_pneu') {
-			const refMm = item.isNewModel ? (formCadastro.mmOriginal || form.mm_original) : (item.refe_tx_mmOriginal || form.mm_original);
-			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || form.valor) : formatarValorDB(item.refe_tx_valor || form.valor);
+			const refMm = item.isNewModel
+				? (formCadastro.mmOriginal || form.mm_original)
+				: (item.mmOriginal ?? item.refe_tx_mmOriginal ?? form.mm_original);
+
+			const refVal = item.isNewModel
+				? formatarValorDB(formCadastro.valor || form.valor)
+				: formatarValorDB(item.valor ?? item.refe_tx_valor ?? form.valor);
+
+			/*
+			 * IMPORTANTE:
+			 * Na busca de modelo, item.id pode ser o NOME do modelo.
+			 * O ID correto de referencia_pneu vem em item.referencia_id.
+			 * Manter form.referencia_id aqui foi a causa dos IDs de referência
+			 * ficarem "presos" na seleção anterior.
+			 */
+			const referenciaIdSelecionada = String(
+				item.referencia_id ??
+				item.refe_nb_id ??
+				(item.isNewModel ? item.id : '')
+			).trim();
+
+			const referenciaNomeSelecionada =
+				item.referencia ??
+				item.refe_tx_nome ??
+				(item.isNewModel ? formCadastro.nome : form.referencia);
+
+			const marcaDoModelo =
+				item.marca ??
+				item.refe_tx_marca ??
+				(item.isNewModel ? formCadastro.marca : form.marca);
+
+			if (!/^\d+$/.test(referenciaIdSelecionada)) {
+				Alert.alert(
+					'Erro de referência',
+					'Este modelo não retornou um ID de referência válido. O pneu não será alterado. Atualize a busca e tente novamente.'
+				);
+				return;
+			}
 
 			setForm({
 				...form,
-				referencia_id: item.isNewModel ? item.id : form.referencia_id,
-				referencia: item.isNewModel ? (formCadastro.nome || form.referencia) : form.referencia,
-				marca: item.isNewModel ? (formCadastro.marca || form.marca) : (item.refe_tx_marca || form.marca),
-				modelo: item.nome || item.refe_tx_modelo,
-				modelo_id: item.id,
-				ref_mm_original: refMm,
+				referencia_id: referenciaIdSelecionada,
+				referencia: referenciaNomeSelecionada || form.referencia,
+				marca: marcaDoModelo || form.marca,
+				modelo: item.nome || item.refe_tx_modelo || formCadastro.modelo,
+				modelo_id: item.modelo_id || item.nome || item.refe_tx_modelo || '',
+				ref_mm_original: String(refMm ?? '').replace(',', '.'),
 				ref_valor: refVal,
-				mm_original: (form.tipo === 'Reformado' && form.banda) ? form.mm_original : refMm,
+				mm_original: (form.tipo === 'Reformado' && form.banda)
+					? form.mm_original
+					: String(refMm ?? '').replace(',', '.'),
 				valor: (form.tipo === 'Reformado' && form.banda) ? form.valor : refVal
 			});
 		} else if (tipoBusca === 'banda') {
@@ -587,7 +646,16 @@ export default function PneusScreen() {
 				} else if (tipoBusca === 'marca_pneu') {
 					selecionarItemBusca({ id: res.id || formCadastro.marca, nome: formCadastro.marca, isNewModel: true });
 				} else if (tipoBusca === 'modelo_pneu') {
-					selecionarItemBusca({ id: res.id, nome: formCadastro.modelo, mmOriginal: formCadastro.mmOriginal, valor: dadosCadastro.valor, isNewModel: true });
+					selecionarItemBusca({
+						id: res.id,
+						referencia_id: res.id,
+						referencia: formCadastro.nome,
+						marca: formCadastro.marca,
+						nome: formCadastro.modelo,
+						mmOriginal: formCadastro.mmOriginal,
+						valor: dadosCadastro.valor,
+						isNewModel: true
+					});
 				} else if (tipoBusca === 'banda') {
 					selecionarItemBusca({ id: res.id, nome: res.nome || formCadastro.modelo, isNewModel: true, sulco: formCadastro.sulco, valor: formCadastro.valor });
 				}
