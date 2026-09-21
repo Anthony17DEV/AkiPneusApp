@@ -68,6 +68,22 @@ export default function PneusScreen() {
 
 	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
+	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com/apicactus/akipneus/api_gerar_link_relatorio.php';
+
+	const gerarLinkRelatorio = async (arquivo: string, paramsRelatorio: Record<string, any>) => {
+		const response = await fetch(API_RELATORIO_LINK_URL, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ arquivo, params: paramsRelatorio })
+		});
+
+		const res = await response.json();
+		if (!res?.success || !res?.url) {
+			throw new Error(res?.message || 'Não foi possível gerar o link temporário do relatório.');
+		}
+
+		return String(res.url);
+	};
 
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
@@ -146,21 +162,8 @@ export default function PneusScreen() {
 		}
 	};
 
-	const confirmarGeracaoRelatorio = () => {
+	const confirmarGeracaoRelatorio = async () => {
 		setModalRelatorioVisible(false);
-
-		const queryParams = [
-			`ordenacao=${opcoesRelatorio.ordenacao}`,
-			`serie=${encodeURIComponent(filtroSerie)}`,
-			`dot=${encodeURIComponent(filtroDot)}`,
-			`placa=${encodeURIComponent(filtroPlaca)}`,
-			`cliente_id=${encodeURIComponent(filtroClienteId)}`,
-			`cliente_nome=${encodeURIComponent(filtroCliente)}`,
-			`ferro=${encodeURIComponent(filtroFerro)}`,
-			`id=${encodeURIComponent(filtroId)}`
-		].join('&');
-
-		const urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_lista_pneus.php?${queryParams}`;
 
 		let descFiltro = [];
 		if (filtroCliente) descFiltro.push(`Cli: ${filtroCliente}`);
@@ -169,9 +172,25 @@ export default function PneusScreen() {
 
 		const subtitulo = descFiltro.length > 0 ? `Filtros: ${descFiltro.join(' | ')}` : 'Todos os Pneus (Sem Filtro)';
 
-		setTimeout(() => {
+		try {
+			const urlApi = await gerarLinkRelatorio('imprimir_lista_pneus.php', {
+				ordenacao: opcoesRelatorio.ordenacao,
+				serie: filtroSerie,
+				dot: filtroDot,
+				placa: filtroPlaca,
+				cliente_id: filtroClienteId,
+				cliente_nome: filtroCliente,
+				ferro: filtroFerro,
+				id: filtroId,
+				_ts: Date.now()
+			});
+
 			abrirModalPreview(urlApi, `Lista_Pneus_${new Date().getTime()}`, 'Relatório Geral de Pneus', subtitulo);
-		}, 500);
+		} catch (e: any) {
+			if (isMounted.current) {
+				Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
+			}
+		}
 	};
 
 	const confirmSignOut = () => {
@@ -1093,15 +1112,19 @@ export default function PneusScreen() {
 								{form.id ? (
 									<TouchableOpacity
 										style={[styles.btnImprimir, { flex: 1.2, height: 50, paddingHorizontal: 2 }]}
-										onPress={() => {
+										onPress={async () => {
 											const dataHj = new Date();
 											const strData = `${dataHj.getDate().toString().padStart(2, '0')}${(dataHj.getMonth() + 1).toString().padStart(2, '0')}${dataHj.getFullYear()}`;
 											const nomeClienteFormatado = (form.cliente || 'AVULSO').replace(/[^A-Za-z0-9]/g, '');
 											const codigoFormatado = (form.placa_associada || form.id).replace(/[^A-Za-z0-9]/g, '');
 											const nomeArquivoPdf = `LAUDO-${nomeClienteFormatado}-${strData}-${codigoFormatado}`.toUpperCase();
 
-											const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${form.id}`;
-											abrirModalPreview(url, nomeArquivoPdf, 'Laudo Técnico de Pneu', `Cliente: ${form.cliente || 'Avulso'}`);
+											try {
+												const url = await gerarLinkRelatorio('imprimir_pneu.php', { id: form.id, _ts: Date.now() });
+												abrirModalPreview(url, nomeArquivoPdf, 'Laudo Técnico de Pneu', `Cliente: ${form.cliente || 'Avulso'}`);
+											} catch (e: any) {
+												if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
+											}
 										}}
 									>
 										<Feather name="download" size={16} color="#fff" />

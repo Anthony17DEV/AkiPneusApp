@@ -16,6 +16,22 @@ export default function ChecklistAvulsoScreen() {
 	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
 	const API_AVULSO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_checklist_avulso.php';
+	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com/apicactus/akipneus/api_gerar_link_relatorio.php';
+
+	const gerarLinkRelatorio = async (arquivo: string, paramsRelatorio: Record<string, any>) => {
+		const response = await fetch(API_RELATORIO_LINK_URL, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ arquivo, params: paramsRelatorio })
+		});
+
+		const res = await response.json();
+		if (!res?.success || !res?.url) {
+			throw new Error(res?.message || 'Não foi possível gerar o link temporário do relatório.');
+		}
+
+		return String(res.url);
+	};
 
 	const router = useRouter();
 	const { user, signOut } = useAuth();
@@ -195,51 +211,62 @@ export default function ChecklistAvulsoScreen() {
 		setModalRelatorioVisible(true);
 	};
 
-	const confirmarGeracaoRelatorio = () => {
-		const qp = [
-			`p_resumo=${opcoesRelatorio.resumo ? 1 : 0}`,
-			`p_medidas=${opcoesRelatorio.medidas ? 1 : 0}`,
-			`p_marcas=${opcoesRelatorio.marcas ? 1 : 0}`,
-			`p_condicao=${opcoesRelatorio.condicao ? 1 : 0}`,
-			`p_recapabilidade=${opcoesRelatorio.recapabilidade ? 1 : 0}`,
-			`p_desempenho_marca=${opcoesRelatorio.desempenhoMarca ? 1 : 0}`,
-			`p_vida_util=${opcoesRelatorio.vidaUtil ? 1 : 0}`,
-			`p_danos=${opcoesRelatorio.danos ? 1 : 0}`,
-			`p_listagem=${opcoesRelatorio.listagem ? 1 : 0}`,
-			`p_resumo_financeiro=${opcoesRelatorio.resumoFinanceiro ? 1 : 0}`,
-			`p_balanco=${opcoesRelatorio.balanco ? 1 : 0}`,
-			`p_evidencias=${opcoesRelatorio.evidencias ? 1 : 0}`,
-			`ordenacao=${opcoesRelatorio.ordenacao}`,
-			`_ts=${Date.now()}`
-		].join('&');
-
-		let urlApi = '';
-		let nomeArq = '';
-		let tp = '';
-
-		if (relatorioTarget === 'single' && relatorioTargetId) {
-			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_avulso.php?id=${relatorioTargetId}&${qp}&_ts=${Date.now()}`;
-			nomeArq = `Analise_Sucata_${relatorioTargetId}`;
-			tp = 'Análise Avulsa de Sucata';
-		} else if (relatorioTarget === 'consolidado') {
-			const idsStr = selectedChecklists.join(',');
-			urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_consolidado.php?ids=${idsStr}&${qp}&_ts=${Date.now()}`;
-			nomeArq = `Relatorio_Consolidado_${new Date().getTime()}`;
-			tp = `Relatório Consolidado (${selectedChecklists.length} Análises)`;
-
-			setSelectedChecklists([]);
-			setTimeout(() => { carregarChecklists(); }, 1500);
-		}
+	const confirmarGeracaoRelatorio = async () => {
+		const paramsBase = {
+			p_resumo: opcoesRelatorio.resumo ? 1 : 0,
+			p_medidas: opcoesRelatorio.medidas ? 1 : 0,
+			p_marcas: opcoesRelatorio.marcas ? 1 : 0,
+			p_condicao: opcoesRelatorio.condicao ? 1 : 0,
+			p_recapabilidade: opcoesRelatorio.recapabilidade ? 1 : 0,
+			p_desempenho_marca: opcoesRelatorio.desempenhoMarca ? 1 : 0,
+			p_vida_util: opcoesRelatorio.vidaUtil ? 1 : 0,
+			p_danos: opcoesRelatorio.danos ? 1 : 0,
+			p_listagem: opcoesRelatorio.listagem ? 1 : 0,
+			p_resumo_financeiro: opcoesRelatorio.resumoFinanceiro ? 1 : 0,
+			p_balanco: opcoesRelatorio.balanco ? 1 : 0,
+			p_evidencias: opcoesRelatorio.evidencias ? 1 : 0,
+			ordenacao: opcoesRelatorio.ordenacao,
+			_ts: Date.now()
+		};
 
 		setModalRelatorioVisible(false);
-		if (urlApi) {
-			setTimeout(() => {
+
+		try {
+			let urlApi = '';
+			let nomeArq = '';
+			let tp = '';
+
+			if (relatorioTarget === 'single' && relatorioTargetId) {
+				urlApi = await gerarLinkRelatorio('imprimir_checklist_avulso.php', {
+					...paramsBase,
+					id: relatorioTargetId
+				});
+				nomeArq = `Analise_Sucata_${relatorioTargetId}`;
+				tp = 'Análise Avulsa de Sucata';
+			} else if (relatorioTarget === 'consolidado') {
+				const idsStr = selectedChecklists.join(',');
+				urlApi = await gerarLinkRelatorio('imprimir_checklist_consolidado.php', {
+					...paramsBase,
+					ids: idsStr
+				});
+				nomeArq = `Relatorio_Consolidado_${new Date().getTime()}`;
+				tp = `Relatório Consolidado (${selectedChecklists.length} Análises)`;
+
+				setSelectedChecklists([]);
+				setTimeout(() => { carregarChecklists(); }, 1500);
+			}
+
+			if (urlApi) {
 				abrirModalPreview(urlApi, nomeArq, tp, 'Controle de Pneus e Sucatas');
-			}, 500);
+			}
+		} catch (e: any) {
+			if (isMounted.current) {
+				Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
+			}
 		}
 	};
 
-	const gerarRelatorioComparativo = () => {
+	const gerarRelatorioComparativo = async () => {
 		const ano1Valido = /^\d{4}$/.test(compAno1);
 		const ano2Valido = /^\d{4}$/.test(compAno2);
 
@@ -256,21 +283,25 @@ export default function ChecklistAvulsoScreen() {
 		setModalComparativoVisible(false);
 
 		const tipoNome = compTipo === 'mensal' ? 'Mensal' : compTipo === 'trimestral' ? 'Trimestral' : compTipo === 'semestral' ? 'Semestral' : 'Anual';
-		const qp = [
-			`tipo=${encodeURIComponent(compTipo)}`,
-			`periodo1=${encodeURIComponent(compTipo === 'anual' ? '' : compPeriodo1)}`,
-			`ano1=${encodeURIComponent(compAno1)}`,
-			`periodo2=${encodeURIComponent(compTipo === 'anual' ? '' : compPeriodo2)}`,
-			`ano2=${encodeURIComponent(compAno2)}`,
-			`_ts=${Date.now()}`
-		].join('&');
 
-		setTimeout(() => {
-			const urlApi = `https://sistemascactus.com/apicactus/akipneus/imprimir_checklist_comparativo.php?${qp}`;
+		try {
+			const urlApi = await gerarLinkRelatorio('imprimir_checklist_comparativo.php', {
+				tipo: compTipo,
+				periodo1: compTipo === 'anual' ? '' : compPeriodo1,
+				ano1: compAno1,
+				periodo2: compTipo === 'anual' ? '' : compPeriodo2,
+				ano2: compAno2,
+				_ts: Date.now()
+			});
+
 			const nomeArq = `Comparativo_${tipoNome}_${compAno1}_vs_${compAno2}_${new Date().getTime()}`;
 			const tp = `Relatório Comparativo ${tipoNome} de Sucatas`;
 			abrirModalPreview(urlApi, nomeArq, tp, `Comparativo ${tipoNome}: ${compAno1} vs ${compAno2}`);
-		}, 500);
+		} catch (e: any) {
+			if (isMounted.current) {
+				Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
+			}
+		}
 	};
 
 	const renderOptionToggle = (key: keyof typeof opcoesRelatorio, label: string) => {
@@ -1638,9 +1669,13 @@ export default function ChecklistAvulsoScreen() {
 								{formPneu.id ? (
 									<TouchableOpacity
 										style={[styles.btnImprimir, { flex: 1.2, height: 50, paddingHorizontal: 2 }]}
-										onPress={() => {
-											const url = `https://sistemascactus.com/apicactus/akipneus/imprimir_pneu.php?id=${formPneu.id}`;
-											abrirModalPreview(url, `Laudo_Pneu_${formPneu.id}`, 'Laudo Técnico de Pneu', `Pneu Referência #${formPneu.id}`);
+										onPress={async () => {
+											try {
+												const url = await gerarLinkRelatorio('imprimir_pneu.php', { id: formPneu.id, _ts: Date.now() });
+												abrirModalPreview(url, `Laudo_Pneu_${formPneu.id}`, 'Laudo Técnico de Pneu', `Pneu Referência #${formPneu.id}`);
+											} catch (e: any) {
+												if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
+											}
 										}}
 									>
 										<Feather name="download" size={16} color="#fff" />
