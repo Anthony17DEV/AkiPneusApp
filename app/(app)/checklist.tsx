@@ -47,7 +47,7 @@ export default function ChecklistScreen() {
 
 		const res = await response.json();
 		if (!response.ok || !res?.success || !res?.url) {
-			throw new Error(res?.message || 'NÃ£o foi possÃ­vel gerar o link temporÃ¡rio do relatÃ³rio.');
+			throw new Error(res?.message || 'Não foi possível gerar o link temporário do relatório.');
 		}
 
 		return String(res.url);
@@ -138,7 +138,7 @@ export default function ChecklistScreen() {
 			if (!isMounted.current) return;
 			setHtmlDoc(txt);
 		} catch (e) {
-			if (isMounted.current) Alert.alert('Erro', 'NÃ£o foi possÃ­vel gerar o documento.');
+			if (isMounted.current) Alert.alert('Erro', 'Não foi possível gerar o documento.');
 		}
 		if (isMounted.current) setIsCarregandoPreview(false);
 	};
@@ -151,7 +151,7 @@ export default function ChecklistScreen() {
 			if (supported) {
 				await Linking.openURL(finalUrl);
 			} else {
-				Alert.alert('Erro', 'NÃ£o foi possÃ­vel abrir o navegador no telemÃ³vel.');
+				Alert.alert('Erro', 'Não foi possível abrir o navegador no telefone.');
 			}
 		} catch (e) {
 			console.log(e);
@@ -181,7 +181,7 @@ export default function ChecklistScreen() {
 			if (isAvailable && isMounted.current) {
 				await Sharing.shareAsync(fileUriLocal, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Enviar PDF' });
 			} else if (isMounted.current) {
-				Alert.alert('Aviso', 'A partilha nÃ£o estÃ¡ disponÃ­vel no seu telemÃ³vel.');
+				Alert.alert('Aviso', 'A partilha não está disponível no seu telefone.');
 			}
 		} catch (e) {
 			if (isMounted.current) Alert.alert('Erro', 'Falha ao processar o PDF.');
@@ -284,14 +284,14 @@ export default function ChecklistScreen() {
 			setVeiculo(veiculoFormatado);
 			carregarHistorico(veiculoFormatado.id);
 		} else {
-			Alert.alert('AtenÃ§Ã£o', 'NÃ£o foi possÃ­vel carregar os dados deste equipamento.');
+			Alert.alert('Atenção', 'Não foi possível carregar os dados deste equipamento.');
 		}
 	};
 
 	const confirmSignOut = () => {
 		Alert.alert(
 			'Sair da Conta',
-			'Tem a certeza que deseja sair da aplicaÃ§Ã£o?',
+			'Tem a certeza que deseja sair da aplicação?',
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{ text: 'Sair', style: 'destructive', onPress: signOut },
@@ -435,7 +435,7 @@ export default function ChecklistScreen() {
 					}
 				});
 			} catch (e) {
-				console.log('Erro ao buscar histÃ³rico profundo de pneus', e);
+				console.log('Erro ao buscar histórico profundo de pneus', e);
 			}
 		}
 
@@ -457,7 +457,7 @@ export default function ChecklistScreen() {
 	};
 
 	const iniciarNovoChecklist = async () => {
-		if (!formNovoCheck.motorista || !formNovoCheck.odometro) { Alert.alert("Erro", "Preencha o Motorista e o OdÃ´metro."); return; }
+		if (!formNovoCheck.motorista || !formNovoCheck.odometro) { Alert.alert("Erro", "Preencha o Motorista e o Odômetro."); return; }
 		setIsLoading(true);
 
 		let implementosParaEnviar = [...implementos];
@@ -484,7 +484,7 @@ export default function ChecklistScreen() {
 					}
 				}
 			} catch (e) {
-				console.log('Erro ao clonar composiÃ§Ã£o', e);
+				console.log('Erro ao clonar composição', e);
 			}
 		}
 
@@ -560,7 +560,7 @@ export default function ChecklistScreen() {
 						body: JSON.stringify(payload)
 					});
 				} catch (err) {
-					console.log('Erro ao salvar composiÃ§Ã£o', err);
+					console.log('Erro ao salvar composição', err);
 				}
 			}
 
@@ -588,16 +588,16 @@ export default function ChecklistScreen() {
 				id: idDoChecklist,
 				_ts: Date.now()
 			});
-			abrirModalPreview(url, `Historico_Veiculo_${idDoChecklist}`, 'Laudo de InspeÃ§Ã£o da Frota', `Checklist Veicular #${idDoChecklist}`);
+			abrirModalPreview(url, `Historico_Veiculo_${idDoChecklist}`, 'Laudo de Inspeção da Frota', `Checklist Veicular #${idDoChecklist}`);
 		} catch (e: any) {
-			if (isMounted.current) Alert.alert('Erro', e?.message || 'NÃ£o foi possÃ­vel gerar o link temporÃ¡rio do relatÃ³rio.');
+			if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
 		}
 	};
 
 	const excluirChecklistAntigo = (idDoChecklist: number) => {
 		Alert.alert(
 			'Excluir Checklist',
-			'Tem a certeza que deseja excluir permanentemente esta inspeÃ§Ã£o?',
+			'Tem a certeza que deseja excluir permanentemente esta inspeção?',
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{
@@ -621,14 +621,14 @@ export default function ChecklistScreen() {
 							if (!isMounted.current) return;
 
 							if (res.success || res.status === 'success' || (res.message && res.message.toLowerCase().includes('sucesso'))) {
-								Alert.alert('Sucesso', 'Checklist excluÃ­do com sucesso.');
+								Alert.alert('Sucesso', 'Checklist excluído com sucesso.');
 								if (veiculo?.id) carregarHistorico(veiculo.id);
 							} else {
 								Alert.alert('Aviso', res.message || 'Comando enviado. Verifique se o checklist foi removido.');
 								if (veiculo?.id) carregarHistorico(veiculo.id);
 							}
 						} catch (error) {
-							if (isMounted.current) Alert.alert('Erro', 'Falha na conexÃ£o com o servidor.');
+							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 						} finally {
 							if (isMounted.current) setIsLoading(false);
 						}
@@ -730,7 +730,7 @@ export default function ChecklistScreen() {
 			abrirVisualizacaoPneu(codigoPneu, dbData);
 		} else {
 			if (isSomenteLeitura) {
-				Alert.alert('Modo Leitura', 'Checklists antigos nÃ£o podem sofrer adiÃ§Ã£o ou alteraÃ§Ã£o de pneus.');
+				Alert.alert('Modo Leitura', 'Checklists antigos não podem sofrer adição ou alteração de pneus.');
 				return;
 			}
 
@@ -747,7 +747,7 @@ export default function ChecklistScreen() {
 
 	const retirarPneu = (codigoPneu: string, dbData: any) => {
 		if (isSomenteLeitura) {
-			Alert.alert('Modo Leitura', 'Este checklist nÃ£o permite retirada de pneus.');
+			Alert.alert('Modo Leitura', 'Este checklist não permite retirada de pneus.');
 			return;
 		}
 
@@ -758,8 +758,8 @@ export default function ChecklistScreen() {
 
 		if (!checklistMaisRecente) {
 			Alert.alert(
-				'AtenÃ§Ã£o',
-				'A retirada de pneus sÃ³ pode ser feita no checklist mais recente.'
+				'Atenção',
+				'A retirada de pneus só pode ser feita no checklist mais recente.'
 			);
 			return;
 		}
@@ -770,7 +770,7 @@ export default function ChecklistScreen() {
 
 		Alert.alert(
 			'Retirar Pneu',
-			`Deseja realmente retirar o pneu da posiÃ§Ã£o ${codigoPneu}?\\n\\nA posiÃ§Ã£o ficarÃ¡ livre para cadastrar um novo pneu.`,
+			`Deseja realmente retirar o pneu da posição ${codigoPneu}?\\n\\nA posição ficará livre para cadastrar um novo pneu.`,
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{
@@ -789,8 +789,8 @@ export default function ChecklistScreen() {
 							setModalViewPneuVisible(false);
 
 							Alert.alert(
-								'PosiÃ§Ã£o Liberada',
-								'O pneu anterior foi retirado desta posiÃ§Ã£o. Toque na posiÃ§Ã£o novamente para cadastrar o novo pneu.'
+								'Posição Liberada',
+								'O pneu anterior foi retirado desta posição. Toque na posição novamente para cadastrar o novo pneu.'
 							);
 							return;
 						}
@@ -814,7 +814,7 @@ export default function ChecklistScreen() {
 							if (!isMounted.current) return;
 
 							if (!res?.success) {
-								Alert.alert('Erro', res?.message || 'NÃ£o foi possÃ­vel retirar o pneu.');
+								Alert.alert('Erro', res?.message || 'Não foi possível retirar o pneu.');
 								return;
 							}
 
@@ -832,10 +832,10 @@ export default function ChecklistScreen() {
 								await carregarCoresPneus(idChecklistAtivo, [codigoPneu]);
 							}
 
-							Alert.alert('Sucesso', res.message || 'Pneu retirado do veÃ­culo com sucesso.');
+							Alert.alert('Sucesso', res.message || 'Pneu retirado do veículos com sucesso.');
 						} catch (error) {
 							if (isMounted.current) {
-								Alert.alert('Erro', 'Falha na conexÃ£o ao retirar o pneu.');
+								Alert.alert('Erro', 'Falha na conexão ao retirar o pneu.');
 							}
 						} finally {
 							if (isMounted.current) setIsRetirandoPneu(false);
@@ -848,7 +848,7 @@ export default function ChecklistScreen() {
 
 	const tirarFotoPneu = async () => {
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso Ã  cÃ¢mara."); return; }
+		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à câmera."); return; }
 		const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) {
 			setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]);
@@ -857,7 +857,7 @@ export default function ChecklistScreen() {
 
 	const escolherFotoGaleria = async () => {
 		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso Ã  galeria de fotos."); return; }
+		if (permissionResult.granted === false) { Alert.alert("Erro", "Permita o acesso à galeria de fotos."); return; }
 		const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.2, base64: true });
 		if (!result.canceled && result.assets[0].base64) {
 			setFotosPneu([...fotosPneu, `data:image/jpeg;base64,${result.assets[0].base64}`]);
@@ -867,22 +867,22 @@ export default function ChecklistScreen() {
 	const removerFoto = (index: number) => { setFotosPneu(fotosPneu.filter((_, i) => i !== index)); };
 
 	const salvarAfericaoPneu = async () => {
-		if (!formPneu.milimetros || !formPneu.pressao) { Alert.alert('AtenÃ§Ã£o', 'Sulco e CalibraÃ§Ã£o sÃ£o obrigatÃ³rios.'); return; }
+		if (!formPneu.milimetros || !formPneu.pressao) { Alert.alert('Atenção', 'Sulco e Calibração são obrigatórios.'); return; }
 
 		if (formPneu.dot && formPneu.dot !== 'S/A') {
 			if (formPneu.dot.length !== 4) {
-				Alert.alert('AtenÃ§Ã£o', 'O DOT deve conter exatamente 4 dÃ­gitos numÃ©ricos.');
+				Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.');
 				return;
 			}
 			const semana = parseInt(formPneu.dot.substring(0, 2));
 			if (semana < 1 || semana > 53) {
-				Alert.alert('AtenÃ§Ã£o', 'As duas primeiras posiÃ§Ãµes do DOT representam a semana de fabricaÃ§Ã£o e devem estar entre 01 e 53.');
+				Alert.alert('Atenção', 'As duas primeiras posições do DOT representam a semana de fabricação e devem estar entre 01 e 53.');
 				return;
 			}
 		}
 
 		if (!formPneu.tipo) {
-			Alert.alert('AtenÃ§Ã£o', 'O campo Tipo Ã© obrigatÃ³rio.');
+			Alert.alert('Atenção', 'O campo Tipo é obrigatório.');
 			return;
 		}
 
@@ -895,8 +895,8 @@ export default function ChecklistScreen() {
 		if (!isNaN(sulcoAnteriorNum) && sulcoAnteriorNum > 0) {
 			if (sulcoAtualNum > sulcoAnteriorNum) {
 				Alert.alert(
-					'AferiÃ§Ã£o InvÃ¡lida',
-					`O sulco atual nÃ£o pode ser maior que o anterior!\n\nA Ãºltima aferiÃ§Ã£o registrou ${formPneu.sulco_anterior}mm.`
+					'Aferição Inválida',
+					`O sulco atual não pode ser maior que o anterior!\n\nA última aferição registrou ${formPneu.sulco_anterior}mm.`
 				);
 				return;
 			}
@@ -973,11 +973,11 @@ export default function ChecklistScreen() {
 								abrirModalPreview(
 									url,
 									`Laudo_Pneu_${pneuIdLaudo}`,
-									'Laudo TÃ©cnico de Pneu',
+									'Laudo Técnico de Pneu',
 									`Pneu #${pneuIdLaudo}`
 								);
 							} catch (e: any) {
-								if (isMounted.current) Alert.alert('Erro', e?.message || 'NÃ£o foi possÃ­vel gerar o link temporÃ¡rio do relatÃ³rio.');
+								if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
 							}
 						}
 					});
@@ -985,7 +985,7 @@ export default function ChecklistScreen() {
 
 				Alert.alert(
 					'Pneu Recusado',
-					res.message || 'Laudo gerado e pneu retirado do veÃ­culo. A posiÃ§Ã£o estÃ¡ livre para um novo pneu.',
+					res.message || 'Laudo gerado e pneu retirado do veículos. A posição está livre para um novo pneu.',
 					botoes
 				);
 			} else {
@@ -1048,7 +1048,7 @@ export default function ChecklistScreen() {
 					placa: v.placa || v.veic_tx_placa || v.nome,
 					codigo: v.codigo || v.veic_tx_codigo || '',
 					cor: v.cor || v.veic_tx_cor,
-					documento: `CÃ³digo: ${v.codigo || '--'} | Tipo: ${v.tipo || v.veic_tx_tipo || 'N/A'} | Eixos: ${v.eixos || v.veic_tx_eixos || 2}`
+					documento: `Código: ${v.codigo || '--'} | Tipo: ${v.tipo || v.veic_tx_tipo || 'N/A'} | Eixos: ${v.eixos || v.veic_tx_eixos || 2}`
 				}));
 				setResultadosBusca(veiculosFormatados);
 			} else { setResultadosBusca([]); }
@@ -1228,12 +1228,12 @@ export default function ChecklistScreen() {
 	};
 
 	const salvarCadastroDinamico = async () => {
-		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("AtenÃ§Ã£o", "Preencha o nome do motivo."); return; }
-		if (tipoBusca === 'reformador' && !formCadastro.nome) { Alert.alert("AtenÃ§Ã£o", "Preencha o nome do reformador."); return; }
-		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("AtenÃ§Ã£o", "Preencha todos os campos com asterisco."); return; }
-		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("AtenÃ§Ã£o", "Preencha a ReferÃªncia e a Nova Marca."); return; }
-		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("AtenÃ§Ã£o", "Preencha ReferÃªncia, Marca, Modelo e o MM Original."); return; }
-		if (tipoBusca === 'banda' && (!formCadastro.marca || !formCadastro.modelo || !formCadastro.sulco)) { Alert.alert("AtenÃ§Ã£o", "Preencha todos os campos com asterisco."); return; }
+		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
+		if (tipoBusca === 'reformador' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do reformador."); return; }
+		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
+		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
+		if (tipoBusca === 'modelo_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha Referência, Marca, Modelo e o MM Original."); return; }
+		if (tipoBusca === 'banda' && (!formCadastro.marca || !formCadastro.modelo || !formCadastro.sulco)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
 
 		setIsCadastrando(true);
 		try {
@@ -1271,7 +1271,7 @@ export default function ChecklistScreen() {
 				Alert.alert('Erro', res.message || 'Falha ao cadastrar no banco.');
 			}
 		} catch (err) {
-			if (isMounted.current) Alert.alert('Erro', 'Erro na conexÃ£o com o servidor de cadastro.');
+			if (isMounted.current) Alert.alert('Erro', 'Erro na conexão com o servidor de cadastro.');
 		} finally {
 			if (isMounted.current) setIsCadastrando(false);
 		}
@@ -1280,7 +1280,7 @@ export default function ChecklistScreen() {
 	const imprimirLaudoPneuRecusado = async (pneu: any) => {
 		const pneuId = pneu?.pneu_nb_id || pneu?.id;
 		if (!pneuId) {
-			Alert.alert('AtenÃ§Ã£o', 'NÃ£o foi possÃ­vel identificar o pneu recusado para gerar o laudo.');
+			Alert.alert('Atenção', 'Não foi possível identificar o pneu recusado para gerar o laudo.');
 			return;
 		}
 
@@ -1293,10 +1293,10 @@ export default function ChecklistScreen() {
 				url,
 				`Laudo_Pneu_Recusado_${pneuId}`,
 				'Laudo de Pneu Recusado',
-				`${posicao ? `PosiÃ§Ã£o ${posicao} â€¢ ` : ''}SÃ©rie ${serie}`
+				`${posicao ? `Posição ${posicao} • ` : ''}Série ${serie}`
 			);
 		} catch (e: any) {
-			if (isMounted.current) Alert.alert('Erro', e?.message || 'NÃ£o foi possÃ­vel gerar o link temporÃ¡rio do relatÃ³rio.');
+			if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
 		}
 	};
 
@@ -1320,7 +1320,7 @@ export default function ChecklistScreen() {
 				</View>
 
 				<View style={{ marginBottom: 20, backgroundColor: '#f4f6f8', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
-					<Text style={{ fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 12 }}>OpÃ§Ãµes do RelatÃ³rio:</Text>
+					<Text style={{ fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 12 }}>Opções do Relatório:</Text>
 
 					<TouchableOpacity onPress={() => setExibirCPK(!exibirCPK)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
 						<Feather name={exibirCPK ? "check-square" : "square"} size={22} color={exibirCPK ? "#1967d2" : "#999"} style={{ marginRight: 10 }} />
@@ -1421,7 +1421,7 @@ export default function ChecklistScreen() {
 				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
-							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'ReferÃªncia' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}
+							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}
 						</Text>
 
 						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador') && (
@@ -1429,15 +1429,15 @@ export default function ChecklistScreen() {
 						)}
 
 						{tipoBusca === 'marca_pneu' && (
-							<><Text style={styles.label}>* ReferÃªncia</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" /><Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." /></>
+							<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} placeholder="Ex: 295/80R22.5" /><Text style={styles.label}>* Nova Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} placeholder="Nome da Marca..." /></>
 						)}
 
 						{tipoBusca === 'modelo_pneu' && (
-							<><Text style={styles.label}>* ReferÃªncia</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t.replace(',', '.') })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
+							<><Text style={styles.label}>* Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Novo Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t.replace(',', '.') })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
 						)}
 
 						{tipoBusca === 'referencia_pneu' && (
-							<><Text style={styles.label}>* Nome da ReferÃªncia</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t.replace(',', '.') })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
+							<><Text style={styles.label}>* Nome da Referência</Text><TextInput style={styles.inputModal} value={formCadastro.nome} onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })} /><Text style={styles.label}>* Marca</Text><TextInput style={styles.inputModal} value={formCadastro.marca} onChangeText={t => setFormCadastro({ ...formCadastro, marca: t })} /><Text style={styles.label}>* Modelo</Text><TextInput style={styles.inputModal} value={formCadastro.modelo} onChangeText={t => setFormCadastro({ ...formCadastro, modelo: t })} /><View style={styles.row}><View style={styles.inputGroupH}><Text style={styles.label}>* MM Original</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.mmOriginal} onChangeText={t => setFormCadastro({ ...formCadastro, mmOriginal: t.replace(',', '.') })} /></View><View style={styles.inputGroupH}><Text style={styles.label}>Valor (R$)</Text><TextInput style={styles.inputModal} keyboardType="numeric" value={formCadastro.valor} onChangeText={t => setFormCadastro({ ...formCadastro, valor: formatarMoeda(t) })} placeholder="0,00" /></View></View></>
 						)}
 
 						{tipoBusca === 'banda' && (
@@ -1521,13 +1521,13 @@ export default function ChecklistScreen() {
 							<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
 								<Feather name="alert-triangle" size={18} color="#856404" />
 								<Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>
-									VeÃ­culo em Outro Checklist
+									Veículo em Outro Checklist
 								</Text>
 							</View>
 							{avisosVinculo.map((aviso, idx) => (
 								<View key={idx} style={{ marginBottom: 12 }}>
 									<Text style={{ color: '#856404', fontSize: 13, marginBottom: 6 }}>
-										â€¢ {aviso.msg}
+										• {aviso.msg}
 									</Text>
 									{aviso.checklist_id && aviso.cavalo_id && (
 										<TouchableOpacity
@@ -1570,7 +1570,7 @@ export default function ChecklistScreen() {
 					{!idChecklistAtivo && (
 						<View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 15, elevation: 2 }}>
 							<View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 0, alignItems: 'center', marginBottom: 20 }}>
-								<Text style={[styles.sectionTitle, { marginBottom: 0 }]}>HistÃ³rico de InspeÃ§Ãµes</Text>
+								<Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Histórico de Inspeções</Text>
 							</View>
 
 							{historico.map((h, index) => {
@@ -1584,10 +1584,10 @@ export default function ChecklistScreen() {
 										<View style={{ width: '100%', marginBottom: 12 }}>
 											<Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }}>{formatarDataLocal(h.chec_tx_dataHora)}</Text>
 											<Text style={{ color: '#666', fontSize: 13, marginTop: 4 }}>Motorista: {h.chec_tx_motorista}</Text>
-											<Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>OdÃ´metro: {h.chec_tx_odometro} Km</Text>
+											<Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>Odômetro: {h.chec_tx_odometro} Km</Text>
 											{h.is_implemento == 1 && h.cavalo_placa && (
 												<Text style={{ color: '#E53935', fontSize: 12, marginTop: 6, fontWeight: 'bold' }}>
-													* Inspecionado no veÃ­culo: {h.cavalo_placa}
+													* Inspecionado no veículo: {h.cavalo_placa}
 												</Text>
 											)}
 											{h.implementos_placas?.length > 0 && (
@@ -1610,7 +1610,7 @@ export default function ChecklistScreen() {
 															marginTop: 2
 														}}
 													>
-														{h.implementos_placas.join(' â€¢ ')}
+														{h.implementos_placas.join(' • ')}
 													</Text>
 												</View>
 											)}
@@ -1697,7 +1697,7 @@ export default function ChecklistScreen() {
 									</View>
 
 									<Text style={styles.recusadosDescricao}>
-										Pneus retirados deste checklist por motivo de recusa. O histÃ³rico permanece salvo e o laudo pode ser emitido a qualquer momento.
+										Pneus retirados deste checklist por motivo de recusa. O histórico permanece salvo e o laudo pode ser emitido a qualquer momento.
 									</Text>
 
 									{pneusRecusados.map((pneu: any, index: number) => {
@@ -1708,11 +1708,11 @@ export default function ChecklistScreen() {
 										return (
 											<View key={`recusado_${pneu.laud_nb_id || pneu.pneu_nb_id || index}`} style={styles.recusadoCard}>
 												<View style={{ flex: 1, paddingRight: 10 }}>
-													<Text style={styles.recusadoPosicao}>PosiÃ§Ã£o {posicao}</Text>
-													<Text style={styles.recusadoInfo}>SÃ©rie: {serie}</Text>
+													<Text style={styles.recusadoPosicao}>Posição {posicao}</Text>
+													<Text style={styles.recusadoInfo}>Série: {serie}</Text>
 													{!!marcaModelo && <Text style={styles.recusadoInfo}>{marcaModelo}</Text>}
 													<Text style={styles.recusadoMotivo} numberOfLines={3}>
-														Motivo: {pneu.laud_tx_motivo || pneu.pneu_tx_situacao || 'NÃ£o informado'}
+														Motivo: {pneu.laud_tx_motivo || pneu.pneu_tx_situacao || 'Não informado'}
 													</Text>
 												</View>
 
@@ -1741,7 +1741,7 @@ export default function ChecklistScreen() {
 						<Text style={styles.modalTitle}>Novo checklist</Text>
 						<Text style={styles.label}>Nome do Motorista</Text>
 						<TextInput style={styles.inputModal} value={formNovoCheck.motorista} onChangeText={t => setFormNovoCheck({ ...formNovoCheck, motorista: t })} />
-						<Text style={[styles.label, { marginTop: 10 }]}>OdÃ´metro Atual (Km)</Text>
+						<Text style={[styles.label, { marginTop: 10 }]}>Odômetro Atual (Km)</Text>
 						<TextInput style={styles.inputModal} keyboardType="numeric" value={formNovoCheck.odometro} onChangeText={t => setFormNovoCheck({ ...formNovoCheck, odometro: t })} />
 						<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
 							<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalNovoChecklist(false)}><Text>Cancelar</Text></TouchableOpacity>
@@ -1768,12 +1768,12 @@ export default function ChecklistScreen() {
 
 					<ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 150 }} keyboardShouldPersistTaps="handled">
 
-						<Text style={styles.groupTitle}>IdentificaÃ§Ã£o do Pneu</Text>
+						<Text style={styles.groupTitle}>Identificação do Pneu</Text>
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>ReferÃªncia</Text>
+								<Text style={styles.label}>Referência</Text>
 								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('referencia_pneu')}>
-									<Text style={{ color: formPneu.referencia_nome ? '#000' : '#999' }}>{formPneu.referencia_nome || 'Selecionar ReferÃªncia...'}</Text>
+									<Text style={{ color: formPneu.referencia_nome ? '#000' : '#999' }}>{formPneu.referencia_nome || 'Selecionar Referência...'}</Text>
 									<Feather name="search" size={16} color="#999" />
 								</TouchableOpacity>
 							</View>
@@ -1851,7 +1851,7 @@ export default function ChecklistScreen() {
 							</>
 						)}
 
-						<Text style={styles.groupTitle}>EspecificaÃ§Ãµes</Text>
+						<Text style={styles.groupTitle}>Especificações</Text>
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}>
 								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
@@ -1895,7 +1895,7 @@ export default function ChecklistScreen() {
 							<TextInput style={styles.inputModal} value={formPneu.ferro} onChangeText={t => setFormPneu({ ...formPneu, ferro: t })} />
 						</View>
 
-						<Text style={styles.groupTitle}>AferiÃ§Ãµes</Text>
+						<Text style={styles.groupTitle}>Aferições</Text>
 
 						<View style={{ width: '100%', marginBottom: 15 }}>
 							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
@@ -1904,7 +1904,7 @@ export default function ChecklistScreen() {
 								{!valorPodeEditar && (
 									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 										<Feather name="lock" size={12} color="#777" />
-										<Text style={{ fontSize: 11, color: '#777', marginLeft: 4 }}>Valor jÃ¡ registrado</Text>
+										<Text style={{ fontSize: 11, color: '#777', marginLeft: 4 }}>Valor já registrado</Text>
 									</View>
 								)}
 							</View>
@@ -1926,7 +1926,7 @@ export default function ChecklistScreen() {
 
 							{!valorPodeEditar && (
 								<Text style={{ fontSize: 11, color: '#888', marginTop: 5 }}>
-									O valor nÃ£o pode ser alterado porque este pneu jÃ¡ possui checklist anterior.
+									O valor não pode ser alterado porque este pneu já possui checklist anterior.
 								</Text>
 							)}
 						</View>
@@ -1937,7 +1937,7 @@ export default function ChecklistScreen() {
 						</View>
 						<View style={styles.row}>
 							<View style={styles.inputGroupH}>
-								<Text style={styles.label}>Calib. PadrÃ£o (Lbs)</Text>
+								<Text style={styles.label}>Calib. Padrão (Lbs)</Text>
 								<TextInput style={[styles.inputModal, { backgroundColor: '#eee' }]} editable={false} keyboardType="numeric" value={formPneu.pressao_padrao} onChangeText={t => setFormPneu({ ...formPneu, pressao_padrao: t })} />
 							</View>
 							<View style={styles.inputGroupH}>
@@ -1979,19 +1979,19 @@ export default function ChecklistScreen() {
 							<View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#fff3cd', borderWidth: 1, borderColor: '#ffe69c', borderRadius: 8, padding: 12, marginTop: -5, marginBottom: 15 }}>
 								<Feather name="alert-triangle" size={18} color="#856404" style={{ marginRight: 8, marginTop: 1 }} />
 								<Text style={{ flex: 1, color: '#856404', fontSize: 12, lineHeight: 17, fontWeight: '600' }}>
-									Ao gravar com motivo de recusa, o laudo serÃ¡ gerado e este pneu serÃ¡ retirado do veÃ­culo. A posiÃ§Ã£o ficarÃ¡ disponÃ­vel para cadastrar outro pneu.
+									Ao gravar com motivo de recusa, o laudo será gerado e este pneu será retirado do veículo. A posição ficará disponível para cadastrar outro pneu.
 								</Text>
 							</View>
 						) : null}
 
-						<Text style={styles.label}>ObservaÃ§Ãµes (Opcional)</Text>
+						<Text style={styles.label}>Observações (Opcional)</Text>
 						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
 
 						<View style={{ flexDirection: 'row', gap: 10 }}>
 							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={tirarFotoPneu}>
 								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 									<Feather name="camera" size={20} color="#666" />
-									<Text style={styles.btnFotoText}>CÃ¢mera</Text>
+									<Text style={styles.btnFotoText}>Câmera</Text>
 								</View>
 							</TouchableOpacity>
 							<TouchableOpacity style={[styles.btnFoto, { flex: 1 }]} onPress={escolherFotoGaleria}>
@@ -2045,9 +2045,9 @@ export default function ChecklistScreen() {
 									onPress={async () => {
 										try {
 											const url = await gerarLinkRelatorio('imprimir_pneu.php', { id: formPneu.id, _ts: Date.now() });
-											abrirModalPreview(url, `Laudo_Pneu_${formPneu.id}`, 'Laudo TÃ©cnico de Pneu', `Pneu ReferÃªncia #${formPneu.id}`);
+											abrirModalPreview(url, `Laudo_Pneu_${formPneu.id}`, 'Laudo Técnico de Pneu', `Pneu Referência #${formPneu.id}`);
 										} catch (e: any) {
-											if (isMounted.current) Alert.alert('Erro', e?.message || 'NÃ£o foi possÃ­vel gerar o link temporÃ¡rio do relatÃ³rio.');
+											if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
 										}
 									}}
 								>
@@ -2085,7 +2085,7 @@ export default function ChecklistScreen() {
 						<TouchableOpacity onPress={() => setModalViewPneuVisible(false)} style={{ padding: 5 }}>
 							<Feather name="arrow-left" size={24} color="#fff" />
 						</TouchableOpacity>
-						<Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>RelatÃ³rio do Pneu</Text>
+						<Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Relatório do Pneu</Text>
 						<View style={{ width: 30 }} />
 					</View>
 
@@ -2114,13 +2114,13 @@ export default function ChecklistScreen() {
 							return (
 								<>
 									<View style={styles.reportBox}>
-										<Text style={styles.groupTitle}>IdentificaÃ§Ã£o Principal</Text>
+										<Text style={styles.groupTitle}>Identificação Principal</Text>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>PosiÃ§Ã£o:</Text>
+											<Text style={styles.reportLabel}>Posição:</Text>
 											<Text style={styles.reportValue}>{viewData.codigoPneu}</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>SÃ©rie / Fogo:</Text>
+											<Text style={styles.reportLabel}>Série / Fogo:</Text>
 											<Text style={styles.reportValue}>{db.pneu_tx_serie || 'N/A'} {db.pneu_tx_ferro ? `(F: ${db.pneu_tx_ferro})` : ''}</Text>
 										</View>
 										<View style={styles.reportRow}>
@@ -2128,13 +2128,13 @@ export default function ChecklistScreen() {
 											<Text style={styles.reportValue}>{db.pneu_tx_marca || '--'} / {db.pneu_tx_modelo || '--'}</Text>
 										</View>
 										<View style={styles.reportRow}>
-											<Text style={styles.reportLabel}>CondiÃ§Ã£o:</Text>
+											<Text style={styles.reportLabel}>Condição:</Text>
 											<Text style={styles.reportValue}>{db.pneu_tx_tipo || '--'}</Text>
 										</View>
 									</View>
 
 									<View style={styles.reportBox}>
-										<Text style={styles.groupTitle}>AferiÃ§Ãµes de Desgaste</Text>
+										<Text style={styles.groupTitle}>Aferições de Desgaste</Text>
 										<View style={styles.reportRow}>
 											<Text style={styles.reportLabel}>mm Original:</Text>
 											<Text style={styles.reportValue}>{mmOrig.toFixed(1)} mm</Text>
@@ -2178,7 +2178,7 @@ export default function ChecklistScreen() {
 									{valorResidual > 0 && (
 										<View style={[styles.reportBox, { borderColor: isSucata ? '#E53935' : '#f39c12', borderWidth: 1 }]}>
 											<Text style={[styles.groupTitle, { color: isSucata ? '#E53935' : '#f39c12', borderBottomWidth: 0, marginBottom: 5 }]}>
-												{isSucata ? 'PrejuÃ­zo Calculado (Sucata)' : 'Valor Residual da Borracha'}
+												{isSucata ? 'Prejuízo Calculado (Sucata)' : 'Valor Residual da Borracha'}
 											</Text>
 											<Text style={{ color: isSucata ? '#E53935' : '#f39c12', fontWeight: 'bold', fontSize: 18 }}>
 												R$ {valorResidual.toFixed(2).replace('.', ',')}
