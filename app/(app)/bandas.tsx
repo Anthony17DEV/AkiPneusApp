@@ -1,8 +1,9 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
+import { apiService } from '../../src/services/apiService';
 
 interface Banda {
 	id: number;
@@ -15,8 +16,6 @@ interface Banda {
 
 export default function BandasScreen() {
 	const router = useRouter();
-	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_bandas.php';
-	const API_BUSCA_URL = 'https://sistemascactus.com/apicactus/akipneus/api_busca_dinamica.php';
 
 	const [bandas, setBandas] = useState<Banda[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -53,40 +52,24 @@ export default function BandasScreen() {
 		return formatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 	};
 
-	const carregarBandas = async (signal?: AbortSignal) => {
+	const carregarBandas = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca_marca: filtroMarca, busca_modelo: filtroModelo }),
-				signal
-			});
-			const res = await response.json();
-			if (res.success) {
+			const res = await apiService.listarBandas(filtroMarca, filtroModelo);
+			if (res && res.success && Array.isArray(res.data)) {
 				setBandas(res.data);
 			} else {
 				setBandas([]);
 			}
-		} catch (error: any) {
-			if (error.name === 'AbortError') {
-				console.log('Requisição cancelada pelo sistema.');
-			} else {
-				console.log("Erro na API:", error);
-			}
+		} catch (error) {
+			console.log("Erro na API de bandas:", error);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
 	useEffect(() => {
-		const abortController = new AbortController();
-
-		carregarBandas(abortController.signal);
-
-		return () => {
-			abortController.abort();
-		};
+		carregarBandas();
 	}, []);
 
 	const resetForm = () => {
@@ -112,10 +95,7 @@ export default function BandasScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						await fetch(API_URL, {
-							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir', id: id })
-						});
+						await apiService.excluirBanda(id);
 					} catch (error) {
 						console.log("Erro ignorado ao excluir");
 					} finally {
@@ -135,15 +115,7 @@ export default function BandasScreen() {
 
 		setIsSaving(true);
 		try {
-			const payload = {
-				acao: form.id ? 'atualizar' : 'inserir',
-				...form
-			};
-
-			await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
+			await apiService.salvarBanda(form);
 		} catch (error) {
 			console.log("Erro ignorado ao salvar");
 		} finally {
@@ -164,12 +136,8 @@ export default function BandasScreen() {
 	const buscarDinamicaNoBanco = async (termo: string) => {
 		setIsSearching(true);
 		try {
-			const res = await fetch(API_BUSCA_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ tipo: 'referencia_pneu', busca: termo })
-			});
-			const data = await res.json();
-			if (data.success) {
+			const data = await apiService.buscarDinamica('referencia_pneu', termo);
+			if (data && data.success && Array.isArray(data.data)) {
 				setResultadosBusca(data.data);
 			} else {
 				setResultadosBusca([]);
@@ -230,8 +198,6 @@ export default function BandasScreen() {
 
 	return (
 		<View style={styles.container}>
-
-			{/* FILTROS MOVIDOS PARA FORA DA FLATLIST */}
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Gerenciar Bandas de Rodagem</Text>
 
@@ -273,7 +239,6 @@ export default function BandasScreen() {
 				</Text>
 			</View>
 
-			{/* INDICADOR DE CARREGAMENTO ISOLADO */}
 			{isLoading && bandas.length === 0 ? (
 				<View style={{ paddingVertical: 40, alignItems: 'center' }}>
 					<ActivityIndicator size="large" color="#0c6ead" />
@@ -328,7 +293,6 @@ export default function BandasScreen() {
 				/>
 			)}
 
-			{/* MODAL DE EDIÇÃO MANTIDO INTACTO (Apenas referenciando para completar) */}
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>
 				<View style={{ flex: 1, backgroundColor: '#fff' }}>
 					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>

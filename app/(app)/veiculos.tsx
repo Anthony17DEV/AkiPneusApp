@@ -249,11 +249,7 @@ export default function VeiculosScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir', id: id })
-							});
+							await apiService.excluirVeiculoGeral(id);
 						} catch (error) {
 							console.log('Erro ignorado ao excluir veículo');
 						} finally {
@@ -325,17 +321,10 @@ export default function VeiculosScreen() {
 				fotos: fotosNovas
 			};
 
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_veiculo_salvar.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-
-			const res = await response.json();
-
+			const res = await apiService.salvarVeiculoGeral(payload);
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res && res.success) {
 				setModalVisible(false);
 				Alert.alert('Sucesso', form.id ? 'Veículo atualizado!' : 'Veículo salvo!', [
 					{
@@ -353,7 +342,7 @@ export default function VeiculosScreen() {
 					}
 				]);
 			} else {
-				Alert.alert('Erro ao Salvar', res.message || 'Falha ao salvar. Verifique se a placa já existe.');
+				Alert.alert('Erro ao Salvar', res?.message || 'Falha ao salvar. Verifique se a placa já existe.');
 			}
 		} catch (e) {
 			if (isMounted.current) Alert.alert('Erro de Conexão', 'Falha ao conectar com o servidor.');

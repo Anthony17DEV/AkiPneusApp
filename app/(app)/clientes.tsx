@@ -1,7 +1,7 @@
 ﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView,
 	Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput,
@@ -166,13 +166,11 @@ export default function ClientesScreen() {
 			[
 				{ text: 'Cancelar', style: 'cancel' },
 				{
-					text: 'Excluir', style: 'destructive', onPress: async () => {
+					text: 'Excluir',
+					style: 'destructive',
+					onPress: async () => {
 						try {
-							await fetch('https://sistemascactus.com/apicactus/akipneus/api_cliente_modificar.php', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir', id: id })
-							});
+							await apiService.excluirCliente(id);
 						} catch (error) {
 							console.log('Erro ignorado ao excluir cliente');
 						} finally {

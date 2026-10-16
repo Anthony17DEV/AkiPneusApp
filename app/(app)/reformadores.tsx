@@ -1,6 +1,6 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { apiService } from '../../src/services/apiService';
@@ -48,15 +48,10 @@ export default function ReformadoresScreen() {
 	const carregarReformadores = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca: filtroBusca })
-			});
-			const res = await response.json();
-
+			const res = await apiService.listarReformadores(filtroBusca);
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res && res.success) {
 				setReformadores(res.data || []);
 			} else {
 				setReformadores([]);
@@ -102,20 +97,15 @@ export default function ReformadoresScreen() {
 				...form
 			};
 
-			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			const res = await response.json();
-
+			const res = await apiService.salvarReformador(payload);
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res && res.success) {
 				Alert.alert('Sucesso', form.id ? 'Reformador atualizado com sucesso!' : 'Reformador cadastrado com sucesso!');
 				setModalVisible(false);
 				carregarReformadores();
 			} else {
-				Alert.alert('Atenção', res.message || 'Falha ao salvar reformador.');
+				Alert.alert('Atenção', res?.message || 'Falha ao salvar reformador.');
 			}
 		} catch (error) {
 			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
@@ -133,19 +123,14 @@ export default function ReformadoresScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							const response = await fetch(API_URL, {
-								method: 'POST', headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir', id: id })
-							});
-							const res = await response.json();
-
+							const res = await apiService.excluirReformador(id);
 							if (!isMounted.current) return;
 
-							if (res.success) {
+							if (res && res.success) {
 								Alert.alert('Sucesso', 'Reformador excluído com sucesso.');
 								carregarReformadores();
 							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir.');
+								Alert.alert('Erro', res?.message || 'Falha ao excluir.');
 							}
 						} catch (error) {
 							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');

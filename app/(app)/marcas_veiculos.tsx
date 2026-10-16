@@ -1,8 +1,9 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { apiService } from '@src/services/apiService';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -55,15 +56,8 @@ export default function MarcasVeiculosScreen() {
 	const carregarMarcas = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_marcas_modelos_veiculos.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar_marcas', busca: filtroMarca })
-			});
-			const res = await response.json();
-
+			const res = await apiService.listarMarcasVeiculos(filtroMarca);
 			if (!isMounted.current) return;
-
 			if (res && res.success) {
 				setMarcas(res.data);
 			} else {
@@ -94,17 +88,12 @@ export default function MarcasVeiculosScreen() {
 		}
 		setIsSaving(true);
 		try {
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_marcas_modelos_veiculos.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					acao: form.id ? 'editar_marca' : 'inserir_marca',
-					id: form.id,
-					nome: form.nome.trim().toUpperCase()
-				})
-			});
-			const res = await response.json();
-
+			const payload = {
+				acao: form.id ? 'editar_marca' : 'inserir_marca',
+				id: form.id,
+				nome: form.nome.trim().toUpperCase()
+			};
+			const res = await apiService.salvarMarcaVeiculo(payload);
 			if (!isMounted.current) return;
 
 			if (res && res.success) {
@@ -122,36 +111,25 @@ export default function MarcasVeiculosScreen() {
 	};
 
 	const handleExcluir = (item: MarcaVeiculo) => {
-		Alert.alert(
-			'Excluir Marca',
-			`Tem a certeza que deseja excluir a marca "${item.nome}"?`,
-			[
-				{ text: 'Cancelar', style: 'cancel' },
-				{
-					text: 'Excluir', style: 'destructive', onPress: async () => {
-						try {
-							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_marcas_modelos_veiculos.php', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir_marca', id: item.id })
-							});
-							const res = await response.json();
-
-							if (!isMounted.current) return;
-
-							if (res && res.success) {
-								Alert.alert('Sucesso', 'Marca excluída com sucesso.');
-								carregarMarcas();
-							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir a marca.');
-							}
-						} catch (error) {
-							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+		Alert.alert('Excluir Marca', `Tem a certeza que deseja excluir a marca "${item.nome}"?`, [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Excluir', style: 'destructive', onPress: async () => {
+					try {
+						const res = await apiService.excluirMarcaVeiculo(item.id);
+						if (!isMounted.current) return;
+						if (res && res.success) {
+							Alert.alert('Sucesso', 'Marca excluída com sucesso.');
+							carregarMarcas();
+						} else {
+							Alert.alert('Erro', res.message || 'Falha ao excluir a marca.');
 						}
+					} catch (error) {
+						if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 					}
 				}
-			]
-		);
+			}
+		]);
 	};
 
 	const abrirModelos = (marca: MarcaVeiculo) => {
@@ -164,15 +142,8 @@ export default function MarcasVeiculosScreen() {
 	const carregarModelos = async (marca_id: number) => {
 		setIsLoadingModelos(true);
 		try {
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_marcas_modelos_veiculos.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar_modelos', marca_id: marca_id })
-			});
-			const res = await response.json();
-
+			const res = await apiService.listarModelosVeiculos(marca_id);
 			if (!isMounted.current) return;
-
 			if (res && res.success) {
 				setModelos(res.data);
 			} else {
@@ -192,18 +163,13 @@ export default function MarcasVeiculosScreen() {
 		}
 		setIsSaving(true);
 		try {
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_marcas_modelos_veiculos.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					acao: formModelo.id ? 'editar_modelo' : 'inserir_modelo',
-					id: formModelo.id,
-					marca_id: marcaSelecionada?.id,
-					nome: formModelo.nome.trim().toUpperCase()
-				})
-			});
-			const res = await response.json();
-
+			const payload = {
+				acao: formModelo.id ? 'editar_modelo' : 'inserir_modelo',
+				id: formModelo.id,
+				marca_id: marcaSelecionada?.id,
+				nome: formModelo.nome.trim().toUpperCase()
+			};
+			const res = await apiService.salvarModeloVeiculo(payload);
 			if (!isMounted.current) return;
 
 			if (res && res.success) {
@@ -221,36 +187,25 @@ export default function MarcasVeiculosScreen() {
 	};
 
 	const excluirModelo = (modelo: any) => {
-		Alert.alert(
-			'Excluir Modelo',
-			`Tem a certeza que deseja excluir o modelo "${modelo.nome}"?`,
-			[
-				{ text: 'Cancelar', style: 'cancel' },
-				{
-					text: 'Excluir', style: 'destructive', onPress: async () => {
-						try {
-							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_marcas_modelos_veiculos.php', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir_modelo', id: modelo.id })
-							});
-							const res = await response.json();
-
-							if (!isMounted.current) return;
-
-							if (res && res.success) {
-								carregarModelos(marcaSelecionada!.id);
-								carregarMarcas();
-							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir o modelo.');
-							}
-						} catch (error) {
-							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão.');
+		Alert.alert('Excluir Modelo', `Tem a certeza que deseja excluir o modelo "${modelo.nome}"?`, [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Excluir', style: 'destructive', onPress: async () => {
+					try {
+						const res = await apiService.excluirModeloVeiculo(modelo.id);
+						if (!isMounted.current) return;
+						if (res && res.success) {
+							carregarModelos(marcaSelecionada!.id);
+							carregarMarcas();
+						} else {
+							Alert.alert('Erro', res.message || 'Falha ao excluir o modelo.');
 						}
+					} catch (error) {
+						if (isMounted.current) Alert.alert('Erro', 'Falha na conexão.');
 					}
 				}
-			]
-		);
+			}
+		]);
 	};
 
 	return (

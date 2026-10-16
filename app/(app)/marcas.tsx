@@ -56,17 +56,8 @@ export default function MarcasScreen() {
 	const carregarMarcas = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					acao: 'listar',
-					busca_marca: filtroBusca,
-					busca_referencia: ''
-				})
-			});
-			const result = await response.json();
-			if (result.success) {
+			const result = await apiService.listarMarcas(filtroBusca);
+			if (result && result.success) {
 				if (isMounted.current) setMarcas(result.data || []);
 			} else {
 				if (isMounted.current) setMarcas([]);
@@ -108,13 +99,8 @@ export default function MarcasScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						await fetch(API_URL, {
-							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir', referencia: ref, marca: marca })
-						});
-
+						await apiService.excluirMarca(ref, marca);
 						if (!isMounted.current) return;
-
 						Alert.alert('Sucesso', 'Marca excluída com sucesso.');
 						carregarMarcas();
 					} catch (error) {
@@ -141,10 +127,7 @@ export default function MarcasScreen() {
 				marca_nova: form.marcaNova.trim()
 			};
 
-			await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
+			await apiService.salvarMarca(payload);
 
 			if (!isMounted.current) return;
 

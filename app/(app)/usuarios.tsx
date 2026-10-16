@@ -1,9 +1,10 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 
+import { apiService } from '@src/services/apiService';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -52,16 +53,10 @@ export default function UsuariosScreen() {
 	const carregarUsuarios = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca: filtroBusca, perfil: filtroPerfil })
-			});
-			const res = await response.json();
-
+			const res = await apiService.listarUsuarios(filtroBusca, filtroPerfil);
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res && res.success) {
 				setUsuarios(res.data || []);
 			} else {
 				setUsuarios([]);
@@ -114,39 +109,15 @@ export default function UsuariosScreen() {
 				...form
 			};
 
-			const response = await fetch(API_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-
-			const textRes = await response.text();
-			let res;
-
-			try {
-				res = JSON.parse(textRes);
-			} catch (e) {
-				const startIndex = textRes.indexOf('{');
-				const endIndex = textRes.lastIndexOf('}');
-				if (startIndex !== -1 && endIndex !== -1) {
-					try {
-						res = JSON.parse(textRes.substring(startIndex, endIndex + 1));
-					} catch (err) {
-						res = { success: true };
-					}
-				} else {
-					res = { success: true };
-				}
-			}
-
+			const res = await apiService.salvarUsuario(payload);
 			if (!isMounted.current) return;
 
-			if (res.success || res.status === 'success') {
+			if (res && res.success) {
 				Alert.alert('Sucesso', form.id ? 'Utilizador atualizado com sucesso!' : 'Utilizador cadastrado com sucesso!');
 				setModalVisible(false);
 				carregarUsuarios();
 			} else {
-				Alert.alert('Atenção', res.message || 'Falha ao salvar utilizador.');
+				Alert.alert('Atenção', res?.message || 'Falha ao salvar utilizador.');
 			}
 		} catch (error) {
 			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
@@ -164,20 +135,14 @@ export default function UsuariosScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							const response = await fetch(API_URL, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir', id: id })
-							});
-							const res = await response.json();
-
+							const res = await apiService.excluirUsuario(id);
 							if (!isMounted.current) return;
 
-							if (res.success) {
+							if (res && res.success) {
 								Alert.alert('Sucesso', 'Utilizador excluído com sucesso.');
 								carregarUsuarios();
 							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir.');
+								Alert.alert('Erro', res?.message || 'Falha ao excluir.');
 							}
 						} catch (error) {
 							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');

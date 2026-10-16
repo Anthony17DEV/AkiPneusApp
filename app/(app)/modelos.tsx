@@ -70,21 +70,9 @@ export default function ModelosScreen() {
 	) => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					acao: 'listar',
-					busca_referencia: '',
-					busca_marca: marcaStr,
-					busca_modelo: modStr
-				})
-			});
-			const res = await response.json();
-
+			const res = await apiService.listarModelosPneus(marcaStr, modStr);
 			if (!isMounted.current) return;
-
-			if (res.success) {
+			if (res && res.success) {
 				setModelos(res.data || []);
 			} else {
 				setModelos([]);
@@ -134,13 +122,8 @@ export default function ModelosScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						await fetch(API_URL, {
-							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir', id: id })
-						});
-
+						await apiService.excluirModeloPneu(id);
 						if (!isMounted.current) return;
-
 						Alert.alert('Sucesso', 'Modelo excluído.');
 						carregarModelos();
 					} catch (error) {
@@ -159,16 +142,7 @@ export default function ModelosScreen() {
 
 		setIsSaving(true);
 		try {
-			const payload = {
-				acao: form.id ? 'atualizar' : 'inserir',
-				...form
-			};
-
-			await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-
+			await apiService.salvarModeloPneu(form);
 			if (!isMounted.current) return;
 
 			Alert.alert('Sucesso', form.id ? 'Modelo atualizado com sucesso!' : 'Modelo cadastrado com sucesso!');

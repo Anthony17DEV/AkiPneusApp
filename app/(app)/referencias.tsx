@@ -1,6 +1,7 @@
 ﻿import { Feather } from '@expo/vector-icons';
+import { apiService } from '@src/services/apiService';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface Referencia {
@@ -33,15 +34,9 @@ export default function ReferenciasScreen() {
 	const carregarReferencias = async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', busca: filtroBusca })
-			});
-			const res = await response.json();
-
+			const res = await apiService.listarReferencias(filtroBusca);
 			if (!isMounted.current) return;
-
-			if (res.success) {
+			if (res && res.success) {
 				setReferencias(res.data || []);
 			} else {
 				setReferencias([]);
@@ -85,20 +80,15 @@ export default function ReferenciasScreen() {
 		const acao = form.nomeAntigo ? 'atualizar' : 'inserir';
 
 		try {
-			const response = await fetch(API_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: acao, nomeAntigo: form.nomeAntigo, nome: form.nomeNovo })
-			});
-			const res = await response.json();
-
+			const res = await apiService.salvarReferencia({ acao, nomeAntigo: form.nomeAntigo, nome: form.nomeNovo });
 			if (!isMounted.current) return;
 
-			if (res.success) {
-				Alert.alert('Sucesso', res.message);
+			if (res && res.success) {
+				Alert.alert('Sucesso', res.message || 'Salvo com sucesso!');
 				setModalVisible(false);
 				carregarReferencias();
 			} else {
-				Alert.alert('Atenção', res.message || 'Falha ao salvar referência.');
+				Alert.alert('Atenção', res?.message || 'Falha ao salvar referência.');
 			}
 		} catch (error) {
 			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
@@ -108,35 +98,25 @@ export default function ReferenciasScreen() {
 	};
 
 	const excluirReferencia = (nome: string) => {
-		Alert.alert(
-			'Excluir Referência',
-			`Tem certeza que deseja excluir a referência "${nome}"?\nTodos os modelos associados a ela poderão ficar inacessíveis.`,
-			[
-				{ text: 'Cancelar', style: 'cancel' },
-				{
-					text: 'Excluir', style: 'destructive', onPress: async () => {
-						try {
-							const response = await fetch(API_URL, {
-								method: 'POST', headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ acao: 'excluir', nome: nome })
-							});
-							const res = await response.json();
-
-							if (!isMounted.current) return;
-
-							if (res.success) {
-								Alert.alert('Sucesso', 'Referência excluída com sucesso.');
-								carregarReferencias();
-							} else {
-								Alert.alert('Erro', res.message || 'Falha ao excluir.');
-							}
-						} catch (error) {
-							if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+		Alert.alert('Excluir Referência', `Tem certeza que deseja excluir a referência "${nome}"?\nTodos os modelos associados a ela poderão ficar inacessíveis.`, [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Excluir', style: 'destructive', onPress: async () => {
+					try {
+						const res = await apiService.excluirReferencia(nome);
+						if (!isMounted.current) return;
+						if (res && res.success) {
+							Alert.alert('Sucesso', 'Referência excluída com sucesso.');
+							carregarReferencias();
+						} else {
+							Alert.alert('Erro', res?.message || 'Falha ao excluir.');
 						}
+					} catch (error) {
+						if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 					}
 				}
-			]
-		);
+			}
+		]);
 	};
 
 	return (
