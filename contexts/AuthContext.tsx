@@ -41,13 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		loadUserFromStorage();
 	}, []);
 
-	const signIn = async ({ usuario, senha }: any): Promise<{ success: boolean; message?: string }> => {
+	const signIn = async ({ codigoEmpresa, usuario, senha }: any): Promise<{ success: boolean; message?: string }> => {
 		try {
-			if (!usuario || !senha) {
-				return { success: false, message: "Por favor, preencha usuário e senha." };
+			if (!codigoEmpresa || !usuario || !senha) {
+				return { success: false, message: "Por favor, preencha o código da empresa, usuário e senha." };
 			}
 
-			const response = await apiService.login(usuario, senha);
+			const response = await apiService.login(codigoEmpresa, usuario, senha);
 
 			if (response.success) {
 				const loggedUser = response.userData;

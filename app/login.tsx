@@ -21,6 +21,7 @@ import { FooterText } from '../components/FooterText';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
+	const [codigoEmpresa, setCodigoEmpresa] = useState('');
 	const [usuario, setUsuario] = useState('');
 	const [senha, setSenha] = useState('');
 	const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -37,15 +38,25 @@ export default function LoginScreen() {
 		}
 	}, [params.error]);
 
+	const handleCodigoEmpresaChange = (text: string) => {
+		setCodigoEmpresa(text.replace(/[^0-9]/g, ''));
+	};
+
 	const handleLogin = async () => {
-		if (!usuario.trim() || !senha.trim()) {
-			Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
+		if (!codigoEmpresa.trim() || !usuario.trim() || !senha.trim()) {
+			Alert.alert('Atenção', 'Por favor, preencha o código da empresa, usuário e senha.');
 			return;
 		}
 
 		setIsLoading(true);
 
-		const response = await signIn({ usuario, senha });
+		const codigoFormatado = codigoEmpresa.padStart(4, '0');
+
+		const response = await signIn({
+			codigoEmpresa: codigoFormatado,
+			usuario,
+			senha
+		});
 
 		setIsLoading(false);
 
@@ -69,6 +80,20 @@ export default function LoginScreen() {
 					</View>
 
 					<Text style={styles.title}>Acesso ao Sistema</Text>
+
+					<View style={styles.inputContainer}>
+						<FontAwesome name="building" size={18} color="#888" style={[styles.icon, { paddingHorizontal: 12 }]} />
+						<TextInput
+							style={styles.input}
+							value={codigoEmpresa}
+							onChangeText={handleCodigoEmpresaChange}
+							placeholder="Código da Empresa"
+							placeholderTextColor="#BBB"
+							autoCapitalize="none"
+							keyboardType="numeric"
+							maxLength={4}
+						/>
+					</View>
 
 					<View style={styles.inputContainer}>
 						<FontAwesome name="user" size={20} color="#888" style={styles.icon} />

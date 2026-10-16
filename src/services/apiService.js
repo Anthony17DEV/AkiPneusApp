@@ -1,6 +1,8 @@
 ﻿import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+import { enqueueOfflineAction, getDb } from './database';
 
-const BASE_URL = 'https://sistemascactus.com/apicactus/akipneus/';
+const BASE_URL = 'https://sistemascactus.com.br/apicactus/akipneus/';
 
 export const api = axios.create({
 	baseURL: BASE_URL,
@@ -11,6 +13,68 @@ export const api = axios.create({
 	}
 });
 
+api.interceptors.request.use(
+	async (config) => {
+		try {
+			const storedUserData = await SecureStore.getItemAsync('userData');
+			if (storedUserData) {
+				const user = JSON.parse(storedUserData);
+				if (user && user.empresa_id) {
+					config.headers['X-Empresa-ID'] = user.empresa_id;
+				}
+			}
+		} catch (error) {
+			console.error("Erro ao injetar X-Empresa-ID:", error);
+		}
+		return config;
+	},
+	(error) => {
+		return Promise.reject(error);
+	}
+);
+
+api.interceptors.response.use(
+	(response) => response,
+	async (error) => {
+		const originalRequest = error.config;
+
+		if (!error.response || error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+			if (
+				originalRequest &&
+				originalRequest.method &&
+				originalRequest.method.toLowerCase() !== 'get' &&
+				!originalRequest.isReadOperation &&
+				!originalRequest.url?.includes('api_login.php')
+			) {
+				try {
+					const storedUserData = await SecureStore.getItemAsync('userData');
+					const user = storedUserData ? JSON.parse(storedUserData) : null;
+					const empresaId = user?.empresa_id || 1;
+
+					const endpoint = originalRequest.url ? originalRequest.url.replace(BASE_URL, '') : '';
+					const payload = typeof originalRequest.data === 'string' ? JSON.parse(originalRequest.data) : (originalRequest.data || {});
+
+					await enqueueOfflineAction(endpoint, payload, empresaId);
+
+					console.log(`📴 [Offline-First] Requisição de escrita para '${endpoint}' salva na fila local.`);
+
+					return {
+						data: {
+							success: true,
+							offlineQueued: true,
+							message: 'Sem conexão. Operação guardada localmente com sucesso!'
+						}
+					};
+				} catch (queueError) {
+					console.error("Erro ao enfileirar requisição offline:", queueError);
+				}
+			}
+		}
+
+		return Promise.reject(error);
+	}
+);
+
 const parseData = (data) => {
 	if (typeof data === 'string') {
 		try { return JSON.parse(data.trim()); } catch (e) { return data; }
@@ -18,37 +82,101 @@ const parseData = (data) => {
 	return data;
 };
 
+const executeReadOrCache = async (endpoint, payload, cacheTableName, fallbackQueryFn) => {
+	try {
+		const response = await api.post(endpoint, payload, { isReadOperation: true });
+		return parseData(response.data);
+	} catch (error) {
+		console.warn(`⚠️ Falha na rede ao ler '${endpoint}'. A buscar do cache local...`);
+		try {
+			if (typeof fallbackQueryFn === 'function') {
+				const localData = await fallbackQueryFn();
+				return {
+					success: true,
+					offlineMode: true,
+					data: localData,
+					message: 'Dados carregados do cache local (modo offline).'
+				};
+			}
+		} catch (dbError) {
+			console.error("Erro ao ler do banco local:", dbError);
+		}
+
+		return { success: false, message: 'Sem conexão e sem dados locais disponíveis.' };
+	}
+};
+
 export const apiService = {
-	login: async (usuario, senha) => {
+	login: async (codigoEmpresa, usuario, senha) => {
 		try {
 			const cacheBuster = new Date().getTime();
-			const response = await api.post(`api_login.php?v=${cacheBuster}`, { login: usuario, senha });
-			return parseData(response.data);
+			const formData = new FormData();
+			formData.append('codigo_empresa', codigoEmpresa);
+			formData.append('login', usuario);
+			formData.append('senha', senha);
+
+			const response = await api.post(`api_login.php?v=${cacheBuster}`, formData, {
+				headers: {
+					'Content-Type': 'multipart/form-data',
+					'Accept': 'application/json'
+				}
+			});
+
+			const resultado = parseData(response.data);
+
+			if (resultado && resultado.success) {
+				const dadosCache = {
+					...resultado,
+					cache_codigo_empresa: codigoEmpresa,
+					cache_login: usuario,
+					cache_senha: senha
+				};
+				await SecureStore.setItemAsync('offlineUserCredential', JSON.stringify(dadosCache));
+			}
+
+			return resultado;
 		} catch (error) {
-			console.error('Erro no login:', error);
-			return { success: false, message: 'Erro de conexão no login.' };
+			console.warn('⚠️ Falha de rede no login. A verificar credenciais locais...');
+			try {
+				const credentialData = await SecureStore.getItemAsync('offlineUserCredential');
+				if (credentialData) {
+					const cachedUser = JSON.parse(credentialData);
+					if (
+						String(cachedUser.cache_codigo_empresa) === String(codigoEmpresa) &&
+						String(cachedUser.cache_login).toLowerCase() === String(usuario).toLowerCase() &&
+						String(cachedUser.cache_senha) === String(senha)
+					) {
+						return {
+							success: true,
+							offlineMode: true,
+							...cachedUser,
+							message: 'Login efetuado em modo offline.'
+						};
+					}
+				}
+				return { success: false, message: 'Sem internet e credenciais locais inválidas.' };
+			} catch (offlineError) {
+				return { success: false, message: 'ERRO DE REDE: ' + error.message };
+			}
 		}
 	},
 
 	buscarVeiculo: async (filtros) => {
-		try {
-			const payload = typeof filtros === 'string' ? { busca: filtros } : filtros;
-			const response = await api.post('api_veiculo_buscar.php', payload);
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro na busca de veículo:', error);
-			return { success: false, message: 'Erro ao buscar veículo.' };
-		}
+		const payload = typeof filtros === 'string' ? { busca: filtros } : filtros;
+		return await executeReadOrCache(
+			'api_veiculo_buscar.php',
+			payload,
+			'cache_veiculos',
+			async () => {
+				return await getDb().getAllAsync('SELECT * FROM cache_veiculos');
+			}
+		);
 	},
 
 	buscarDashboard: async (userId) => {
-		try {
-			const response = await api.post('api_dashboard.php', { user_id: userId });
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro no dashboard:', error);
-			return { success: false, message: 'Erro de conexão no dashboard.' };
-		}
+		return await executeReadOrCache('api_dashboard.php', { user_id: userId }, null, async () => {
+			return { total_veiculos: 0, total_pneus: 0, offline: true };
+		});
 	},
 
 	alterarSenha: async (userId, novaSenha) => {
@@ -56,7 +184,6 @@ export const apiService = {
 			const response = await api.post('api_perfil_senha.php', { user_id: userId, nova_senha: novaSenha });
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao alterar senha:', error);
 			return { success: false, message: 'Erro de conexão ao alterar a senha.' };
 		}
 	},
@@ -66,46 +193,29 @@ export const apiService = {
 			const response = await api.post('api_perfil_foto.php', { user_id: userId, foto_base64: base64Image });
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao enviar foto:', error);
 			return { success: false, message: 'Erro de conexão ao enviar a foto.' };
 		}
 	},
 
 	buscarClientes: async (userId, userNivel, filtros = {}, pagina = 1) => {
-		try {
-			const response = await api.post('api_clientes.php', {
-				user_id: userId,
-				pagina: pagina,
-				...filtros
-			});
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro ao buscar clientes:', error);
-			return { success: false, message: 'Erro de conexão com o servidor.' };
-		}
+		return await executeReadOrCache('api_clientes.php', { user_id: userId, pagina, ...filtros }, null, async () => {
+			return [];
+		});
 	},
 
 	cadastrarCliente: async (dadosCliente, userId) => {
 		try {
-			const response = await api.post('api_cliente_cadastrar.php', {
-				...dadosCliente,
-				user_id: userId
-			});
+			const response = await api.post('api_cliente_cadastrar.php', { ...dadosCliente, user_id: userId });
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao cadastrar cliente:', error);
 			return { success: false, message: 'Erro de conexão no cadastro.' };
 		}
 	},
 
 	buscarClientePorId: async (clienteId) => {
-		try {
-			const response = await api.post('api_cliente_detalhes.php', { cliente_id: clienteId });
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro ao buscar detalhes:', error);
-			return { success: false, message: 'Erro de conexão.' };
-		}
+		return await executeReadOrCache('api_cliente_detalhes.php', { cliente_id: clienteId }, null, async () => {
+			return null;
+		});
 	},
 
 	modificarCliente: async (dadosCliente, userId) => {
@@ -113,19 +223,14 @@ export const apiService = {
 			const response = await api.post('api_cliente_modificar.php', { ...dadosCliente, user_id: userId });
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao modificar cliente:', error);
 			return { success: false, message: 'Erro na edição.' };
 		}
 	},
 
 	buscarPneusVeiculo: async (checklistId) => {
-		try {
-			const response = await api.post('api_pneus_buscar.php', { checklist_id: checklistId });
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro ao buscar pneus:', error);
-			return { success: false, message: 'Erro de conexão.' };
-		}
+		return await executeReadOrCache('api_pneus_buscar.php', { checklist_id: checklistId }, null, async () => {
+			return {};
+		});
 	},
 
 	salvarInspecaoPneu: async (dadosPneu) => {
@@ -133,26 +238,21 @@ export const apiService = {
 			const response = await api.post('api_pneu_salvar.php', dadosPneu);
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao salvar pneu:', error);
 			return { success: false, message: 'Erro de conexão ao salvar.' };
 		}
 	},
 
 	listarDanos: async (busca = '') => {
-		try {
-			const response = await api.post('api_motivo_recusa.php', { acao: 'listar', busca });
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro ao listar danos:', error);
-			return { success: false, data: [] };
-		}
+		return await executeReadOrCache('api_motivo_recusa.php', { acao: 'listar', busca }, null, async () => {
+			return [];
+		});
 	},
+
 	salvarDano: async (dano) => {
 		try {
 			const response = await api.post('api_motivo_recusa.php', dano);
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao salvar dano:', error);
 			return { success: false, message: 'Erro de conexão.' };
 		}
 	},
@@ -160,32 +260,8 @@ export const apiService = {
 	excluirDano: async (id) => {
 		try {
 			const response = await api.post('api_motivo_recusa.php', { acao: 'excluir', id });
-
-			if (!response.data || String(response.data).trim() === '') {
-				return { success: true, message: 'Registro excluído com sucesso!' };
-			}
-
-			let data = response.data;
-
-			if (typeof data === 'string') {
-				try {
-					const startIndex = data.indexOf('{');
-					const endIndex = data.lastIndexOf('}');
-
-					if (startIndex !== -1 && endIndex !== -1) {
-						data = JSON.parse(data.substring(startIndex, endIndex + 1));
-					} else {
-						data = JSON.parse(data);
-					}
-				} catch (parseError) {
-					return { success: true, message: 'Registro excluído com sucesso!' };
-				}
-			}
-
-			return data;
-
+			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao excluir dano:', error);
 			return { success: false, message: 'Erro de conexão.' };
 		}
 	},
@@ -195,27 +271,20 @@ export const apiService = {
 			const response = await api.post('api_veiculo_salvar.php', dadosVeiculo);
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao salvar veículo:', error);
 			return { success: false, message: 'Erro de conexão ao salvar veículo.' };
 		}
 	},
 
 	buscarDinamica: async (tipo, busca, extras = {}) => {
-		try {
-			const payload = { tipo, busca, ...extras };
-
-			const response = await api.post('api_busca_dinamica.php', payload);
-			return parseData(response.data);
-		} catch (error) {
-			return { success: false, data: [] };
-		}
+		return await executeReadOrCache('api_busca_dinamica.php', { tipo, busca, ...extras }, null, async () => {
+			return [];
+		});
 	},
 
 	listarChecklists: async (veiculoId) => {
-		try {
-			const response = await api.post('api_checklist.php', { acao: 'listar', veiculo_id: veiculoId });
-			return parseData(response.data);
-		} catch (error) { return { success: false, data: [] }; }
+		return await executeReadOrCache('api_checklist.php', { acao: 'listar', veiculo_id: veiculoId }, null, async () => {
+			return [];
+		});
 	},
 
 	iniciarChecklist: async (dados) => {
@@ -227,34 +296,17 @@ export const apiService = {
 
 	recuperarSenha: async (usuarioOuEmail) => {
 		try {
-			console.log("📤 Pedindo pra recuperar:", usuarioOuEmail);
-
 			const response = await api.post('api_recuperar_senha.php', { usuario: usuarioOuEmail });
-
-			console.log("📥 Resposta BRUTA do servidor:", response.data);
-
-			if (typeof response.data === 'string' && !response.data.includes('"success"')) {
-				return { success: false, message: "O PHP deu erro: " + response.data.substring(0, 100) };
-			}
-
 			return parseData(response.data);
 		} catch (error) {
-			console.error('❌ Erro no catch:', error);
-			return {
-				success: false,
-				message: error.response?.data?.message || 'Erro de conexão com o servidor.'
-			};
+			return { success: false, message: 'Erro de conexão com o servidor.' };
 		}
 	},
 
 	buscarPneusGrid: async (filtros) => {
-		try {
-			const response = await api.post('api_pneus_buscar_grid.php', filtros);
-			return parseData(response.data);
-		} catch (error) {
-			console.error('Erro na busca de pneus:', error);
-			return { success: false, data: [] };
-		}
+		return await executeReadOrCache('api_pneus_buscar_grid.php', filtros, null, async () => {
+			return [];
+		});
 	},
 
 	salvarPneuGeral: async (dadosPneu) => {
@@ -262,7 +314,6 @@ export const apiService = {
 			const response = await api.post('api_pneus_salvar.php', dadosPneu);
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao salvar pneu:', error);
 			return { success: false, message: 'Erro ao conectar com o servidor.' };
 		}
 	},
@@ -272,7 +323,6 @@ export const apiService = {
 			const response = await api.post('api_pneu_salvar_laudo.php', dadosLaudo);
 			return parseData(response.data);
 		} catch (error) {
-			console.error('Erro ao salvar laudo:', error);
 			return { success: false, message: 'Erro ao conectar com o servidor.' };
 		}
 	},

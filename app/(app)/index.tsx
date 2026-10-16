@@ -1,6 +1,6 @@
 ﻿import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../src/services/apiService';
+import { runBackgroundSync } from '../../src/services/backgroundSync';
 
 interface VeiculoBusca {
 	id: number;
@@ -33,6 +34,11 @@ export default function DashboardScreen() {
 
 	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
 
+	// Dispara a criação do banco local e a sincronização assim que entra no Dashboard
+	useEffect(() => {
+		runBackgroundSync();
+	}, []);
+
 	const handleBuscar = async () => {
 		if (!termoBusca.trim()) {
 			Alert.alert('Atenção', 'Digite a placa ou código da frota.');
@@ -47,7 +53,29 @@ export default function DashboardScreen() {
 			const res = await apiService.buscarVeiculo(termoBusca);
 
 			if (res && res.success && res.data) {
-				setVeiculoEncontrado(res.data);
+				// Se veio do cache offline (que retorna um array de veículos), procuramos a placa/código digitado
+				if (Array.isArray(res.data)) {
+					const termo = termoBusca.trim().toUpperCase();
+					const encontrado = res.data.find(
+						(v: any) =>
+							String(v.placa || v.veic_tx_placa || '').toUpperCase().includes(termo) ||
+							String(v.codigo || v.veic_tx_codigo || '').toUpperCase().includes(termo)
+					);
+
+					if (encontrado) {
+						const dadosExtras = encontrado.dados_json ? JSON.parse(encontrado.dados_json) : encontrado;
+						setVeiculoEncontrado({
+							id: encontrado.id || dadosExtras.id || dadosExtras.veic_nb_id,
+							placa: encontrado.placa || dadosExtras.placa || dadosExtras.veic_tx_placa,
+							eixos: dadosExtras.eixos || dadosExtras.veic_tx_eixos || '0',
+						});
+					} else {
+						Alert.alert('Ops!', 'Veículo não encontrado no cache offline.');
+					}
+				} else {
+					// Retorno padrão online da API
+					setVeiculoEncontrado(res.data);
+				}
 			} else {
 				Alert.alert('Ops!', res?.message || 'Veículo não encontrado.');
 			}

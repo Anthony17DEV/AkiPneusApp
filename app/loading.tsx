@@ -8,14 +8,15 @@ import Fundo from '../assets/images/loaderBgDark.png';
 import LoaderGif from '../assets/images/loading.gif';
 
 export default function LoadingScreen() {
-	const { usuario, senha } = useLocalSearchParams();
+	const { codigoEmpresa, usuario, senha } = useLocalSearchParams();
 	const router = useRouter();
 	const { signIn } = useAuth();
 
 	useEffect(() => {
 		const attemptLogin = async () => {
-			if (usuario && senha) {
+			if (codigoEmpresa && usuario && senha) {
 				const response = await signIn({
+					codigoEmpresa: String(codigoEmpresa),
 					usuario: String(usuario),
 					senha: String(senha)
 				});
@@ -29,7 +30,6 @@ export default function LoadingScreen() {
 			} else {
 				router.replace({
 					pathname: '/login',
-					params: { error: encodeURIComponent('Dados de login incompletos.') }
 				});
 			}
 		};
@@ -39,7 +39,7 @@ export default function LoadingScreen() {
 		}, 500);
 
 		return () => clearTimeout(timer);
-	}, [usuario, senha]);
+	}, [codigoEmpresa, usuario, senha]);
 
 	return (
 		<ImageBackground source={Fundo} style={styles.background}>
