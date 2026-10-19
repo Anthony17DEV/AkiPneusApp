@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Componente genérico importado
 import { apiService } from '../../src/services/apiService';
 
 interface ModeloPneu {
@@ -17,7 +18,6 @@ interface ModeloPneu {
 export default function ModelosScreen() {
 	const router = useRouter();
 	const params = useLocalSearchParams();
-	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_modelos.php';
 
 	const isMounted = useRef(true);
 
@@ -41,9 +41,9 @@ export default function ModelosScreen() {
 		id: '', referencia: '', marca: '', modelo: '', mmOriginal: '', valor: ''
 	});
 
+	// Estados do Modal de Busca Genérico
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu'>('referencia_pneu');
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
@@ -157,7 +157,6 @@ export default function ModelosScreen() {
 
 	const abrirBuscaDinamica = (tipo: 'referencia_pneu' | 'marca_pneu') => {
 		setTipoBusca(tipo);
-		setTermoComboBusca('');
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
 		buscarDinamicaNoBanco(tipo, '');
@@ -167,9 +166,7 @@ export default function ModelosScreen() {
 		setIsSearching(true);
 		try {
 			const res = await apiService.buscarDinamica(tipo, termo);
-
 			if (!isMounted.current) return;
-
 			setResultadosBusca(res && res.success ? res.data : []);
 		} catch (error) {
 			if (isMounted.current) setResultadosBusca([]);
@@ -368,41 +365,17 @@ export default function ModelosScreen() {
 							</View>
 						</ScrollView>
 
-						{modalBuscaVisible && (
-							<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-								<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-									<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
-										<View style={styles.modalContentBusca}>
-											<View style={styles.modalHeaderBusca}>
-												<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca === 'referencia_pneu' ? 'Referência' : 'Marca'}</Text>
-												<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
-											</View>
-											<View style={styles.inputBuscaContainer}>
-												<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
-											</View>
-											{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-												<FlatList
-													data={resultadosBusca}
-													keyExtractor={(item, index) => String(item?.id || index)}
-
-													initialNumToRender={10}
-													maxToRenderPerBatch={10}
-													windowSize={5}
-													removeClippedSubviews={true}
-													keyboardShouldPersistTaps="handled"
-
-													renderItem={({ item }) => (
-														<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome}</Text></TouchableOpacity>
-													)}
-													scrollEnabled={false}
-													ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
-												/>
-											)}
-										</View>
-									</ScrollView>
-								</KeyboardAvoidingView>
-							</Modal>
-						)}
+						{/* Substituindo a busca antiga pelo componente genérico */}
+						<ModalBuscaDinamica
+							visible={modalBuscaVisible}
+							onClose={() => setModalBuscaVisible(false)}
+							titulo={`Selecionar ${tipoBusca === 'referencia_pneu' ? 'Referência' : 'Marca'}`}
+							dados={resultadosBusca}
+							onSelect={selecionarItemBusca}
+							isLoading={isSearching}
+							onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
+							placeholderBusca="Buscar..."
+						/>
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>
@@ -460,13 +433,4 @@ const styles = StyleSheet.create({
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-
-	modalContentBusca: { width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
-	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
-	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
-	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
-	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
-	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
 });

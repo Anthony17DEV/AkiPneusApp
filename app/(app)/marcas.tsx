@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica';
 import { apiService } from '../../src/services/apiService';
 
 interface MarcaPneu {
@@ -19,7 +20,6 @@ interface MarcaAgrupada {
 
 export default function MarcasScreen() {
 	const router = useRouter();
-	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_marcas.php';
 
 	const isMounted = useRef(true);
 
@@ -43,9 +43,9 @@ export default function MarcasScreen() {
 		referenciaNova: '', marcaNova: ''
 	});
 
+	// Estados do Modal de Busca Genérico
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu'>('referencia_pneu');
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
@@ -82,35 +82,6 @@ export default function MarcasScreen() {
 		});
 	};
 
-	const handleEditar = (item: MarcaPneu) => {
-		resetForm();
-		setForm({
-			referenciaAntiga: item.referencia,
-			marcaAntiga: item.marca,
-			referenciaNova: item.referencia,
-			marcaNova: item.marca
-		});
-		setModalVisible(true);
-	};
-
-	const excluirMarca = (ref: string, marca: string) => {
-		Alert.alert('Atenção', `Deseja realmente excluir a marca "${marca}" da referência "${ref}"?\n\nIsso também removerá os modelos ligados a ela.`, [
-			{ text: 'Cancelar', style: 'cancel' },
-			{
-				text: 'Excluir', style: 'destructive', onPress: async () => {
-					try {
-						await apiService.excluirMarca(ref, marca);
-						if (!isMounted.current) return;
-						Alert.alert('Sucesso', 'Marca excluída com sucesso.');
-						carregarMarcas();
-					} catch (error) {
-						if (isMounted.current) console.log("Erro ignorado ao excluir");
-					}
-				}
-			}
-		]);
-	};
-
 	const salvarMarca = async () => {
 		if (!form.referenciaNova.trim() || !form.marcaNova.trim()) {
 			Alert.alert('Atenção', 'Referência e Marca são obrigatórias.');
@@ -143,7 +114,6 @@ export default function MarcasScreen() {
 
 	const abrirBuscaDinamica = (tipo: 'referencia_pneu' | 'marca_pneu') => {
 		setTipoBusca(tipo);
-		setTermoComboBusca('');
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
 		buscarDinamicaNoBanco(tipo, '');
@@ -153,9 +123,7 @@ export default function MarcasScreen() {
 		setIsSearching(true);
 		try {
 			const res = await apiService.buscarDinamica(tipo, termo);
-
 			if (!isMounted.current) return;
-
 			setResultadosBusca(res && res.success ? res.data : []);
 		} catch (error) {
 			if (isMounted.current) setResultadosBusca([]);
@@ -289,22 +257,9 @@ export default function MarcasScreen() {
 					<View style={styles.card}>
 						<View style={styles.cardHeader}>
 							<View style={{ flex: 1 }}>
-								<View
-									style={{
-										flexDirection: 'row',
-										alignItems: 'center'
-									}}
-								>
-									<MaterialCommunityIcons
-										name="tire"
-										size={22}
-										color="#0c6ead"
-										style={{ marginRight: 10 }}
-									/>
-
-									<Text style={styles.cardTitle}>
-										{item.marca}
-									</Text>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<MaterialCommunityIcons name="tire" size={22} color="#0c6ead" style={{ marginRight: 10 }} />
+									<Text style={styles.cardTitle}>{item.marca}</Text>
 								</View>
 							</View>
 							<View style={styles.statusBadge}>
@@ -319,16 +274,13 @@ export default function MarcasScreen() {
 									onPress={() =>
 										router.push({
 											pathname: '/modelos',
-											params: {
-												marca_nome: item.marca
-											}
+											params: { marca_nome: item.marca }
 										})
 									}
 								>
 									<MaterialCommunityIcons name="tag-multiple" size={14} color="#333" />
 									<Text style={styles.btnActionTextSecondary}>Modelos</Text>
 								</TouchableOpacity>
-
 							</View>
 						</View>
 					</View>
@@ -381,54 +333,17 @@ export default function MarcasScreen() {
 							<View style={{ height: 40 }} />
 						</ScrollView>
 
-						{modalBuscaVisible && (
-							<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-								<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-									<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
-										<View style={styles.modalContentBusca}>
-											<View style={styles.modalHeaderBusca}>
-												<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca === 'referencia_pneu' ? 'Referência' : 'Marca'}</Text>
-												<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-													<TouchableOpacity
-														style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
-														onPress={() => {
-															setFormCadastro({ nome: '' });
-															setModalBuscaVisible(false);
-															setModalCadastroVisible(true);
-														}}
-													>
-														<Feather name="plus-circle" size={14} color="#28a745" />
-														<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
-													</TouchableOpacity>
-													<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
-												</View>
-											</View>
-											<View style={styles.inputBuscaContainer}>
-												<TextInput style={styles.inputBuscaInterno} placeholder="Buscar..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus />
-											</View>
-											{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-												<FlatList
-													data={resultadosBusca}
-													keyExtractor={(item, index) => String(item?.id || index)}
-
-													initialNumToRender={10}
-													maxToRenderPerBatch={10}
-													windowSize={5}
-													removeClippedSubviews={true}
-													keyboardShouldPersistTaps="handled"
-
-													renderItem={({ item }) => (
-														<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome}</Text></TouchableOpacity>
-													)}
-													scrollEnabled={false}
-													ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
-												/>
-											)}
-										</View>
-									</ScrollView>
-								</KeyboardAvoidingView>
-							</Modal>
-						)}
+						{/* Componente Genérico Substituindo a Busca Manual Antiga */}
+						<ModalBuscaDinamica
+							visible={modalBuscaVisible}
+							onClose={() => setModalBuscaVisible(false)}
+							titulo={`Selecionar ${tipoBusca === 'referencia_pneu' ? 'Referência' : 'Marca'}`}
+							dados={resultadosBusca}
+							onSelect={selecionarItemBusca}
+							isLoading={isSearching}
+							onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
+							placeholderBusca="Buscar..."
+						/>
 
 						{modalCadastroVisible && (
 							<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>

@@ -3,6 +3,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
+import { CabecalhoListagem } from '../../src/components/CabecalhoListagem';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica';
 import { apiService } from '../../src/services/apiService';
 
 interface Banda {
@@ -21,13 +23,11 @@ export default function BandasScreen() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const [filtroMarca, setFiltroMarca] = useState('');
-	const [filtroModelo, setFiltroModelo] = useState('');
+	const [filtroBusca, setFiltroBusca] = useState('');
 
 	const [modalVisible, setModalVisible] = useState(false);
 
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
@@ -55,7 +55,7 @@ export default function BandasScreen() {
 	const carregarBandas = async () => {
 		setIsLoading(true);
 		try {
-			const res = await apiService.listarBandas(filtroMarca, filtroModelo);
+			const res = await apiService.listarBandas('', '');
 			if (res && res.success && Array.isArray(res.data)) {
 				setBandas(res.data);
 			} else {
@@ -127,7 +127,6 @@ export default function BandasScreen() {
 	};
 
 	const abrirBuscaDinamica = () => {
-		setTermoComboBusca('');
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
 		buscarDinamicaNoBanco('');
@@ -136,12 +135,25 @@ export default function BandasScreen() {
 	const buscarDinamicaNoBanco = async (termo: string) => {
 		setIsSearching(true);
 		try {
-			const data = await apiService.buscarDinamica('referencia_pneu', termo);
-			if (data && data.success && Array.isArray(data.data)) {
-				setResultadosBusca(data.data);
-			} else {
-				setResultadosBusca([]);
+			let lista: any[] = [];
+
+			const resDinamica = await apiService.buscarDinamica('referencia_pneu', termo);
+			if (resDinamica && Array.isArray(resDinamica.data) && resDinamica.data.length > 0) {
+				lista = resDinamica.data;
+			} else if (Array.isArray(resDinamica) && resDinamica.length > 0) {
+				lista = resDinamica;
 			}
+
+			if (lista.length === 0) {
+				const resRefs = await apiService.listarReferencias(termo);
+				if (resRefs && Array.isArray(resRefs.data) && resRefs.data.length > 0) {
+					lista = resRefs.data;
+				} else if (Array.isArray(resRefs) && resRefs.length > 0) {
+					lista = resRefs;
+				}
+			}
+
+			setResultadosBusca(lista);
 		} catch (e) {
 			setResultadosBusca([]);
 		} finally {
@@ -150,92 +162,36 @@ export default function BandasScreen() {
 	};
 
 	const selecionarItemBusca = (item: any) => {
-		setForm({ ...form, referencia: item.nome });
+		setForm({ ...form, referencia: item.nome || item.referencia || '' });
 		setModalBuscaVisible(false);
 	};
 
-	const renderBuscaDinamica = () => (
-		<Modal visible={modalBuscaVisible} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-			<View style={styles.modalOverlayBusca}>
-				<View style={styles.modalContentBusca}>
-					<View style={styles.modalHeaderBusca}>
-						<Text style={styles.modalTitleBusca}>Pesquisar Referência</Text>
-						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}>
-							<Feather name="x" size={24} color="#333" />
-						</TouchableOpacity>
-					</View>
-					<View style={styles.inputBuscaContainer}>
-						<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-						<TextInput
-							style={styles.inputBuscaInterno2}
-							placeholder="Buscar Referência..."
-							value={termoComboBusca}
-							onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(t); }}
-							autoFocus={true}
-						/>
-					</View>
-					{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-						<FlatList
-							data={resultadosBusca}
-							keyExtractor={(item, index) => String(item?.id || index)}
-							initialNumToRender={10}
-							maxToRenderPerBatch={10}
-							windowSize={5}
-							removeClippedSubviews={true}
-							keyboardShouldPersistTaps="handled"
-							renderItem={({ item }) => (
-								<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-									<Text style={styles.itemBuscaNome}>{item.nome}</Text>
-								</TouchableOpacity>
-							)}
-							ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
-						/>
-					)}
-				</View>
-			</View>
-		</Modal>
-	);
+	const bandasFiltradas = bandas.filter(b => {
+		const termo = filtroBusca.trim().toLowerCase();
+		if (!termo) return true;
+		return (
+			String(b.marca || '').toLowerCase().includes(termo) ||
+			String(b.modelo || '').toLowerCase().includes(termo) ||
+			String(b.referencia || '').toLowerCase().includes(termo)
+		);
+	});
 
 	return (
 		<View style={styles.container}>
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Gerenciar Bandas de Rodagem</Text>
 
-				<View style={styles.row}>
-					<View style={styles.inputGroupH}>
-						<Text style={styles.label}>Filtro de Marca</Text>
-						<TextInput
-							style={styles.input}
-							placeholder="Ex: Vipal, Drebor..."
-							value={filtroMarca}
-							onChangeText={setFiltroMarca}
-						/>
-					</View>
-					<View style={styles.inputGroupH}>
-						<Text style={styles.label}>Filtro de Modelo</Text>
-						<TextInput
-							style={styles.input}
-							placeholder="Ex: VRT3"
-							value={filtroModelo}
-							onChangeText={setFiltroModelo}
-						/>
-					</View>
-				</View>
-
-				<View style={styles.actionRow}>
-					<TouchableOpacity style={styles.btnBuscar} onPress={() => carregarBandas()}>
-						<Feather name="search" size={18} color="#fff" />
-						<Text style={styles.btnText}>Buscar</Text>
-					</TouchableOpacity>
-
-					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-						<Feather name="plus-circle" size={18} color="#ffffff" />
-						<Text style={styles.btnInserirText}>Inserir</Text>
-					</TouchableOpacity>
-				</View>
+				<CabecalhoListagem
+					busca={filtroBusca}
+					setBusca={setFiltroBusca}
+					labelPesquisa="Marca ou Modelo da Banda"
+					placeholderPesquisa="Buscar..."
+					onBuscar={carregarBandas}
+					onInserir={() => { resetForm(); setModalVisible(true); }}
+				/>
 
 				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
-					Resultados ({bandas.length})
+					Resultados ({bandasFiltradas.length})
 				</Text>
 			</View>
 
@@ -246,7 +202,7 @@ export default function BandasScreen() {
 				</View>
 			) : (
 				<FlatList
-					data={bandas}
+					data={bandasFiltradas}
 					keyExtractor={(item, index) => String(item.id || index)}
 					initialNumToRender={10}
 					maxToRenderPerBatch={10}
@@ -371,7 +327,15 @@ export default function BandasScreen() {
 							</View>
 						</ScrollView>
 
-						{renderBuscaDinamica()}
+						<ModalBuscaDinamica
+							visible={modalBuscaVisible}
+							onClose={() => setModalBuscaVisible(false)}
+							titulo="Pesquisar Referência"
+							dados={resultadosBusca}
+							onSelect={selecionarItemBusca}
+							isLoading={isSearching}
+							onSearchChange={buscarDinamicaNoBanco}
+						/>
 
 					</KeyboardAvoidingView>
 				</View>
@@ -390,12 +354,6 @@ const styles = StyleSheet.create({
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%', marginBottom: 5 },
-	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginRight: 10 },
-	btnText: { color: '#fff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', borderWidth: 1, borderColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 8, marginLeft: 10 },
-	btnInserirText: { color: '#ffffff', fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 15, marginHorizontal: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2.22, elevation: 3, overflow: 'hidden' },
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -423,14 +381,4 @@ const styles = StyleSheet.create({
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-
-	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
-	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
-	inputBuscaInterno2: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
-	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
-	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
-	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' },
 });

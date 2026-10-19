@@ -3,6 +3,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
+import { CabecalhoListagem } from '../../src/components/CabecalhoListagem';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Componente genérico importado
 import { apiService } from '../../src/services/apiService';
 
 interface Reformador {
@@ -17,7 +19,6 @@ interface Reformador {
 
 export default function ReformadoresScreen() {
 	const router = useRouter();
-	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_reformadores.php';
 
 	const isMounted = useRef(true);
 
@@ -40,9 +41,9 @@ export default function ReformadoresScreen() {
 		id: '', nome: '', documento: '', telefone: '', cidade_nome: '', cidade_id: ''
 	});
 
+	// Estados do Modal de Busca Genérico para Cidades
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [isSearching, setIsSearching] = useState(false);
 
 	const carregarReformadores = async () => {
@@ -142,7 +143,6 @@ export default function ReformadoresScreen() {
 	};
 
 	const abrirBuscaCidade = () => {
-		setTermoComboBusca('');
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
 		buscarDinamicaNoBanco('');
@@ -152,9 +152,7 @@ export default function ReformadoresScreen() {
 		setIsSearching(true);
 		try {
 			const res = await apiService.buscarDinamica('cidade', termo);
-
 			if (!isMounted.current) return;
-
 			setResultadosBusca(res && res.success ? res.data : []);
 		} catch (error) {
 			if (isMounted.current) setResultadosBusca([]);
@@ -186,27 +184,17 @@ export default function ReformadoresScreen() {
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Gerenciar Reformadores</Text>
 
-				<View style={styles.inputContainer}>
-					<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-					<TextInput
-						style={styles.inputBuscaInterno2}
-						placeholder="Buscar reformador pelo nome..."
-						value={filtroBusca}
-						onChangeText={setFiltroBusca}
-						onSubmitEditing={carregarReformadores}
-					/>
-				</View>
+				{/* Cabeçalho de Listagem Componentizado */}
+				<CabecalhoListagem
+					busca={filtroBusca}
+					setBusca={setFiltroBusca}
+					onBuscar={carregarReformadores}
+					onInserir={resetForm}
+					labelPesquisa="Buscar Reformador"
+					placeholderPesquisa="Buscar reformador pelo nome..."
+					textoBotaoNovo="Inserir"
+				/>
 
-				<View style={styles.actionRow}>
-					<TouchableOpacity style={styles.btnBuscar} onPress={carregarReformadores}>
-						<Feather name="search" size={18} color="#fff" />
-						<Text style={styles.btnText}>Buscar</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.btnInserir} onPress={resetForm}>
-						<Feather name="plus-circle" size={18} color="#ffffff" />
-						<Text style={styles.btnInserirText}>Inserir</Text>
-					</TouchableOpacity>
-				</View>
 				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>Resultados ({reformadores.length})</Text>
 			</View>
 
@@ -327,39 +315,17 @@ export default function ReformadoresScreen() {
 						</ScrollView>
 					</KeyboardAvoidingView>
 
-					{modalBuscaVisible && (
-						<Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setModalBuscaVisible(false)}>
-							<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-								<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }} keyboardShouldPersistTaps="handled">
-									<View style={styles.modalContentBusca}>
-										<View style={styles.modalHeaderBusca}>
-											<Text style={styles.modalTitleBusca}>Selecionar Cidade</Text>
-											<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
-										</View>
-										<View style={styles.inputBuscaContainer}>
-											<TextInput style={styles.inputBuscaInterno} placeholder="Buscar cidade..." value={termoComboBusca} onChangeText={t => { setTermoComboBusca(t); buscarDinamicaNoBanco(t); }} autoFocus />
-										</View>
-										{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-											<FlatList
-												data={resultadosBusca}
-												keyExtractor={(item, index) => String(item?.id || index)}
-												initialNumToRender={10}
-												maxToRenderPerBatch={10}
-												windowSize={5}
-												removeClippedSubviews={true}
-												keyboardShouldPersistTaps="handled"
-												renderItem={({ item }) => (
-													<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}><Text style={styles.itemBuscaNome}>{item.nome}</Text></TouchableOpacity>
-												)}
-												scrollEnabled={false}
-												ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
-											/>
-										)}
-									</View>
-								</ScrollView>
-							</KeyboardAvoidingView>
-						</Modal>
-					)}
+					{/* ModalBuscaDinamica genérico substituindo a busca manual de cidades */}
+					<ModalBuscaDinamica
+						visible={modalBuscaVisible}
+						onClose={() => setModalBuscaVisible(false)}
+						titulo="Selecionar Cidade"
+						dados={resultadosBusca}
+						onSelect={selecionarItemBusca}
+						isLoading={isSearching}
+						onSearchChange={buscarDinamicaNoBanco}
+						placeholderBusca="Buscar cidade..."
+					/>
 				</View>
 			</Modal>
 		</View>
@@ -372,20 +338,12 @@ const styles = StyleSheet.create({
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 
-	inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 8, height: 48, borderWidth: 1, borderColor: '#ddd', marginBottom: 15 },
-	inputBuscaInterno2: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
 	fakeInput: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
 
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%' },
-
-	actionRow: { flexDirection: 'row', justifyContent: 'space-between' },
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
-	btnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-	btnInserirText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginBottom: 15, elevation: 3, overflow: 'hidden' },
 	cardHeader: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -413,13 +371,4 @@ const styles = StyleSheet.create({
 	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 	btnDefault: { backgroundColor: '#eee', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-
-	modalContentBusca: { width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
-	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
-	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
-	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
-	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
-	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' }
 });

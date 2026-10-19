@@ -10,6 +10,7 @@ import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Componente genérico importado
 import { apiService } from '../../src/services/apiService';
 
 interface Pneu {
@@ -60,9 +61,9 @@ export default function PneusScreen() {
 	const [fotosPneu, setFotosPneu] = useState<string[]>([]);
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
+	// Estados do Modal de Busca Genérico
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'referencia_pneu' | 'marca_pneu' | 'modelo_pneu' | 'banda' | 'veiculo' | 'entidade' | 'motivo_laudo' | 'reformador'>('referencia_pneu');
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
@@ -467,7 +468,6 @@ export default function PneusScreen() {
 
 	const abrirBuscaDinamica = (tipo: any) => {
 		setTipoBusca(tipo);
-		setTermoComboBusca('');
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
 		buscarDinamicaNoBanco(tipo, '');
@@ -553,13 +553,6 @@ export default function PneusScreen() {
 				? formatarValorDB(formCadastro.valor || form.valor)
 				: formatarValorDB(item.valor ?? item.refe_tx_valor ?? form.valor);
 
-			/*
-			 * IMPORTANTE:
-			 * Na busca de modelo, item.id pode ser o NOME do modelo.
-			 * O ID correto de referencia_pneu vem em item.referencia_id.
-			 * Manter form.referencia_id aqui foi a causa dos IDs de referência
-			 * ficarem "presos" na seleção anterior.
-			 */
 			const referenciaIdSelecionada = String(
 				item.referencia_id ??
 				item.refe_nb_id ??
@@ -604,7 +597,7 @@ export default function PneusScreen() {
 				banda: item.nome || item.banda,
 				banda_id: item.id,
 				mm_original: item.isNewModel ? formCadastro.sulco : (item.sulco ? String(item.sulco) : form.mm_original),
-				valor: item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(item.valor || '') || form.valor)
+				valor: item.isNewModel ? formatarValorDB(item.valor || '') : (formatarValorDB(item.valor || '') || form.valor)
 			});
 		} else if (tipoBusca === 'veiculo') {
 			setForm({
@@ -1148,50 +1141,17 @@ export default function PneusScreen() {
 							</View>
 						)}
 
-						{modalBuscaVisible && (
-							<Modal visible={true} transparent={true} animationType="fade">
-								<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
-									<View style={styles.modalContentBusca}>
-										<View style={styles.modalHeaderBusca}>
-											<Text style={styles.modalTitleBusca}>Pesquisar</Text>
-											<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-												{['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador', 'veiculo'].includes(tipoBusca) && (
-													<TouchableOpacity
-														style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
-														onPress={() => {
-															setModalBuscaVisible(false);
-															abrirModalCadastro(termoComboBusca);
-														}}
-													>
-														<Feather name="plus-circle" size={14} color="#28a745" />
-														<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
-													</TouchableOpacity>
-												)}
-												<TouchableOpacity onPress={() => setModalBuscaVisible(false)}>
-													<Feather name="x" size={24} color="#333" />
-												</TouchableOpacity>
-											</View>
-										</View>
-										<View style={styles.inputBuscaContainer}>
-											<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-											<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
-										</View>
-										{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-											<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
-												initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5} removeClippedSubviews={true} keyboardShouldPersistTaps="handled"
-												renderItem={({ item }) => (
-													<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-														<Text style={styles.itemBuscaNome}>{item.nome}</Text>
-														{item.documento && <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.documento}</Text>}
-													</TouchableOpacity>
-												)}
-												ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado.</Text>}
-											/>
-										)}
-									</View>
-								</View>
-							</Modal>
-						)}
+						{/* Substituído o bloco de busca antigo pelo ModalBuscaDinamica genérico */}
+						<ModalBuscaDinamica
+							visible={modalBuscaVisible}
+							onClose={() => setModalBuscaVisible(false)}
+							titulo="Pesquisar..."
+							dados={resultadosBusca}
+							onSelect={selecionarItemBusca}
+							isLoading={isSearching}
+							onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
+							placeholderBusca="Buscar..."
+						/>
 
 						{modalCadastroVisible && (
 							<Modal visible={true} transparent={true} animationType="fade">

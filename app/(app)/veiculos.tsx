@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal,
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Componente genérico importado
 import { apiService } from '../../src/services/apiService';
 
 interface Veiculo {
@@ -56,9 +57,9 @@ export default function VeiculosScreen() {
 	const [modalVisible, setModalVisible] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 
+	// Estados do Modal de Busca Genérico
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'marca' | 'modelo' | 'entidade'>('marca');
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
@@ -357,7 +358,6 @@ export default function VeiculosScreen() {
 			return;
 		}
 		setTipoBusca(tipo);
-		setTermoComboBusca(termoInicial);
 		setResultadosBusca([]);
 		setModalBuscaVisible(true);
 		buscarDinamicaNoBanco(tipo, termoInicial);
@@ -419,89 +419,6 @@ export default function VeiculosScreen() {
 			if (isMounted.current) setIsCadastrando(false);
 		}
 	};
-
-	const renderBuscaDinamica = () => (
-		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 9999, elevation: 9999 }]}>
-			<View style={styles.modalContentBusca}>
-				<View style={styles.modalHeaderBusca}>
-					<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca.toUpperCase()}</Text>
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						{(
-							tipoBusca === 'marca' ||
-							tipoBusca === 'modelo' ||
-							tipoBusca === 'entidade'
-						) && (
-								<TouchableOpacity
-									style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 15, flexDirection: 'row', alignItems: 'center' }}
-									onPress={() => {
-										setFormCadastro({ nome: '' });
-										setModalBuscaVisible(false);
-										setModalCadastroVisible(true);
-									}}
-								>
-									<Feather name="plus-circle" size={14} color="#28a745" />
-									<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
-								</TouchableOpacity>
-							)}
-						<TouchableOpacity onPress={() => setModalBuscaVisible(false)}>
-							<Feather name="x" size={24} color="#333" />
-						</TouchableOpacity>
-					</View>
-				</View>
-
-				<View style={styles.inputBuscaContainer}>
-					<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-					<TextInput
-						style={styles.inputBuscaInterno}
-						placeholder={`Digite o nome da ${tipoBusca}...`}
-						value={termoComboBusca}
-						onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }}
-						autoFocus={true}
-					/>
-				</View>
-
-				{termoComboBusca.trim().length > 0 &&
-					(
-						tipoBusca === 'marca' ||
-						tipoBusca === 'modelo' ||
-						tipoBusca === 'entidade'
-					) && (
-						<TouchableOpacity
-							style={styles.btnInserirBuscaDinamica}
-							onPress={() => {
-								setFormCadastro({ nome: termoComboBusca.trim() });
-								setModalBuscaVisible(false);
-								setModalCadastroVisible(true);
-							}}
-						>
-							<Feather name="plus-circle" size={18} color="#28a745" />
-							<Text style={styles.btnInserirBuscaDinamicaText}>Cadastrar Novo: "{termoComboBusca.trim()}"</Text>
-						</TouchableOpacity>
-					)}
-
-				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-					<FlatList
-						data={resultadosBusca}
-						keyExtractor={(item, index) => String(item?.id || index)}
-
-						initialNumToRender={10}
-						maxToRenderPerBatch={10}
-						windowSize={5}
-						removeClippedSubviews={true}
-						keyboardShouldPersistTaps="handled"
-
-						renderItem={({ item }) => (
-							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-								<Text style={styles.itemBuscaNome}>{item.nome}</Text>
-								{item.documento && <Text style={styles.itemBuscaDoc}>{item.documento}</Text>}
-							</TouchableOpacity>
-						)}
-						ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado encontrado.</Text>}
-					/>
-				)}
-			</View>
-		</View>
-	);
 
 	const renderCadastroDinamico = () => (
 		<View style={[StyleSheet.absoluteFill, styles.modalOverlayBusca, { zIndex: 99999, elevation: 99999 }]}>
@@ -911,17 +828,39 @@ export default function VeiculosScreen() {
 							</View>
 						)}
 
-						{modalBuscaVisible && renderBuscaDinamica()}
-						{modalCadastroVisible && renderCadastroDinamico()}
+						{/* Componente Genérico Substituindo a Busca Manual Antiga */}
+						<ModalBuscaDinamica
+							visible={modalBuscaVisible}
+							onClose={() => setModalBuscaVisible(false)}
+							titulo={`Selecionar ${tipoBusca.toUpperCase()}`}
+							dados={resultadosBusca}
+							onSelect={selecionarItemBusca}
+							isLoading={isSearching}
+							onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
+							placeholderBusca={`Digite o nome da ${tipoBusca}...`}
+						/>
+
+						{modalCadastroVisible && (
+							<Modal visible={true} transparent={true} animationType="fade">
+								{renderCadastroDinamico()}
+							</Modal>
+						)}
 
 					</KeyboardAvoidingView>
 				</View>
 			</Modal>
 
 			{!modalVisible && modalBuscaVisible && (
-				<Modal visible={true} transparent={true} animationType="fade">
-					{renderBuscaDinamica()}
-				</Modal>
+				<ModalBuscaDinamica
+					visible={true}
+					onClose={() => setModalBuscaVisible(false)}
+					titulo={`Selecionar ${tipoBusca.toUpperCase()}`}
+					dados={resultadosBusca}
+					onSelect={selecionarItemBusca}
+					isLoading={isSearching}
+					onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
+					placeholderBusca={`Digite o nome da ${tipoBusca}...`}
+				/>
 			)}
 
 			{!modalVisible && modalCadastroVisible && (

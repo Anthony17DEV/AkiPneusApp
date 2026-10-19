@@ -2,7 +2,9 @@
 import { apiService } from '@src/services/apiService';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { CabecalhoListagem } from '../../src/components/CabecalhoListagem';
+import { ModalFormularioSimples } from '../../src/components/ModalFormularioSimples';
 
 interface Referencia {
 	id: number;
@@ -12,8 +14,6 @@ interface Referencia {
 
 export default function ReferenciasScreen() {
 	const router = useRouter();
-	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_referencias.php';
-
 	const isMounted = useRef(true);
 
 	useEffect(() => {
@@ -125,29 +125,17 @@ export default function ReferenciasScreen() {
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Gerenciar Referências</Text>
 
-				<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-					<View style={styles.inputContainer}>
-						<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-						<TextInput
-							style={styles.inputBuscaInterno}
-							placeholder="Buscar referência..."
-							value={filtroBusca}
-							onChangeText={setFiltroBusca}
-							onSubmitEditing={carregarReferencias}
-						/>
-					</View>
-				</View>
+				{/* Cabeçalho de Listagem Reutilizável */}
+				<CabecalhoListagem
+					busca={filtroBusca}
+					setBusca={setFiltroBusca}
+					onBuscar={carregarReferencias}
+					onInserir={resetForm}
+					labelPesquisa="Buscar Referência"
+					placeholderPesquisa="Buscar referência..."
+					textoBotaoNovo="Inserir Referência"
+				/>
 
-				<View style={styles.actionRow}>
-					<TouchableOpacity style={styles.btnBuscar} onPress={carregarReferencias}>
-						<Feather name="search" size={18} color="#fff" />
-						<Text style={styles.btnText}>Buscar</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.btnInserir} onPress={resetForm}>
-						<Feather name="plus-circle" size={18} color="#ffffff" />
-						<Text style={styles.btnInserirText}>Inserir Referência</Text>
-					</TouchableOpacity>
-				</View>
 				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>Resultados ({referencias.length})</Text>
 			</View>
 
@@ -200,35 +188,17 @@ export default function ReferenciasScreen() {
 				/>
 			)}
 
-			<Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
-				<View style={styles.modalOverlayBusca}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, width: '100%' }}>
-						<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }} keyboardShouldPersistTaps="handled">
-							<View style={styles.modalSmall}>
-								<Text style={styles.modalTitle}>{form.nomeAntigo ? 'Editar Referência' : 'Nova Referência'}</Text>
-
-								<Text style={styles.label}>* Nome da Referência</Text>
-								<TextInput
-									style={styles.inputModal}
-									value={form.nomeNovo}
-									onChangeText={t => setForm({ ...form, nomeNovo: t })}
-									placeholder="Ex: 295/80R22.5"
-									autoCapitalize="characters"
-								/>
-
-								<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
-									<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalVisible(false)}>
-										<Text style={{ fontWeight: 'bold' }}>Cancelar</Text>
-									</TouchableOpacity>
-									<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0 }]} onPress={salvarReferencia} disabled={isSaving}>
-										{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
-									</TouchableOpacity>
-								</View>
-							</View>
-						</ScrollView>
-					</KeyboardAvoidingView>
-				</View>
-			</Modal>
+			{/* Modal de Formulário Simples Reutilizável */}
+			<ModalFormularioSimples
+				visible={modalVisible}
+				onClose={() => setModalVisible(false)}
+				onSave={salvarReferencia}
+				titulo={form.nomeAntigo ? 'Editar Referência' : 'Nova Referência'}
+				campos={[{ chave: 'nomeNovo', label: '* Nome da Referência', placeholder: 'Ex: 295/80R22.5' }]}
+				valores={{ nomeNovo: form.nomeNovo }}
+				onChangeValor={(chave, valor) => setForm({ ...form, nomeNovo: valor })}
+				isLoading={isSaving}
+			/>
 		</View>
 	);
 }
@@ -238,16 +208,6 @@ const styles = StyleSheet.create({
 	filterSection: { backgroundColor: '#fff', padding: 20, elevation: 3, marginBottom: 15 },
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
-
-	inputContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 8, height: 48, borderWidth: 1, borderColor: '#ddd' },
-	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
-	inputModal: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
-
-	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
-	btnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-	btnInserirText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginBottom: 15, elevation: 3, overflow: 'hidden' },
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -262,22 +222,5 @@ const styles = StyleSheet.create({
 	btnActionTextSecondary: { color: '#333', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 
 	btnEditarCard: { backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15 },
-	btnEditarCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
 	btnExcluirCard: { backgroundColor: '#E53935', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, borderRadius: 8, paddingHorizontal: 15, marginLeft: 8 },
-	btnExcluirCardText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
-
-	modalHeaderFull: {
-		flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-		backgroundColor: '#0c6ead', paddingHorizontal: 15, paddingBottom: 15,
-		paddingTop: Platform.OS === 'ios' ? 65 : (StatusBar.currentHeight ? StatusBar.currentHeight + 15 : 50),
-		elevation: 4,
-	},
-	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
-
-	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalSmall: { width: '90%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
-	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-
-	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnDefault: { backgroundColor: '#eee', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 });

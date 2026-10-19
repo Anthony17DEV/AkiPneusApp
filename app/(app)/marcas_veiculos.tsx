@@ -1,11 +1,12 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { apiService } from '@src/services/apiService';
-import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
+import { CabecalhoListagem } from '../../src/components/CabecalhoListagem';
+import { ModalFormularioSimples } from '../../src/components/ModalFormularioSimples';
 
 interface MarcaVeiculo {
 	id: number;
@@ -214,28 +215,15 @@ export default function MarcasVeiculosScreen() {
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Filtrar Marcas de Veículos</Text>
 
-				<View style={styles.inputGroupFull}>
-					<Text style={styles.label}>Nome da Marca</Text>
-					<TextInput
-						style={styles.input}
-						placeholder="Ex: VOLVO, SCANIA..."
-						value={filtroMarca}
-						onChangeText={setFiltroMarca}
-						autoCapitalize="characters"
-					/>
-				</View>
-
-				<View style={styles.actionRow}>
-					<TouchableOpacity style={styles.btnBuscar} onPress={carregarMarcas}>
-						<Feather name="search" size={18} color="#fff" />
-						<Text style={styles.btnText}>Buscar</Text>
-					</TouchableOpacity>
-
-					<TouchableOpacity style={styles.btnInserir} onPress={() => { resetForm(); setModalVisible(true); }}>
-						<Feather name="plus-circle" size={18} color="#ffffff" />
-						<Text style={styles.btnInserirText}>Inserir</Text>
-					</TouchableOpacity>
-				</View>
+				{/* Cabeçalho de Listagem Componentizado */}
+				<CabecalhoListagem
+					busca={filtroMarca}
+					setBusca={setFiltroMarca}
+					onBuscar={carregarMarcas}
+					onInserir={() => { resetForm(); setModalVisible(true); }}
+					labelPesquisa="Nome da Marca"
+					placeholderPesquisa="Ex: VOLVO, SCANIA..."
+				/>
 
 				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>
 					Marcas Cadastradas ({marcas.length})
@@ -302,45 +290,18 @@ export default function MarcasVeiculosScreen() {
 				/>
 			)}
 
-			<Modal visible={modalVisible} animationType="slide" transparent={false}>
-				<View style={{ flex: 1, backgroundColor: '#fff' }}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-						<View style={styles.modalHeaderFullScreen}>
-							<TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 5 }}>
-								<Feather name="arrow-left" size={24} color="#fff" />
-							</TouchableOpacity>
-							<Image source={LogoSolutires} style={{ width: 120, height: 35, resizeMode: 'contain' }} />
-							<TouchableOpacity onPress={confirmSignOut} style={{ padding: 5 }}>
-								<Feather name="power" size={22} color="#fff" />
-							</TouchableOpacity>
-						</View>
-
-						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 150 }} keyboardShouldPersistTaps="handled">
-							<Text style={styles.groupTitle}>{isEditing ? 'Alterar Marca de Veículo' : 'Nova Marca de Veículo'}</Text>
-							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>Nome da Marca *</Text>
-								<TextInput
-									style={styles.inputModal}
-									value={form.nome}
-									onChangeText={t => setForm({ ...form, nome: t })}
-									placeholder="Ex: MERCEDES-BENZ, SCANIA, VOLVO..."
-									autoCapitalize="characters"
-									autoFocus={true}
-								/>
-							</View>
-
-							<View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
-								<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalVisible(false)}>
-									<Text style={styles.btnTextCancel}>Voltar</Text>
-								</TouchableOpacity>
-								<TouchableOpacity style={[styles.btnSalvar, isSaving && { opacity: 0.7 }, { flex: 1.5 }]} onPress={handleSalvar} disabled={isSaving}>
-									{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSalvarText}>Gravar</Text>}
-								</TouchableOpacity>
-							</View>
-						</ScrollView>
-					</KeyboardAvoidingView>
-				</View>
-			</Modal>
+			{/* Modal de Formulário Simples Componentizado */}
+			<ModalFormularioSimples
+				visible={modalVisible}
+				onClose={() => setModalVisible(false)}
+				onSave={handleSalvar}
+				onSignOut={confirmSignOut}
+				titulo={isEditing ? 'Alterar Marca de Veículo' : 'Nova Marca de Veículo'}
+				campos={[{ chave: 'nome', label: 'Nome da Marca *', placeholder: 'Ex: MERCEDES-BENZ, SCANIA, VOLVO...' }]}
+				valores={form}
+				onChangeValor={(chave, val) => setForm({ ...form, [chave]: val })}
+				isLoading={isSaving}
+			/>
 
 			<Modal visible={modalModelosVisible} animationType="slide" transparent={false}>
 				<View style={{ flex: 1, backgroundColor: '#f4f6f8' }}>
@@ -418,16 +379,7 @@ const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#f4f6f8' },
 	filterSection: { backgroundColor: '#fff', padding: 20, elevation: 3, marginBottom: 15, zIndex: 1 },
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 10, justifyContent: 'center' },
-	inputModal: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
-	inputGroupFull: { width: '100%' },
-	actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 10 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
-	btnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-	btnInserirText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginBottom: 15, elevation: 3, overflow: 'hidden' },
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -457,10 +409,4 @@ const styles = StyleSheet.create({
 		paddingTop: Platform.OS === 'ios' ? 65 : (StatusBar.currentHeight ? StatusBar.currentHeight + 15 : 50),
 		elevation: 4,
 	},
-	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
-
-	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnSalvarText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
-	btnDefault: { backgroundColor: '#eee', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-	btnTextCancel: { color: '#333', fontWeight: 'bold', fontSize: 15 },
 });

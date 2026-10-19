@@ -7,6 +7,7 @@ import RNPickerSelect from 'react-native-picker-select';
 import { apiService } from '@src/services/apiService';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
+import { CabecalhoListagem } from '../../src/components/CabecalhoListagem'; // Componente genérico importado
 
 interface Usuario {
 	id: number;
@@ -19,8 +20,6 @@ interface Usuario {
 export default function UsuariosScreen() {
 	const router = useRouter();
 	const { signOut } = useAuth();
-
-	const API_URL = 'https://sistemascactus.com/apicactus/akipneus/api_usuarios.php';
 
 	const isMounted = useRef(true);
 
@@ -166,18 +165,19 @@ export default function UsuariosScreen() {
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Gerenciar Utilizadores</Text>
 
-				<View style={styles.inputContainer}>
-					<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-					<TextInput
-						style={styles.inputBuscaInterno}
-						placeholder="Buscar por nome ou login..."
-						value={filtroBusca}
-						onChangeText={setFiltroBusca}
-						onSubmitEditing={carregarUsuarios}
-					/>
-				</View>
+				{/* Cabeçalho de Listagem Componentizado */}
+				<CabecalhoListagem
+					busca={filtroBusca}
+					setBusca={setFiltroBusca}
+					onBuscar={carregarUsuarios}
+					onInserir={resetForm}
+					labelPesquisa="Buscar Utilizador"
+					placeholderPesquisa="Buscar por nome ou login..."
+					textoBotaoNovo="Inserir"
+				/>
 
-				<View style={{ marginBottom: 15 }}>
+				<View style={{ marginTop: 15 }}>
+					<Text style={styles.label}>Filtrar por Perfil</Text>
 					<RNPickerSelect
 						placeholder={{ label: 'Todos os Perfis', value: '', color: '#999' }}
 						value={filtroPerfil}
@@ -194,16 +194,6 @@ export default function UsuariosScreen() {
 					/>
 				</View>
 
-				<View style={styles.actionRow}>
-					<TouchableOpacity style={styles.btnBuscar} onPress={carregarUsuarios}>
-						<Feather name="search" size={18} color="#fff" />
-						<Text style={styles.btnText}>Buscar</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.btnInserir} onPress={resetForm}>
-						<Feather name="plus-circle" size={18} color="#ffffff" />
-						<Text style={styles.btnInserirText}>Inserir</Text>
-					</TouchableOpacity>
-				</View>
 				<Text style={[styles.sectionTitle, { marginTop: 25, marginBottom: -5 }]}>Resultados ({usuarios.length})</Text>
 			</View>
 
@@ -381,8 +371,6 @@ const styles = StyleSheet.create({
 	sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
 	label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 5 },
 
-	inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 8, height: 48, borderWidth: 1, borderColor: '#ddd', marginBottom: 10 },
-	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
 	input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000', marginBottom: 15 },
 
 	passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, height: 48, marginBottom: 15 },
@@ -392,12 +380,6 @@ const styles = StyleSheet.create({
 	row: { flexDirection: 'row', justifyContent: 'space-between' },
 	inputGroupH: { width: '48%' },
 	inputGroupFull: { width: '100%' },
-
-	actionRow: { flexDirection: 'row', justifyContent: 'space-between' },
-	btnBuscar: { flex: 1, backgroundColor: '#3276b1', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8, marginRight: 8 },
-	btnInserir: { flex: 1, backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 48, borderRadius: 8 },
-	btnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-	btnInserirText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 
 	card: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginBottom: 15, elevation: 3, overflow: 'hidden' },
 	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -424,7 +406,7 @@ const styles = StyleSheet.create({
 	},
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 10, marginBottom: 15, borderBottomWidth: 1, borderColor: '#E2E8F0', paddingBottom: 5 },
 
-	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 8, marginTop: 10 },
+	btnSalvar: { backgroundColor: '#63c77b', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
 	btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-	btnDefault: { backgroundColor: '#eee', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+	btnDefault: { backgroundColor: '#eee', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 });

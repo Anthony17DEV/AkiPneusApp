@@ -12,6 +12,7 @@ import RNPickerSelect from 'react-native-picker-select';
 
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Importado com sucesso!
 import { apiService } from '../../src/services/apiService';
 
 const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
@@ -68,9 +69,8 @@ export default function ClientesScreen() {
 		{ nome: '', fone1: '', fone2: '', email: '' }
 	]);
 
+	// Estados do Modal de Busca Genérico
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
-	const [tipoBusca, setTipoBusca] = useState<'cidade'>('cidade');
-	const [termoComboBusca, setTermoComboBusca] = useState('');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
@@ -211,16 +211,17 @@ export default function ClientesScreen() {
 		);
 	};
 
-	const abrirBuscaDinamica = (tipo: 'cidade') => {
-		setTipoBusca(tipo); setTermoComboBusca(''); setResultadosBusca([]); setModalBuscaVisible(true); buscarDinamicaNoBanco(tipo, '');
+	const abrirBuscaCidade = () => {
+		setResultadosBusca([]);
+		setModalBuscaVisible(true);
+		buscarCidadesNoBanco('');
 	};
 
-	const buscarDinamicaNoBanco = async (tipo: string, termo: string) => {
+	const buscarCidadesNoBanco = async (termo: string) => {
 		setIsSearching(true);
 		try {
-			const res = await apiService.buscarDinamica(tipo, termo, null as any);
+			const res = await apiService.buscarDinamica('cidade', termo, null as any);
 			if (!isMounted.current) return;
-
 			if (res && res.success) { setResultadosBusca(res.data); } else { setResultadosBusca([]); }
 		} catch (error) {
 			if (isMounted.current) setResultadosBusca([]);
@@ -229,8 +230,8 @@ export default function ClientesScreen() {
 		}
 	};
 
-	const selecionarItemBusca = (item: any) => {
-		if (tipoBusca === 'cidade') setFormCliente({ ...formCliente, cidade: item.nome, cidade_id: item.id });
+	const selecionarCidade = (item: any) => {
+		setFormCliente({ ...formCliente, cidade: item.nome, cidade_id: item.id });
 		setModalBuscaVisible(false);
 	};
 
@@ -442,7 +443,7 @@ export default function ClientesScreen() {
 
 						<View style={styles.inputGroup}>
 							<Text style={styles.label}>Cidade</Text>
-							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('cidade')}>
+							<TouchableOpacity style={styles.fakeInput} onPress={abrirBuscaCidade}>
 								<Text style={{ color: formCliente.cidade ? '#000' : '#999' }}>{formCliente.cidade || 'Selecionar Cidade...'}</Text>
 								<Feather name="search" size={16} color="#999" />
 							</TouchableOpacity>
@@ -578,37 +579,17 @@ export default function ClientesScreen() {
 				</KeyboardAvoidingView>
 			</Modal>
 
-			<Modal visible={modalBuscaVisible} transparent={true} animationType="fade">
-				<View style={styles.modalOverlayBusca}>
-					<View style={styles.modalContentBusca}>
-						<View style={styles.modalHeaderBusca}>
-							<Text style={styles.modalTitleBusca}>Selecionar {tipoBusca.toUpperCase()}</Text>
-							<TouchableOpacity onPress={() => setModalBuscaVisible(false)}><Feather name="x" size={24} color="#333" /></TouchableOpacity>
-						</View>
-						<View style={styles.inputBuscaContainer}>
-							<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-							<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
-						</View>
-						{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
-							<FlatList data={resultadosBusca} keyExtractor={(item, index) => String(item?.id || index)}
-
-								initialNumToRender={10}
-								maxToRenderPerBatch={10}
-								windowSize={5}
-								removeClippedSubviews={true}
-								keyboardShouldPersistTaps="handled"
-
-								renderItem={({ item }) => (
-									<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-										<Text style={styles.itemBuscaNome}>{item.nome}</Text>
-									</TouchableOpacity>
-								)}
-								ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma cidade encontrada.</Text>}
-							/>
-						)}
-					</View>
-				</View>
-			</Modal>
+			{/* Substituído o modal antigo pelo ModalBuscaDinamica genérico */}
+			<ModalBuscaDinamica
+				visible={modalBuscaVisible}
+				onClose={() => setModalBuscaVisible(false)}
+				titulo="Selecionar Cidade"
+				dados={resultadosBusca}
+				onSelect={selecionarCidade}
+				isLoading={isSearching}
+				onSearchChange={buscarCidadesNoBanco}
+				placeholderBusca="Buscar cidade..."
+			/>
 		</View>
 	);
 }
@@ -668,7 +649,6 @@ const styles = StyleSheet.create({
 	},
 	modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
 
-	modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
 	groupTitle: { fontSize: 16, fontWeight: 'bold', color: '#0c6ead', marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 5 },
 
 	contatoBox: { backgroundColor: '#f9f9f9', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 15 },
@@ -686,36 +666,7 @@ const styles = StyleSheet.create({
 	btnFoto: { flex: 1, backgroundColor: '#f0f0f0', borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, marginHorizontal: 5 },
 	btnFotoText: { marginTop: 8, fontSize: 14, color: '#666', fontWeight: '500' },
 
-	btnVoltarCliente: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		backgroundColor: '#eee',
-		paddingVertical: 10,
-		paddingHorizontal: 15,
-		borderRadius: 8,
-		marginBottom: 15,
-		alignSelf: 'flex-start',
-		borderWidth: 1,
-		borderColor: '#ccc'
-	},
-	btnVoltarClienteText: {
-		marginLeft: 8,
-		fontSize: 14,
-		fontWeight: 'bold',
-		color: '#333'
-	},
-
 	fullScreenOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 99999, elevation: 99999 },
 	closeFullBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 100000, elevation: 100000, padding: 10 },
 	fullScreenImage: { width: '100%', height: '80%' },
-
-	modalOverlayBusca: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-	modalContentBusca: { width: '90%', height: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
-	modalHeaderBusca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-	modalTitleBusca: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-	inputBuscaContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 45, marginBottom: 15 },
-	inputBuscaInterno: { flex: 1, paddingHorizontal: 10, fontSize: 15, color: '#333' },
-	itemBuscaDinamica: { borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 15 },
-	itemBuscaNome: { fontSize: 15, fontWeight: '600', color: '#333' },
-	emptyText: { textAlign: 'center', marginTop: 20, color: '#999' }
 });

@@ -622,17 +622,20 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const duplicarPneu = (pneuOriginal: any) => {
-		resetFormPneu();
-
-		setFormPneu({
-			...formPneu,
+		setFormPneu((prev: any) => ({
+			...prev,
+			id: '',
 			referencia: pneuOriginal.referencia || '',
 			referencia_nome: pneuOriginal.referencia_nome || pneuOriginal.referencia || '',
 			marca: pneuOriginal.marca || '',
 			modelo: pneuOriginal.modelo || '',
 			dot: pneuOriginal.dot || '',
-			id: ''
-		});
+			ferro: '',
+			serie: '',
+			milimetros: '',
+			observacao: '',
+			motivo_recusa: ''
+		}));
 
 		setFotosPneu([]);
 		setFotoAmpliada(null);
@@ -643,8 +646,6 @@ export default function ChecklistAvulsoScreen() {
 		const referenciaId = String(formPneu.referencia || '').trim();
 		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original).replace(',', '.'));
 
-		// A referência salva no pneu precisa ser o ID numérico exato de referencia_pneu.
-		// Isso evita manter um ID antigo depois da troca de marca/modelo.
 		if (!/^\d+$/.test(referenciaId)) {
 			Alert.alert('Atenção', 'Selecione uma referência, marca e modelo válidos antes de salvar.');
 			return;
@@ -1120,6 +1121,20 @@ export default function ChecklistAvulsoScreen() {
 		</View>
 	);
 
+	const ehDataDeHoje = (dataAnaliseStr: string) => {
+		if (!dataAnaliseStr) return false;
+		const hojeIso = getIsoHoje();
+
+		let dataLimpa = dataAnaliseStr.split('T')[0];
+		if (dataLimpa.includes('/')) {
+			const partes = dataLimpa.split('/');
+			if (partes.length === 3) {
+				dataLimpa = `${partes[2]}-${partes[1]}-${partes[0]}`;
+			}
+		}
+		return dataLimpa === hojeIso;
+	};
+
 	const renderPilhaGrafica = () => {
 		if (isLoading) return <ActivityIndicator size="large" color="#3276b1" style={{ marginTop: 40 }} />;
 
@@ -1128,6 +1143,8 @@ export default function ChecklistAvulsoScreen() {
 		}
 
 		const pneusOrdenados = [...pneusPilha].sort((a, b) => Number(a.id) - Number(b.id));
+
+		const permiteDuplicar = checklistAtivo?.data ? ehDataDeHoje(checklistAtivo.data) : false;
 
 		return (
 			<View style={styles.pilhaGraficaContainer}>
@@ -1163,12 +1180,14 @@ export default function ChecklistAvulsoScreen() {
 								<Feather name="trash-2" size={16} color="#E53935" />
 							</TouchableOpacity>
 
-							<TouchableOpacity
-								style={{ padding: 10, backgroundColor: '#ffffff', borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2 }}
-								onPress={() => duplicarPneu(pneu)}
-							>
-								<Feather name="copy" size={16} color="#0c6ead" />
-							</TouchableOpacity>
+							{permiteDuplicar && (
+								<TouchableOpacity
+									style={{ padding: 10, backgroundColor: '#ffffff', borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2 }}
+									onPress={() => duplicarPneu(pneu)}
+								>
+									<Feather name="copy" size={16} color="#0c6ead" />
+								</TouchableOpacity>
+							)}
 
 						</View>
 					</View>
