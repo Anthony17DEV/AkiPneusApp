@@ -15,7 +15,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Importado com sucesso!
 import { apiService } from '../../src/services/apiService';
 
-const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
 
 interface Cliente {
 	id: number;
@@ -576,20 +576,19 @@ export default function ClientesScreen() {
 							<Image source={{ uri: fotoAmpliada }} style={styles.fullScreenImage} resizeMode="contain" />
 						</View>
 					)}
+
+					<ModalBuscaDinamica
+						visible={modalBuscaVisible}
+						onClose={() => setModalBuscaVisible(false)}
+						titulo="Selecionar Cidade"
+						dados={resultadosBusca}
+						onSelect={selecionarCidade}
+						isLoading={isSearching}
+						onSearchChange={buscarCidadesNoBanco}
+						placeholderBusca="Buscar cidade..."
+					/>
 				</KeyboardAvoidingView>
 			</Modal>
-
-			{/* Substituído o modal antigo pelo ModalBuscaDinamica genérico */}
-			<ModalBuscaDinamica
-				visible={modalBuscaVisible}
-				onClose={() => setModalBuscaVisible(false)}
-				titulo="Selecionar Cidade"
-				dados={resultadosBusca}
-				onSelect={selecionarCidade}
-				isLoading={isSearching}
-				onSearchChange={buscarCidadesNoBanco}
-				placeholderBusca="Buscar cidade..."
-			/>
 		</View>
 	);
 }

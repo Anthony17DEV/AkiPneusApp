@@ -17,7 +17,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 	const router = useRouter();
 
 	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Usuário';
-	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+	const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
 
 	const confirmSignOut = () => {
 		Alert.alert(
@@ -151,7 +151,7 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="veiculos"
 				options={{
-					drawerLabel: 'Check-List Ve�culos',
+					drawerLabel: 'Check-List Veículos',
 					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => (
 						<MaterialCommunityIcons

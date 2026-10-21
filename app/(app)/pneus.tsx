@@ -67,9 +67,9 @@ export default function PneusScreen() {
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 
-	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
-	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
-	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com/apicactus/akipneus/api_gerar_link_relatorio.php';
+	const FOTO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
+	const API_CADASTRO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_pneu_cadastro_rapido.php';
+	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_gerar_link_relatorio.php';
 
 	const gerarLinkRelatorio = async (arquivo: string, paramsRelatorio: Record<string, any>) => {
 		const response = await fetch(API_RELATORIO_LINK_URL, {
@@ -335,7 +335,7 @@ export default function PneusScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_pneus_salvar.php', {
+							const response = await fetch('https://sistemascactus.com.br/apicactus/akipneus/api_pneus_salvar.php', {
 								method: 'POST', headers: { 'Content-Type': 'application/json' },
 								body: JSON.stringify({ acao: 'excluir', id: id })
 							});
@@ -637,7 +637,7 @@ export default function PneusScreen() {
 			let dadosCadastro: any = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
 
 			if (tipoBusca === 'veiculo') {
-				url = 'https://sistemascactus.com/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
+				url = 'https://sistemascactus.com.br/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
 				dadosCadastro = { tipo: 'veiculo_incompleto', nome: formCadastro.nome };
 			}
 

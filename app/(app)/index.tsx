@@ -32,7 +32,7 @@ export default function DashboardScreen() {
 	const [isBuscando, setIsBuscando] = useState(false);
 	const [veiculoEncontrado, setVeiculoEncontrado] = useState<VeiculoBusca | null>(null);
 
-	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+	const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
 
 	// Dispara a criação do banco local e a sincronização assim que entra no Dashboard
 	useEffect(() => {

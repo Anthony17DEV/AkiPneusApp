@@ -36,9 +36,9 @@ interface Veiculo {
 }
 
 export default function ChecklistScreen() {
-	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
-	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
-	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com/apicactus/akipneus/api_gerar_link_relatorio.php';
+	const FOTO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
+	const API_CADASTRO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_pneu_cadastro_rapido.php';
+	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_gerar_link_relatorio.php';
 
 	const gerarLinkRelatorio = async (arquivo: string, paramsRelatorio: Record<string, any>) => {
 		const response = await fetch(API_RELATORIO_LINK_URL, {
@@ -219,7 +219,7 @@ export default function ChecklistScreen() {
 				estepesCav = parseInt(cav.estepe || '0', 10) || 0;
 			}
 
-			const resComp = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${checklistId}`);
+			const resComp = await fetch(`https://sistemascactus.com.br/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${checklistId}`);
 			const comp = await resComp.json();
 
 			let eixosAnteriores = eixosCav;
@@ -421,7 +421,7 @@ export default function ChecklistScreen() {
 		if (implementosParaEnviar.length === 0 && historico.length > 0) {
 			const idUltimoChecklist = historico[0].chec_nb_id;
 			try {
-				const response = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idUltimoChecklist}`);
+				const response = await fetch(`https://sistemascactus.com.br/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idUltimoChecklist}`);
 				const resComp = await response.json();
 				if (resComp.success && resComp.data && resComp.data.length > 0) {
 					const veiculosFormatados = resComp.data.map((v: any) => ({
@@ -470,7 +470,7 @@ export default function ChecklistScreen() {
 		carregarCoresPneus(idDoChecklist);
 
 		try {
-			const response = await fetch(`https://sistemascactus.com/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idDoChecklist}`);
+			const response = await fetch(`https://sistemascactus.com.br/apicactus/akipneus/api_checklist_buscar_composicao.php?checklist_id=${idDoChecklist}`);
 			const res = await response.json();
 			if (!isMounted.current) return;
 
@@ -493,7 +493,7 @@ export default function ChecklistScreen() {
 			if (!isModoIsolado) {
 				try {
 					const payload = { checklist_id: idChecklistAtivo, implementos: implementos.map(i => i.id) };
-					await fetch('https://sistemascactus.com/apicactus/akipneus/api_checklist_salvar_composicao.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+					await fetch('https://sistemascactus.com.br/apicactus/akipneus/api_checklist_salvar_composicao.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 				} catch (err) {
 					console.log('Erro ao salvar composição', err);
 				}
@@ -534,7 +534,7 @@ export default function ChecklistScreen() {
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						setIsLoading(true);
 						try {
-							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_checklist_excluir.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'excluir', id: idDoChecklist }) });
+							const response = await fetch('https://sistemascactus.com.br/apicactus/akipneus/api_checklist_excluir.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'excluir', id: idDoChecklist }) });
 							const textRes = await response.text();
 							let res;
 							try { res = JSON.parse(textRes); } catch (e) { res = { success: true, message: textRes }; }
@@ -663,7 +663,7 @@ export default function ChecklistScreen() {
 
 						setIsRetirandoPneu(true);
 						try {
-							const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_pneu_retirar.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pneu_id: pneuId, checklist_id: dados.pneu_nb_checklist || idChecklistAtivo, veiculo_id: dados.pneu_nb_veiculo || veiculo?.id }) });
+							const response = await fetch('https://sistemascactus.com.br/apicactus/akipneus/api_pneu_retirar.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pneu_id: pneuId, checklist_id: dados.pneu_nb_checklist || idChecklistAtivo, veiculo_id: dados.pneu_nb_veiculo || veiculo?.id }) });
 							const res = await response.json();
 							if (!isMounted.current) return;
 
@@ -710,6 +710,9 @@ export default function ChecklistScreen() {
 
 	const salvarAfericaoPneu = async () => {
 		if (!formPneu.milimetros || !formPneu.pressao) { Alert.alert('Atenção', 'Sulco e Calibração são obrigatórios.'); return; }
+		if (!formPneu.referencia) { Alert.alert('Atenção', 'A Referência do pneu é obrigatória.'); return; }
+		if (!formPneu.marca || !formPneu.modelo) { Alert.alert('Atenção', 'A Marca e o Modelo são obrigatórios.'); return; }
+
 		if (formPneu.dot && formPneu.dot !== 'S/A') {
 			if (formPneu.dot.length !== 4) { Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.'); return; }
 			const semana = parseInt(formPneu.dot.substring(0, 2));
@@ -730,8 +733,32 @@ export default function ChecklistScreen() {
 		const fotosAntigasLimpas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.substring(f.lastIndexOf('/') + 1));
 		const stringFotosAntigas = fotosAntigasLimpas.join(',');
 
+		const valorLimpo = formPneu.valor ? formPneu.valor.toString().replace(/\./g, '').replace(',', '.') : '0';
+
 		const dadosParaSalvar = {
-			...formPneu, motivo_recusa: formPneu.motivo_recusa, laud_tx_motivo: formPneu.motivo_recusa, reformador_id: formPneu.reformador_id, reformador_nome: formPneu.reformador, pneu_tx_reformador: formPneu.reformador, valor: formPneu.valor.replace(/\./g, ''), veiculo_id: veiculo?.id, checklist_id: idChecklistAtivo, posicao: pneuSelecionado, user_id: user?.id, fotos_novas: fotosNovas, fotos: fotosNovas, fotos_antigas: fotosAntigasLimpas, fotosAntigas: fotosAntigasLimpas, fotosAntigas_mantidas: fotosAntigasLimpas, pneu_tx_foto_antiga: stringFotosAntigas, foto_antiga: stringFotosAntigas
+			...formPneu,
+			referencia: formPneu.referencia,
+			referencia_id: formPneu.referencia,
+			marca: formPneu.marca,
+			modelo: formPneu.modelo,
+			mm_original: formPneu.mm_original || formPneu.ref_mm_original,
+			motivo_recusa: formPneu.motivo_recusa,
+			laud_tx_motivo: formPneu.motivo_recusa,
+			reformador_id: formPneu.reformador_id,
+			reformador_nome: formPneu.reformador,
+			pneu_tx_reformador: formPneu.reformador,
+			valor: valorLimpo,
+			veiculo_id: veiculo?.id,
+			checklist_id: idChecklistAtivo,
+			posicao: pneuSelecionado,
+			user_id: user?.id,
+			fotos_novas: fotosNovas,
+			fotos: fotosNovas,
+			fotos_antigas: fotosAntigasLimpas,
+			fotosAntigas: fotosAntigasLimpas,
+			fotosAntigas_mantidas: fotosAntigasLimpas,
+			pneu_tx_foto_antiga: stringFotosAntigas,
+			foto_antiga: stringFotosAntigas
 		};
 
 		const res = await apiService.salvarInspecaoPneu(dadosParaSalvar);
@@ -799,7 +826,21 @@ export default function ChecklistScreen() {
 					setResultadosBusca(veiculosFormatados);
 				} else { setResultadosBusca([]); }
 			} else {
-				const extras = { referencia_id: formPneu.referencia, marca_atual: formPneu.marca };
+				// Garante o envio exato dos parâmetros que a api_busca_dinamica.php espera
+				const extras: any = {};
+
+				if (tipo === 'marca_pneu' || tipo === 'modelo_pneu' || tipo === 'banda') {
+					if (formPneu.referencia) {
+						extras.referencia_id = formPneu.referencia;
+					}
+				}
+
+				if (tipo === 'modelo_pneu') {
+					if (formPneu.marca) {
+						extras.marca_atual = formPneu.marca;
+					}
+				}
+
 				const res = await apiService.buscarDinamica(tipo, termo, extras);
 				setResultadosBusca(res && res.success ? res.data : []);
 			}
@@ -827,6 +868,7 @@ export default function ChecklistScreen() {
 				valor: valorPodeEditar ? '' : formPneu.valor,
 				ref_valor: valorPodeEditar ? '' : (formPneu.ref_valor || formPneu.valor),
 			});
+			setModalBuscaVisible(false);
 		}
 		else if (tipoBusca === 'marca_pneu') {
 			setFormPneu({
@@ -838,6 +880,7 @@ export default function ChecklistScreen() {
 				valor: valorPodeEditar ? '' : formPneu.valor,
 				ref_valor: valorPodeEditar ? '' : (formPneu.ref_valor || formPneu.valor),
 			});
+			setModalBuscaVisible(false);
 		}
 		else if (tipoBusca === 'modelo_pneu') {
 			const rawMm = item.mmOriginal ?? item.refe_tx_mmOriginal ?? item.mm_original ?? item.pneu_tx_mmOriginal ?? '';
@@ -855,6 +898,7 @@ export default function ChecklistScreen() {
 				mm_original: formPneu.tipo === 'Reformado' && formPneu.banda ? formPneu.mm_original : refMm,
 				valor: !valorPodeEditar ? formPneu.valor : (formPneu.tipo === 'Reformado' && formPneu.banda ? formPneu.valor : refVal)
 			});
+			setModalBuscaVisible(false);
 		}
 		else if (tipoBusca === 'banda') {
 			const rawSulco = item.sulco ?? item.band_tx_sulco ?? '';
@@ -866,6 +910,7 @@ export default function ChecklistScreen() {
 				mm_original: item.isNewModel ? formCadastro.sulco : (rawSulco ? String(rawSulco).replace(',', '.') : formPneu.mm_original),
 				valor: !valorPodeEditar ? formPneu.valor : (item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(rawValor) || formPneu.valor))
 			});
+			setModalBuscaVisible(false);
 		}
 	};
 

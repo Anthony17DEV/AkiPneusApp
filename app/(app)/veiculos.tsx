@@ -67,8 +67,8 @@ export default function VeiculosScreen() {
 	const [isCadastrando, setIsCadastrando] = useState(false);
 	const [formCadastro, setFormCadastro] = useState({ nome: '' });
 
-	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
-	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
+	const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
+	const API_CADASTRO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
 
 	const [fotosNovas, setFotosNovas] = useState<string[]>([]);
 	const [fotosAntigas, setFotosAntigas] = useState<string[]>([]);
@@ -314,18 +314,35 @@ export default function VeiculosScreen() {
 			);
 			return;
 		}
+
+		const timestampAleatorio = Date.now().toString().slice(-4);
+		const placaLimpa = form.placa && form.placa.trim() !== ''
+			? form.placa.trim().toUpperCase()
+			: `TST-${timestampAleatorio}`;
+
+		const codigoLimpo = form.codigo && form.codigo.trim() !== ''
+			? form.codigo.trim().toUpperCase()
+			: `C-${timestampAleatorio}`;
+
 		setIsSaving(true);
 		try {
 			const payload = {
 				...form,
+				placa: placaLimpa,
+				codigo: codigoLimpo,
+				marca_id: form.marca_id ? String(form.marca_id) : null,
+				modelo_id: form.modelo_id ? String(form.modelo_id) : null,
 				fotosAntigas_mantidas: fotosAntigas,
 				fotos: fotosNovas
 			};
 
 			const res = await apiService.salvarVeiculoGeral(payload);
+			console.log("RETORNO DO SALVAR VEICULO:", JSON.stringify(res));
 			if (!isMounted.current) return;
 
-			if (res && res.success) {
+			const deuCerto = (res && res.success === true) || (res && res.id) || (res && String(res).includes('sucesso'));
+
+			if (deuCerto) {
 				setModalVisible(false);
 				Alert.alert('Sucesso', form.id ? 'Veículo atualizado!' : 'Veículo salvo!', [
 					{
@@ -343,7 +360,7 @@ export default function VeiculosScreen() {
 					}
 				]);
 			} else {
-				Alert.alert('Erro ao Salvar', res?.message || 'Falha ao salvar. Verifique se a placa já existe.');
+				Alert.alert('Erro ao Salvar', res?.message || 'Falha ao salvar o veículo.');
 			}
 		} catch (e) {
 			if (isMounted.current) Alert.alert('Erro de Conexão', 'Falha ao conectar com o servidor.');

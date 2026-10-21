@@ -145,7 +145,7 @@ export default function MarcasScreen() {
 		if (!formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do item."); return; }
 		setIsCadastrando(true);
 		try {
-			const response = await fetch('https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php', {
+			const response = await fetch('https://sistemascactus.com.br/apicactus/akipneus/api_pneu_cadastro_rapido.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

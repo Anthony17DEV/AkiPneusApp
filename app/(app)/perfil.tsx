@@ -1,6 +1,6 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
@@ -22,7 +22,7 @@ import { apiService } from '../../src/services/apiService';
 export default function PerfilScreen() {
 	const { user, signOut, updateUser } = useAuth();
 
-	const URL_FOTOS = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
+	const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
 
 	const isMounted = useRef(true);
 
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
 	avatarContainer: { position: 'relative', marginBottom: 15 },
 	avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: '#fff' },
 	avatarPlaceholder: { backgroundColor: '#e1e4e8', justifyContent: 'center', alignItems: 'center' },
-	uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
+	uploadingOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
 	editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#0c6ead', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff', elevation: 3 },
 	nivelBadge: { backgroundColor: '#E2E8F0', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
 	nivelText: { color: '#0c6ead', fontSize: 12, fontWeight: 'bold' },

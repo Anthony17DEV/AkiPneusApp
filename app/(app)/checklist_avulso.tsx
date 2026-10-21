@@ -13,10 +13,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { api, apiService } from '../../src/services/apiService';
 
 export default function ChecklistAvulsoScreen() {
-	const FOTO_URL = 'https://sistemascactus.com/apicactus/akipneus/fotos/';
-	const API_CADASTRO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_pneu_cadastro_rapido.php';
-	const API_AVULSO_URL = 'https://sistemascactus.com/apicactus/akipneus/api_checklist_avulso.php';
-	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com/apicactus/akipneus/api_gerar_link_relatorio.php';
+	const FOTO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
+	const API_CADASTRO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_pneu_cadastro_rapido.php';
+	const API_AVULSO_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_checklist_avulso.php';
+	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_gerar_link_relatorio.php';
 
 	const gerarLinkRelatorio = async (arquivo: string, paramsRelatorio: Record<string, any>) => {
 		const response = await fetch(API_RELATORIO_LINK_URL, {
@@ -427,18 +427,31 @@ export default function ChecklistAvulsoScreen() {
 		setSelectedChecklists([]);
 
 		try {
-			const response = await fetch(API_AVULSO_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar', dataIni: filtroDataIni, dataFim: filtroDataFim, cliente: filtroCliente, usuario: filtroUsuario })
+			const response = await api.post('api_checklist_avulso.php', {
+				acao: 'listar',
+				dataIni: filtroDataIni,
+				dataFim: filtroDataFim,
+				cliente: filtroCliente,
+				usuario: filtroUsuario
 			});
-			const res = await response.json();
+
+			const res = response.data;
 			if (!isMounted.current) return;
 
-			if (res.success) { setChecklists(res.data); } else { setChecklists([]); }
+			if (res && res.success) {
+				setChecklists(res.data || []);
+			} else {
+				setChecklists([]);
+				Alert.alert('Atenção', res?.message || 'Não foi possível carregar as análises.');
+			}
 		} catch (error) {
-			if (isMounted.current) Alert.alert('Erro', 'Falha ao buscar as análises.');
+			if (isMounted.current) {
+				console.log("Erro ao carregar análises avulsas", error);
+				Alert.alert('Erro', 'Falha na comunicação com o servidor ao buscar análises.');
+			}
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		if (isMounted.current) setIsLoading(false);
 	};
 
 	useEffect(() => { carregarChecklists(); }, []);
@@ -912,7 +925,7 @@ export default function ChecklistAvulsoScreen() {
 			let dadosCadastro: any = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
 
 			if (tipoBusca === 'veiculo') {
-				url = 'https://sistemascactus.com/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
+				url = 'https://sistemascactus.com.br/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
 				dadosCadastro = {
 					tipo: 'veiculo_incompleto',
 					nome: formCadastro.nome,
