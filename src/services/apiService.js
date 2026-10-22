@@ -1285,6 +1285,7 @@ export const apiService = {
 			'cache_reformadores',
 			async () => {
 				const db = getDb();
+				await db.execAsync(`CREATE TABLE IF NOT EXISTS cache_reformadores (id INTEGER PRIMARY KEY, nome TEXT, documento TEXT, telefone TEXT, cidade_id INTEGER, cidade_nome TEXT, dados_json TEXT);`);
 				const rows = await db.getAllAsync(`SELECT * FROM cache_reformadores ORDER BY id DESC`);
 				let lista = rows.map((r) => {
 					const parsed = r.dados_json ? JSON.parse(r.dados_json) : {};
@@ -1312,36 +1313,54 @@ export const apiService = {
 			const res = parseData(response.data);
 
 			if (res && res.success) {
+				try {
+					const db = getDb();
+					await db.execAsync(`CREATE TABLE IF NOT EXISTS cache_reformadores (id INTEGER PRIMARY KEY, nome TEXT, documento TEXT, telefone TEXT, cidade_id INTEGER, cidade_nome TEXT, dados_json TEXT);`);
+					const refId = payload.id ? Number(payload.id) : (res.id || Date.now());
+					const obj = { id: refId, ...payload };
+					await db.runAsync(
+						`INSERT OR REPLACE INTO cache_reformadores (id, nome, documento, telefone, cidade_id, cidade_nome, dados_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+						[refId, payload.nome, payload.documento || '', payload.telefone || '', payload.cidade_id || 0, payload.cidade_nome || '', JSON.stringify(obj)]
+					);
+				} catch (cacheErr) {
+					console.warn('Aviso ao atualizar cache_reformadores:', cacheErr);
+				}
+			}
+			return res;
+		} catch (error) {
+			try {
 				const db = getDb();
-				const refId = payload.id ? Number(payload.id) : (res.id || Date.now());
+				await db.execAsync(`CREATE TABLE IF NOT EXISTS cache_reformadores (id INTEGER PRIMARY KEY, nome TEXT, documento TEXT, telefone TEXT, cidade_id INTEGER, cidade_nome TEXT, dados_json TEXT);`);
+				const refId = payload.id ? Number(payload.id) : Date.now();
 				const obj = { id: refId, ...payload };
 				await db.runAsync(
 					`INSERT OR REPLACE INTO cache_reformadores (id, nome, documento, telefone, cidade_id, cidade_nome, dados_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					[refId, payload.nome, payload.documento || '', payload.telefone || '', payload.cidade_id || 0, payload.cidade_nome || '', JSON.stringify(obj)]
 				);
+				return { success: true, message: 'Reformador guardado localmente (modo offline).' };
+			} catch (offlineErr) {
+				return { success: false, message: 'Erro de conexão ao salvar reformador.' };
 			}
-			return res;
-		} catch (error) {
-			const db = getDb();
-			const refId = payload.id ? Number(payload.id) : Date.now();
-			const obj = { id: refId, ...payload };
-			await db.runAsync(
-				`INSERT OR REPLACE INTO cache_reformadores (id, nome, documento, telefone, cidade_id, cidade_nome, dados_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				[refId, payload.nome, payload.documento || '', payload.telefone || '', payload.cidade_id || 0, payload.cidade_nome || '', JSON.stringify(obj)]
-			);
-			return { success: true, message: 'Reformador guardado localmente (modo offline).' };
 		}
 	},
 
 	excluirReformador: async (id) => {
 		try {
 			const response = await api.post('api_reformadores.php', { acao: 'excluir', id });
-			const db = getDb();
-			await db.runAsync(`DELETE FROM cache_reformadores WHERE id = ?`, [id]);
+			try {
+				const db = getDb();
+				await db.execAsync(`CREATE TABLE IF NOT EXISTS cache_reformadores (id INTEGER PRIMARY KEY, nome TEXT, documento TEXT, telefone TEXT, cidade_id INTEGER, cidade_nome TEXT, dados_json TEXT);`);
+				await db.runAsync(`DELETE FROM cache_reformadores WHERE id = ?`, [id]);
+			} catch (cacheErr) {
+				console.warn('Aviso ao limpar cache_reformadores:', cacheErr);
+			}
 			return parseData(response.data);
 		} catch (error) {
-			const db = getDb();
-			await db.runAsync(`DELETE FROM cache_reformadores WHERE id = ?`, [id]);
+			try {
+				const db = getDb();
+				await db.execAsync(`CREATE TABLE IF NOT EXISTS cache_reformadores (id INTEGER PRIMARY KEY, nome TEXT, documento TEXT, telefone TEXT, cidade_id INTEGER, cidade_nome TEXT, dados_json TEXT);`);
+				await db.runAsync(`DELETE FROM cache_reformadores WHERE id = ?`, [id]);
+			} catch (e) { }
 			return { success: true, message: 'Reformador removido localmente.' };
 		}
 	},

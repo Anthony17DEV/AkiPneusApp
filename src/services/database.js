@@ -146,6 +146,16 @@ export const initLocalDatabase = async () => {
                 dados_json TEXT
             );
 
+			CREATE TABLE IF NOT EXISTS cache_reformadores (
+                id INTEGER PRIMARY KEY,
+                nome TEXT,
+                documento TEXT,
+                telefone TEXT,
+                cidade_id INTEGER,
+                cidade_nome TEXT,
+                dados_json TEXT
+            );
+
 			CREATE TABLE IF NOT EXISTS cache_usuarios (
                 id INTEGER PRIMARY KEY,
                 nome TEXT,

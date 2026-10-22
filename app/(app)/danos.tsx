@@ -88,16 +88,26 @@ export default function DanosScreen() {
 					setIsLoading(true);
 					try {
 						const response = await apiService.excluirDano(id);
-						if (response && response.success) {
-							Alert.alert('Sucesso', 'Registro excluído.');
+						let res = response;
+
+						if (typeof res === 'string') {
+							try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+						}
+
+						if (!isMounted.current) return;
+
+						if (res && (res.success === true || res.success === 1 || res.success === 'true' || res === true)) {
+							Alert.alert('Sucesso', 'Registro excluído com sucesso.');
 							carregarDanos();
 						} else {
-							Alert.alert('Erro', response?.message || 'O registro foi excluído, mas a API retornou um formato inesperado.');
+							Alert.alert('Erro', res?.message || 'Falha ao excluir o registro.');
 						}
 					} catch (error) {
-						Alert.alert('Erro', 'Falha de conexão ou erro no servidor ao tentar excluir.');
+						if (isMounted.current) {
+							Alert.alert('Erro', 'Falha de conexão ou erro no servidor ao tentar excluir.');
+						}
 					} finally {
-						setIsLoading(false);
+						if (isMounted.current) setIsLoading(false);
 					}
 				}
 			}

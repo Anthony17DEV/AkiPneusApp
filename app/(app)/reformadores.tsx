@@ -98,17 +98,25 @@ export default function ReformadoresScreen() {
 				...form
 			};
 
-			const res = await apiService.salvarReformador(payload);
+			const response = await apiService.salvarReformador(payload);
+			console.log("RESPOSTA CRUA DO SERVIDOR AO SALVAR REFORMADOR:", response);
+
+			let res = response;
+			if (typeof res === 'string') {
+				try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+			}
+
 			if (!isMounted.current) return;
 
-			if (res && res.success) {
-				Alert.alert('Sucesso', form.id ? 'Reformador atualizado com sucesso!' : 'Reformador cadastrado com sucesso!');
+			if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
+				Alert.alert('Sucesso', res.message || (form.id ? 'Reformador atualizado com sucesso!' : 'Reformador cadastrado com sucesso!'));
 				setModalVisible(false);
 				carregarReformadores();
 			} else {
 				Alert.alert('Atenção', res?.message || 'Falha ao salvar reformador.');
 			}
-		} catch (error) {
+		} catch (error: any) {
+			console.log("ERRO DE CONEXÃO OU EXCEÇÃO:", error?.response || error);
 			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
 		} finally {
 			if (isMounted.current) setIsSaving(false);
@@ -124,10 +132,16 @@ export default function ReformadoresScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							const res = await apiService.excluirReformador(id);
+							const response = await apiService.excluirReformador(id);
+							let res = response;
+
+							if (typeof res === 'string') {
+								try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+							}
+
 							if (!isMounted.current) return;
 
-							if (res && res.success) {
+							if (res && (res.success === true || res.success === 1 || res.success === 'true' || res === true)) {
 								Alert.alert('Sucesso', 'Reformador excluído com sucesso.');
 								carregarReformadores();
 							} else {

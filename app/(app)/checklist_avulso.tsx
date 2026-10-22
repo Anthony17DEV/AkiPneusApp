@@ -19,13 +19,12 @@ export default function ChecklistAvulsoScreen() {
 	const API_RELATORIO_LINK_URL = 'https://sistemascactus.com.br/apicactus/akipneus/api_gerar_link_relatorio.php';
 
 	const gerarLinkRelatorio = async (arquivo: string, paramsRelatorio: Record<string, any>) => {
-		const response = await fetch(API_RELATORIO_LINK_URL, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ arquivo, params: paramsRelatorio })
+		const response = await api.post('api_gerar_link_relatorio.php', {
+			arquivo,
+			params: paramsRelatorio
 		});
 
-		const res = await response.json();
+		const res = response.data;
 		if (!res?.success || !res?.url) {
 			throw new Error(res?.message || 'Não foi possível gerar o link temporário do relatório.');
 		}
@@ -462,17 +461,21 @@ export default function ChecklistAvulsoScreen() {
 
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_AVULSO_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'inserir', cliente_id: formNovo.cliente_id, data: formNovo.data, user_id: user?.id, qtd_reformados: 0 })
+			const partesData = formNovo.data.split('/');
+			const dataIso = partesData.length === 3 ? `${partesData[2]}-${partesData[1]}-${partesData[0]}` : formNovo.data;
+
+			const response = await api.post('api_checklist_avulso.php', {
+				acao: 'inserir',
+				cliente_id: formNovo.cliente_id,
+				data: dataIso,
+				user_id: user?.id,
+				qtd_reformados: 0
 			});
-			const res = await response.json();
+
+			const res = response.data;
 			if (!isMounted.current) return;
 
-			if (res.success) {
-				const partesData = formNovo.data.split('/');
-				const dataIso = partesData.length === 3 ? `${partesData[2]}-${partesData[1]}-${partesData[0]}` : formNovo.data;
-
+			if (res && res.success) {
 				const mockChecklist = {
 					id: res.id,
 					data: dataIso,
@@ -486,12 +489,16 @@ export default function ChecklistAvulsoScreen() {
 				setPneusPilha([]);
 				setModalNovoVisible(false);
 			} else {
-				Alert.alert('Erro', res.message || 'Falha ao iniciar análise.');
+				Alert.alert('Erro', res?.message || 'Falha ao iniciar análise.');
 			}
 		} catch (error) {
-			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+			if (isMounted.current) {
+				console.log("Erro ao iniciar checklist avulso", error);
+				Alert.alert('Erro', 'Falha na conexão com o servidor ao iniciar a análise.');
+			}
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		if (isMounted.current) setIsLoading(false);
 	};
 
 	const inserirLoteReformados = async () => {
@@ -501,32 +508,33 @@ export default function ChecklistAvulsoScreen() {
 
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_AVULSO_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					acao: 'inserir',
-					cliente_id: formNovo.cliente_id,
-					data: formNovo.data,
-					user_id: user?.id,
-					qtd_reformados: parseInt(formNovo.qtdReformados),
-					valor_reformados: formNovo.valorReformados ? formNovo.valorReformados.replace(/\./g, '') : ''
-				})
+			const partesData = formNovo.data.split('/');
+			const dataIso = partesData.length === 3 ? `${partesData[2]}-${partesData[1]}-${partesData[0]}` : formNovo.data;
+
+			const response = await api.post('api_checklist_avulso.php', {
+				acao: 'inserir',
+				cliente_id: formNovo.cliente_id,
+				data: dataIso,
+				user_id: user?.id,
+				qtd_reformados: parseInt(formNovo.qtdReformados),
+				valor_reformados: formNovo.valorReformados ? formNovo.valorReformados.replace(/\./g, '') : ''
 			});
-			const res = await response.json();
+			const res = response.data;
 
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res && res.success) {
 				Alert.alert('Sucesso', 'Lote de pneus reformados gravado com sucesso!');
 				setModalNovoVisible(false);
 				carregarChecklists();
 			} else {
-				Alert.alert('Erro', res.message || 'Falha ao gravar lote.');
+				Alert.alert('Erro', res?.message || 'Falha ao gravar lote.');
 			}
 		} catch (error) {
 			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		if (isMounted.current) setIsLoading(false);
 	};
 
 	const excluirChecklist = (id: number) => {
@@ -535,10 +543,7 @@ export default function ChecklistAvulsoScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						await fetch(API_AVULSO_URL, {
-							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir', id: id })
-						});
+						await api.post('api_checklist_avulso.php', { acao: 'excluir', id: id });
 						if (isMounted.current) {
 							Alert.alert('Sucesso', 'Análise excluída.');
 							carregarChecklists();
@@ -557,10 +562,7 @@ export default function ChecklistAvulsoScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						await fetch(API_AVULSO_URL, {
-							method: 'POST', headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ acao: 'excluir_pneu', id: id })
-						});
+						await api.post('api_checklist_avulso.php', { acao: 'excluir_pneu', id: id });
 						if (isMounted.current) carregarPneusDoChecklist(checklistAtivo.id);
 					} catch (error) {
 						if (isMounted.current) Alert.alert('Erro', 'Falha ao excluir o pneu.');
@@ -578,22 +580,26 @@ export default function ChecklistAvulsoScreen() {
 	const carregarPneusDoChecklist = async (id: number) => {
 		setIsLoading(true);
 		try {
-			const response = await fetch(API_AVULSO_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ acao: 'listar_pneus', checklist_id: id })
+			const response = await api.post('api_checklist_avulso.php', {
+				acao: 'listar_pneus',
+				checklist_id: id
 			});
-			const res = await response.json();
+			const res = response.data;
 			if (!isMounted.current) return;
 
-			if (res.success) {
+			if (res && res.success) {
 				setPneusPilha(res.data || []);
 			} else {
 				setPneusPilha([]);
+				if (res?.message) {
+					Alert.alert('Erro ao carregar pneus', res.message);
+				}
 			}
 		} catch (e) {
 			if (isMounted.current) setPneusPilha([]);
+		} finally {
+			if (isMounted.current) setIsLoading(false);
 		}
-		if (isMounted.current) setIsLoading(false);
 	};
 
 	const resetFormPneu = () => {
@@ -656,6 +662,11 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const salvarPneu = async () => {
+		if (!checklistAtivo || !checklistAtivo.id) {
+			Alert.alert('Erro', 'Nenhuma análise de sucata ativa selecionada. Volte à lista e abra a análise novamente.');
+			return;
+		}
+
 		const referenciaId = String(formPneu.referencia || '').trim();
 		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original).replace(',', '.'));
 
@@ -703,49 +714,49 @@ export default function ChecklistAvulsoScreen() {
 				checklist_id: checklistAtivo.id,
 				user_id: user?.id,
 				...formPneu,
-				// Envia explicitamente o ID exato já resolvido pela seleção do modelo.
 				referencia: referenciaId,
 				referencia_id: referenciaId,
-				valor: formPneu.valor.replace(/\./g, ''),
+				valor: formPneu.valor ? formPneu.valor.replace(/\./g, '') : '',
 				fotos_novas: fotosNovas,
 				fotos_antigas: fotosAntigas
 			};
 
-			const response = await fetch(API_AVULSO_URL, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-			});
+			const response = await api.post('api_checklist_avulso.php', payload);
+			let res = response.data;
 
-			const textoRetorno = await response.text();
+			if (typeof res === 'string') {
+				const textoLimpo = res.trim();
+				const startIndex = textoLimpo.indexOf('{');
+				const endIndex = textoLimpo.lastIndexOf('}');
+				if (startIndex !== -1 && endIndex !== -1) {
+					try {
+						res = JSON.parse(textoLimpo.substring(startIndex, endIndex + 1));
+					} catch (err) {
+						console.log('Erro ao fazer parse do retorno:', textoLimpo);
+					}
+				} else if (textoLimpo === '' && response.status === 200) {
+					res = { success: true };
+				}
+			}
 
 			if (!isMounted.current) return;
 
-			const startIndex = textoRetorno.indexOf('{');
-			const endIndex = textoRetorno.lastIndexOf('}');
-
-			if (startIndex !== -1 && endIndex !== -1) {
-				const res = JSON.parse(textoRetorno.substring(startIndex, endIndex + 1));
-				if (res.success) {
-					Alert.alert('Sucesso', `Pneu ${formPneu.id ? 'atualizado' : 'adicionado'} com sucesso!`);
-					carregarPneusDoChecklist(checklistAtivo.id);
-					setModalPneuVisible(false);
-				} else {
-					Alert.alert('Erro', res.message || 'Falha ao salvar pneu.');
-				}
+			if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
+				Alert.alert('Sucesso', `Pneu ${formPneu.id ? 'atualizado' : 'adicionado'} com sucesso!`);
+				await carregarPneusDoChecklist(checklistAtivo.id);
+				setModalPneuVisible(false);
 			} else {
-				if (textoRetorno.toLowerCase().includes('true') || textoRetorno.toLowerCase().includes('sucesso') || textoRetorno.trim() === '') {
-					Alert.alert('Sucesso', `Pneu ${formPneu.id ? 'atualizado' : 'adicionado'} com sucesso!`);
-					carregarPneusDoChecklist(checklistAtivo.id);
-					setModalPneuVisible(false);
-				} else {
-					Alert.alert('Erro', 'O servidor retornou uma resposta inválida.');
-				}
+				console.log('Resposta inesperada ao salvar pneu:', response.data);
+				Alert.alert('Atenção', res?.message || 'O servidor recusou o salvamento.');
 			}
-		} catch (e) {
+		} catch (e: any) {
+			console.log("Erro detalhado ao salvar pneu avulso:", e?.response || e);
 			if (isMounted.current) {
-				Alert.alert('Erro', 'A API não respondeu. Nenhuma alteração foi confirmada no servidor.');
+				Alert.alert('Erro de Conexão', e?.response?.data?.message || e?.message || 'Falha ao comunicar com o servidor.');
 			}
+		} finally {
+			if (isMounted.current) setIsSaving(false);
 		}
-		if (isMounted.current) setIsSaving(false);
 	};
 
 	const tirarFotoPneu = async () => {
@@ -921,11 +932,11 @@ export default function ChecklistAvulsoScreen() {
 
 		setIsCadastrando(true);
 		try {
-			let url = API_CADASTRO_URL;
+			let endpoint = 'api_pneu_cadastro_rapido.php';
 			let dadosCadastro: any = { tipo: tipoBusca, ...formCadastro, valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : '' };
 
 			if (tipoBusca === 'veiculo') {
-				url = 'https://sistemascactus.com.br/apicactus/akipneus/api_veiculo_cadastro_rapido.php';
+				endpoint = 'api_veiculo_cadastro_rapido.php';
 				dadosCadastro = {
 					tipo: 'veiculo_incompleto',
 					nome: formCadastro.nome,
@@ -933,10 +944,8 @@ export default function ChecklistAvulsoScreen() {
 				};
 			}
 
-			const response = await fetch(url, {
-				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosCadastro)
-			});
-			const res = await response.json();
+			const response = await api.post(endpoint, dadosCadastro);
+			const res = response.data;
 
 			if (!isMounted.current) return;
 

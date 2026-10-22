@@ -90,7 +90,7 @@ export default function MarcasVeiculosScreen() {
 		setIsSaving(true);
 		try {
 			const payload = {
-				acao: form.id ? 'editar_marca' : 'inserir_marca',
+				acao: form.id ? 'editar_marca' : 'adicionar_marca', // Corrigido de inserir_marca para adicionar_marca
 				id: form.id,
 				nome: form.nome.trim().toUpperCase()
 			};
@@ -111,22 +111,86 @@ export default function MarcasVeiculosScreen() {
 		}
 	};
 
+	const salvarModelo = async () => {
+		if (!formModelo.nome.trim()) {
+			Alert.alert('Atenção', 'O modelo é obrigatório.');
+			return;
+		}
+		setIsSaving(true);
+		try {
+			const payload = {
+				acao: formModelo.id ? 'editar_modelo' : 'adicionar_modelo',
+				id: formModelo.id,
+				marca_id: marcaSelecionada?.id,
+				nome: formModelo.nome.trim().toUpperCase()
+			};
+			const res = await apiService.salvarModeloVeiculo(payload);
+			if (!isMounted.current) return;
+
+			if (res && res.success) {
+				setFormModelo({ id: '', nome: '' });
+				carregarModelos(marcaSelecionada!.id);
+				carregarMarcas();
+			} else {
+				Alert.alert('Erro', res?.message || 'Falha ao salvar o modelo.');
+			}
+		} catch (error) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+		} finally {
+			if (isMounted.current) setIsSaving(false);
+		}
+	};
+
 	const handleExcluir = (item: MarcaVeiculo) => {
 		Alert.alert('Excluir Marca', `Tem a certeza que deseja excluir a marca "${item.nome}"?`, [
 			{ text: 'Cancelar', style: 'cancel' },
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						const res = await apiService.excluirMarcaVeiculo(item.id);
+						const response = await apiService.excluirMarcaVeiculo(item.id);
+						let res = response;
+
+						if (typeof res === 'string') {
+							try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+						}
+
 						if (!isMounted.current) return;
-						if (res && res.success) {
+						if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
 							Alert.alert('Sucesso', 'Marca excluída com sucesso.');
 							carregarMarcas();
 						} else {
-							Alert.alert('Erro', res.message || 'Falha ao excluir a marca.');
+							Alert.alert('Erro', res?.message || 'Falha ao excluir a marca.');
 						}
 					} catch (error) {
 						if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+					}
+				}
+			}
+		]);
+	};
+
+	const excluirModelo = (modelo: any) => {
+		Alert.alert('Excluir Modelo', `Tem a certeza que deseja excluir o modelo "${modelo.nome}"?`, [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Excluir', style: 'destructive', onPress: async () => {
+					try {
+						const response = await apiService.excluirModeloVeiculo(modelo.id);
+						let res = response;
+
+						if (typeof res === 'string') {
+							try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+						}
+
+						if (!isMounted.current) return;
+						if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
+							carregarModelos(marcaSelecionada!.id);
+							carregarMarcas();
+						} else {
+							Alert.alert('Erro', res?.message || 'Falha ao excluir o modelo.');
+						}
+					} catch (error) {
+						if (isMounted.current) Alert.alert('Erro', 'Falha na conexão.');
 					}
 				}
 			}
@@ -157,65 +221,12 @@ export default function MarcasVeiculosScreen() {
 		}
 	};
 
-	const salvarModelo = async () => {
-		if (!formModelo.nome.trim()) {
-			Alert.alert('Atenção', 'O nome do modelo é obrigatório.');
-			return;
-		}
-		setIsSaving(true);
-		try {
-			const payload = {
-				acao: formModelo.id ? 'editar_modelo' : 'inserir_modelo',
-				id: formModelo.id,
-				marca_id: marcaSelecionada?.id,
-				nome: formModelo.nome.trim().toUpperCase()
-			};
-			const res = await apiService.salvarModeloVeiculo(payload);
-			if (!isMounted.current) return;
-
-			if (res && res.success) {
-				setFormModelo({ id: '', nome: '' });
-				carregarModelos(marcaSelecionada!.id);
-				carregarMarcas();
-			} else {
-				Alert.alert('Erro', res?.message || 'Falha ao salvar o modelo.');
-			}
-		} catch (error) {
-			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
-		} finally {
-			if (isMounted.current) setIsSaving(false);
-		}
-	};
-
-	const excluirModelo = (modelo: any) => {
-		Alert.alert('Excluir Modelo', `Tem a certeza que deseja excluir o modelo "${modelo.nome}"?`, [
-			{ text: 'Cancelar', style: 'cancel' },
-			{
-				text: 'Excluir', style: 'destructive', onPress: async () => {
-					try {
-						const res = await apiService.excluirModeloVeiculo(modelo.id);
-						if (!isMounted.current) return;
-						if (res && res.success) {
-							carregarModelos(marcaSelecionada!.id);
-							carregarMarcas();
-						} else {
-							Alert.alert('Erro', res.message || 'Falha ao excluir o modelo.');
-						}
-					} catch (error) {
-						if (isMounted.current) Alert.alert('Erro', 'Falha na conexão.');
-					}
-				}
-			}
-		]);
-	};
-
 	return (
 		<View style={styles.container}>
 
 			<View style={styles.filterSection}>
 				<Text style={styles.sectionTitle}>Filtrar Marcas de Veículos</Text>
 
-				{/* Cabeçalho de Listagem Componentizado */}
 				<CabecalhoListagem
 					busca={filtroMarca}
 					setBusca={setFiltroMarca}

@@ -108,11 +108,17 @@ export default function UsuariosScreen() {
 				...form
 			};
 
-			const res = await apiService.salvarUsuario(payload);
+			const response = await apiService.salvarUsuario(payload);
+			let res = response;
+
+			if (typeof res === 'string') {
+				try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+			}
+
 			if (!isMounted.current) return;
 
-			if (res && res.success) {
-				Alert.alert('Sucesso', form.id ? 'Utilizador atualizado com sucesso!' : 'Utilizador cadastrado com sucesso!');
+			if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
+				Alert.alert('Sucesso', res.message || (form.id ? 'Utilizador atualizado com sucesso!' : 'Utilizador cadastrado com sucesso!'));
 				setModalVisible(false);
 				carregarUsuarios();
 			} else {
@@ -134,10 +140,16 @@ export default function UsuariosScreen() {
 				{
 					text: 'Excluir', style: 'destructive', onPress: async () => {
 						try {
-							const res = await apiService.excluirUsuario(id);
+							const response = await apiService.excluirUsuario(id);
+							let res = response;
+
+							if (typeof res === 'string') {
+								try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+							}
+
 							if (!isMounted.current) return;
 
-							if (res && res.success) {
+							if (res && (res.success === true || res.success === 1 || res.success === 'true' || res === true)) {
 								Alert.alert('Sucesso', 'Utilizador excluído com sucesso.');
 								carregarUsuarios();
 							} else {

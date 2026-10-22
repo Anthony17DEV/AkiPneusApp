@@ -192,6 +192,17 @@ export default function AppLayout() {
 			/>
 
 			<Drawer.Screen
+				name="marcas"
+				options={{
+					drawerLabel: 'Marcas de Pneus',
+					headerTitle: HeaderLogo,
+					drawerIcon: ({ color, size }) => (
+						<MaterialCommunityIcons name="tire" size={size} color={color} />
+					),
+				}}
+			/>
+
+			<Drawer.Screen
 				name="bandas"
 				options={{
 					drawerLabel: 'Bandas Rodagem',
@@ -235,17 +246,6 @@ export default function AppLayout() {
 					drawerLabel: 'Gerenciar Usuário',
 					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="user-plus" size={size} color={color} />,
-				}}
-			/>
-
-			<Drawer.Screen
-				name="marcas"
-				options={{
-					drawerLabel: 'Marcas de Pneus',
-					headerTitle: HeaderLogo,
-					drawerIcon: ({ color, size }) => (
-						<MaterialCommunityIcons name="tire" size={size} color={color} />
-					),
 				}}
 			/>
 

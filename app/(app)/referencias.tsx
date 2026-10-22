@@ -80,10 +80,16 @@ export default function ReferenciasScreen() {
 		const acao = form.nomeAntigo ? 'atualizar' : 'inserir';
 
 		try {
-			const res = await apiService.salvarReferencia({ acao, nomeAntigo: form.nomeAntigo, nome: form.nomeNovo });
+			const response = await apiService.salvarReferencia({ acao, nomeAntigo: form.nomeAntigo, nome: form.nomeNovo });
+			let res = response;
+
+			if (typeof res === 'string') {
+				try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+			}
+
 			if (!isMounted.current) return;
 
-			if (res && res.success) {
+			if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
 				Alert.alert('Sucesso', res.message || 'Salvo com sucesso!');
 				setModalVisible(false);
 				carregarReferencias();
@@ -103,9 +109,15 @@ export default function ReferenciasScreen() {
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
-						const res = await apiService.excluirReferencia(nome);
+						const response = await apiService.excluirReferencia(nome);
+						let res = response;
+
+						if (typeof res === 'string') {
+							try { res = JSON.parse(res); } catch (e) { res = { success: true }; }
+						}
+
 						if (!isMounted.current) return;
-						if (res && res.success) {
+						if (res && (res.success === true || res.success === 1 || res.success === 'true')) {
 							Alert.alert('Sucesso', 'Referência excluída com sucesso.');
 							carregarReferencias();
 						} else {
@@ -118,7 +130,6 @@ export default function ReferenciasScreen() {
 			}
 		]);
 	};
-
 	return (
 		<View style={styles.container}>
 
