@@ -26,7 +26,11 @@ interface VeiculoBusca {
 export default function DashboardScreen() {
 	const { user } = useAuth();
 	const router = useRouter();
-	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Analista';
+
+	const nomeEmpresa = user?.empresa_nome || 'Smart Pneus';
+	const primeiroNome = user?.nome ? user.nome.trim().split(' ')[0] : 'Analista';
+	const cargoUsuario = user?.nivel || 'Aferidor';
+	const fotoEmpresa = user?.empresa_foto || '';
 
 	const [termoBusca, setTermoBusca] = useState('');
 	const [isBuscando, setIsBuscando] = useState(false);
@@ -34,7 +38,6 @@ export default function DashboardScreen() {
 
 	const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
 
-	// Dispara a criação do banco local e a sincronização assim que entra no Dashboard
 	useEffect(() => {
 		runBackgroundSync();
 	}, []);
@@ -53,7 +56,6 @@ export default function DashboardScreen() {
 			const res = await apiService.buscarVeiculo(termoBusca);
 
 			if (res && res.success && res.data) {
-				// Se veio do cache offline (que retorna um array de veículos), procuramos a placa/código digitado
 				if (Array.isArray(res.data)) {
 					const termo = termoBusca.trim().toUpperCase();
 					const encontrado = res.data.find(
@@ -73,7 +75,6 @@ export default function DashboardScreen() {
 						Alert.alert('Ops!', 'Veículo não encontrado no cache offline.');
 					}
 				} else {
-					// Retorno padrão online da API
 					setVeiculoEncontrado(res.data);
 				}
 			} else {
@@ -94,22 +95,27 @@ export default function DashboardScreen() {
 	return (
 		<ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 			<View style={styles.header}>
-				<View>
-					<Text style={styles.greeting}>Fala, {primeiroNome}!</Text>
-					<View style={styles.badgeNivel}>
-						<FontAwesome5 name="tools" size={12} color="#0c6ead" />
-						<Text style={styles.badgeText}>{user?.nivel || 'Aferidor'}</Text>
+				<View style={{ flex: 1, marginRight: 12 }}>
+					<Text style={styles.greeting} numberOfLines={1}>
+						{nomeEmpresa}
+					</Text>
+					<View style={styles.subHeaderRow}>
+						<Text style={styles.subGreeting}>{primeiroNome}</Text>
+						<View style={styles.badgeNivel}>
+							<FontAwesome5 name="tools" size={11} color="#0c6ead" />
+							<Text style={styles.badgeText}>{cargoUsuario}</Text>
+						</View>
 					</View>
 				</View>
 
-				{user?.foto ? (
+				{fotoEmpresa ? (
 					<Image
-						source={{ uri: `${URL_FOTOS}${user.foto}` }}
+						source={{ uri: `${URL_FOTOS}${fotoEmpresa}` }}
 						style={styles.avatar}
 					/>
 				) : (
 					<View style={[styles.avatar, styles.avatarPlaceholder]}>
-						<Feather name="user" size={28} color="#999" />
+						<Feather name="briefcase" size={24} color="#999" />
 					</View>
 				)}
 			</View>
@@ -231,9 +237,20 @@ const styles = StyleSheet.create({
 		paddingTop: 20,
 	},
 	greeting: {
-		fontSize: 24,
+		fontSize: 22,
 		fontWeight: 'bold',
 		color: '#333',
+	},
+	subHeaderRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginTop: 6,
+	},
+	subGreeting: {
+		fontSize: 15,
+		fontWeight: '600',
+		color: '#555',
+		marginRight: 8,
 	},
 	badgeNivel: {
 		flexDirection: 'row',
@@ -242,8 +259,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 4,
 		paddingHorizontal: 10,
 		borderRadius: 12,
-		marginTop: 6,
-		alignSelf: 'flex-start',
 	},
 	badgeText: {
 		fontSize: 12,
@@ -252,19 +267,18 @@ const styles = StyleSheet.create({
 		marginLeft: 6,
 	},
 	avatar: {
-		width: 45,
-		height: 45,
-		borderRadius: 25,
+		width: 48,
+		height: 48,
+		borderRadius: 24,
 	},
 	avatarPlaceholder: {
-		width: 45,
-		height: 45,
-		borderRadius: 25,
+		width: 48,
+		height: 48,
+		borderRadius: 24,
 		backgroundColor: '#ccc',
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
-
 	sectionBusca: {
 		backgroundColor: '#fff',
 		padding: 20,
@@ -306,7 +320,6 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
-
 	resultCard: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -335,11 +348,9 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
-
 	actionContainer: {
 		marginBottom: 25,
 	},
-
 	actionIconContainer: {
 		width: 95,
 		height: 95,
@@ -349,7 +360,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		marginRight: 18,
 	},
-
 	actionCard: {
 		width: '100%',
 		minHeight: 135,
@@ -358,10 +368,8 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 18,
 		paddingVertical: 16,
 		marginBottom: 15,
-
 		flexDirection: 'row',
 		alignItems: 'center',
-
 		shadowColor: '#000',
 		shadowOffset: {
 			width: 0,
@@ -370,7 +378,6 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.08,
 		shadowRadius: 4,
 		elevation: 3,
-
 		borderWidth: 1,
 		borderColor: '#edf0f2',
 	},

@@ -16,7 +16,8 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 	const { user, signOut } = useAuth();
 	const router = useRouter();
 
-	const primeiroNome = user?.nome ? user.nome.split(' ')[0] : 'Usuário';
+	const primeiroNome = user?.nome ? user.nome.trim().split(' ')[0] : 'Usuário';
+	const fotoEmpresa = user?.empresa_foto || '';
 	const URL_FOTOS = 'https://sistemascactus.com.br/apicactus/akipneus/fotos/';
 
 	const confirmSignOut = () => {
@@ -34,11 +35,11 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 		<View style={{ flex: 1 }}>
 			<DrawerContentScrollView {...props}>
 				<View style={styles.drawerHeader}>
-					{user?.foto ? (
-						<Image source={{ uri: `${URL_FOTOS}${user.foto}` }} style={styles.avatar} />
+					{fotoEmpresa ? (
+						<Image source={{ uri: `${URL_FOTOS}${fotoEmpresa}` }} style={styles.avatar} />
 					) : (
 						<View style={styles.avatarPlaceholder}>
-							<Feather name="user" size={32} color="#fff" />
+							<Feather name="briefcase" size={32} color="#fff" />
 						</View>
 					)}
 					<Text style={styles.userName}>{primeiroNome}</Text>

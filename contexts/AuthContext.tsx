@@ -13,6 +13,9 @@ interface UserData {
 	cpf?: string;
 	foto?: string;
 	status: string;
+	empresa_id?: number;
+	empresa_nome?: string;
+	empresa_foto?: string;
 }
 
 interface AuthContextData {
