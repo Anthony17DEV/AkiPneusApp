@@ -614,7 +614,7 @@ export default function VeiculosScreen() {
 										})}
 									>
 										<Feather name="clipboard" size={14} color="#333" />
-										<Text style={styles.btnActionTextSecondary}>Checklist</Text>
+										<Text style={styles.btnActionTextSecondary}>Diagnóstico 360º</Text>
 									</TouchableOpacity>
 
 									<TouchableOpacity
@@ -637,7 +637,7 @@ export default function VeiculosScreen() {
 							</View>
 						</View>
 					)}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum veículo encontrado.</Text> : null}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum veículo encontrado.</Text> : undefined}
 				/>
 			)}
 

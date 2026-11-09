@@ -245,7 +245,7 @@ export default function BandasScreen() {
 							</View>
 						</View>
 					)}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma banda de rodagem encontrada.</Text> : null}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma banda de rodagem encontrada.</Text> : undefined}
 				/>
 			)}
 

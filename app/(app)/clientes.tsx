@@ -417,8 +417,8 @@ export default function ClientesScreen() {
 				onEndReached={loadMore}
 				onEndReachedThreshold={0.3}
 
-				ListFooterComponent={isFetchingMore ? <ActivityIndicator size="small" color="#0c6ead" style={{ marginVertical: 20 }} /> : !hasMore && clientes.length > 0 ? <Text style={{ textAlign: 'center', color: '#999', marginVertical: 20 }}>Fim da lista.</Text> : null}
-				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum cliente encontrado.</Text> : null}
+				ListFooterComponent={isFetchingMore ? <ActivityIndicator size="small" color="#0c6ead" style={{ marginVertical: 20 }} /> : !hasMore && clientes.length > 0 ? <Text style={{ textAlign: 'center', color: '#999', marginVertical: 20 }}>Fim da lista.</Text> : undefined}
+				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum cliente encontrado.</Text> : undefined}
 			/>
 
 			<Modal visible={modalInserirVisible} animationType="slide" transparent={false}>

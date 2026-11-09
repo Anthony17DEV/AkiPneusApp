@@ -257,7 +257,7 @@ export default function ReformadoresScreen() {
 							</View>
 						</View>
 					)}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum reformador encontrado.</Text> : null}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum reformador encontrado.</Text> : undefined}
 				/>
 			)}
 

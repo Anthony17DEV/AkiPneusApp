@@ -296,7 +296,7 @@ export default function MarcasVeiculosScreen() {
 							<Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>
 								Nenhuma marca encontrada.
 							</Text>
-						) : null
+							) : undefined
 					}
 				/>
 			)}

@@ -288,7 +288,7 @@ export default function ModelosScreen() {
 						</View>
 					</View>
 				)}
-				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum modelo encontrado.</Text> : null}
+				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum modelo encontrado.</Text> : undefined}
 			/>
 
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>

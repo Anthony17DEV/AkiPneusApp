@@ -419,6 +419,37 @@ export default function PneusScreen() {
 			return;
 		}
 
+		const sulcoOriginalNum = parseFloat(String(form.mm_original || form.ref_mm_original).replace(',', '.'));
+		const sulcoAtualNum = parseFloat(String(form.milimetros).replace(',', '.'));
+
+		if (!isNaN(sulcoOriginalNum) && sulcoOriginalNum > 0 && !isNaN(sulcoAtualNum) && sulcoAtualNum > sulcoOriginalNum) {
+			Alert.alert('Sulco Inválido', `O sulco atual (${sulcoAtualNum}mm) não pode ser maior que o sulco original (${sulcoOriginalNum}mm).`);
+			return;
+		}
+
+		const precoAtualDigitado = form.valor ? String(form.valor).trim() : '';
+		const precoOriginalReferencia = form.ref_valor ? String(form.ref_valor).trim() : '';
+
+		if (precoAtualDigitado !== '' && precoAtualDigitado !== precoOriginalReferencia) {
+			Alert.alert(
+				'Atualizar Preço Padrão',
+				'Deseja salvar este novo valor como preço padrão no banco para este pneu ou alterar apenas nesta aferição?',
+				[
+					{ text: 'Apenas nesta aferição', onPress: () => executarSalvarPneuGeral('nao') },
+					{ text: 'Sim, mudar como padrão', onPress: () => executarSalvarPneuGeral('sim') }
+				],
+				{ cancelable: true }
+			);
+		} else {
+			executarSalvarPneuGeral('nao');
+		}
+	};
+
+	const executarSalvarPneuGeral = async (atualizarGlobal: 'sim' | 'nao') => {
+		const referenciaId = String(form.referencia_id || '').trim();
+		const marcaSelecionada = String(form.marca || '').trim();
+		const modeloSelecionado = String(form.modelo || '').trim();
+
 		setIsSaving(true);
 
 		try {
@@ -438,6 +469,7 @@ export default function PneusScreen() {
 				reformador_nome: form.reformador,
 				pneu_tx_reformador: form.reformador,
 				valor: form.valor ? String(form.valor).replace(/\./g, '') : '',
+				atualizar_preco_global: atualizarGlobal,
 				user_id: user?.id,
 				cliente_id: form.cliente_id || params?.cliente_id || filtroClienteId,
 				fotos_novas: fotosNovas,
@@ -592,12 +624,14 @@ export default function PneusScreen() {
 				valor: (form.tipo === 'Reformado' && form.banda) ? form.valor : refVal
 			});
 		} else if (tipoBusca === 'banda') {
+			const novoValor = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(item.valor || '') || form.valor);
 			setForm({
 				...form,
 				banda: item.nome || item.banda,
 				banda_id: item.id,
 				mm_original: item.isNewModel ? formCadastro.sulco : (item.sulco ? String(item.sulco) : form.mm_original),
-				valor: item.isNewModel ? formatarValorDB(item.valor || '') : (formatarValorDB(item.valor || '') || form.valor)
+				valor: novoValor,
+				ref_valor: novoValor
 			});
 		} else if (tipoBusca === 'veiculo') {
 			setForm({
@@ -834,7 +868,7 @@ export default function PneusScreen() {
 							</View>
 						);
 					}}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum pneu encontrado.</Text> : null}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum pneu encontrado.</Text> : undefined}
 				/>
 			)}
 

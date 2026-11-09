@@ -176,7 +176,7 @@ export default function DashboardScreen() {
 					</View>
 
 					<View style={styles.actionContent}>
-						<Text style={styles.actionTitle}>Check-list</Text>
+						<Text style={styles.actionTitle}>Diagnóstico 360º</Text>
 						<Text style={styles.actionDesc}>
 							Inspeção dos veículos da frota
 						</Text>
@@ -203,9 +203,9 @@ export default function DashboardScreen() {
 					</View>
 
 					<View style={styles.actionContent}>
-						<Text style={styles.actionTitle}>Análise de Sucata</Text>
+						<Text style={styles.actionTitle}>Gestão de Descarte</Text>
 						<Text style={styles.actionDesc}>
-							Análise e avaliação de pneus
+							Gestão e avaliação de pneus
 						</Text>
 					</View>
 

@@ -381,12 +381,12 @@ export default function ChecklistScreen() {
 									pneuClone.dados_completos.pneu_nb_id = '';
 									pneuClone.dados_completos.id = '';
 									pneuClone.dados_completos.tem_checklist_anterior = true;
-									pneuClone.dados_completos.valor_editavel = false;
+									pneuClone.dados_completos.valor_editavel = true;
 								}
 								pneuClone.pneu_nb_id = '';
 								pneuClone.id = '';
 								pneuClone.tem_checklist_anterior = true;
-								pneuClone.valor_editavel = false;
+								pneuClone.valor_editavel = true;
 
 								pneusMesclados[posicao] = pneuClone;
 								pendentesTemporarios.push(posicao);
@@ -518,7 +518,7 @@ export default function ChecklistScreen() {
 	const imprimirChecklist = async (idDoChecklist: number) => {
 		try {
 			const url = await gerarLinkRelatorio('imprimir_checklist.php', { id: idDoChecklist, _ts: Date.now() });
-			abrirModalPreview(url, `Historico_Veiculo_${idDoChecklist}`, 'Laudo de Inspeção da Frota', `Checklist Veicular #${idDoChecklist}`);
+			abrirModalPreview(url, `Historico_Veiculo_${idDoChecklist}`, 'Laudo de Inspeção da Frota', `Diagnóstico 360º Veicular #${idDoChecklist}`);
 		} catch (e: any) {
 			if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
 		}
@@ -526,7 +526,7 @@ export default function ChecklistScreen() {
 
 	const excluirChecklistAntigo = (idDoChecklist: number) => {
 		Alert.alert(
-			'Excluir Checklist',
+			'Excluir Diagnóstico 360º',
 			'Tem a certeza que deseja excluir permanentemente esta inspeção?',
 			[
 				{ text: 'Cancelar', style: 'cancel' },
@@ -541,10 +541,10 @@ export default function ChecklistScreen() {
 
 							if (!isMounted.current) return;
 							if (res.success || res.status === 'success' || (res.message && res.message.toLowerCase().includes('sucesso'))) {
-								Alert.alert('Sucesso', 'Checklist excluído com sucesso.');
+								Alert.alert('Sucesso', 'Diagnóstico 360º excluído com sucesso.');
 								if (veiculo?.id) carregarHistorico(veiculo.id);
 							} else {
-								Alert.alert('Aviso', res.message || 'Comando enviado. Verifique se o checklist foi removido.');
+								Alert.alert('Aviso', res.message || 'Comando enviado. Verifique se o diagnóstico foi removido.');
 								if (veiculo?.id) carregarHistorico(veiculo.id);
 							}
 						} catch (error) {
@@ -563,13 +563,8 @@ export default function ChecklistScreen() {
 		const jaExistePneuNaPosicao = Boolean(bloquearValorPorHistorico || dbData?.pneu_nb_id || dbData?.id || dbData?.pneu_id_origem || dbData?.pneu_tx_serie || dbData?.pneu_tx_modelo);
 		setPneuPodeSerRetirado(jaExistePneuNaPosicao);
 
-		const flagHistorico = dbData?.tem_checklist_anterior;
-		const flagEditavel = dbData?.valor_editavel;
-
-		const temHistorico = bloquearValorPorHistorico || flagHistorico === true || flagHistorico === 1 || flagHistorico === '1';
-		const apiBloqueouEdicao = flagEditavel === false || flagEditavel === 0 || flagEditavel === '0';
-		const podeEditarValor = !temHistorico && !apiBloqueouEdicao;
-		setValorPodeEditar(podeEditarValor);
+		// Permite editar o valor sempre que não estiver em modo somente leitura, perguntando ao salvar se deseja atualizar como padrão ou só na aferição
+		setValorPodeEditar(!isSomenteLeitura);
 
 		const valorCarregadoRaw = dbData?.valor_carregado ?? dbData?.pneu_tx_valor ?? '';
 		const valorCarregadoFormatado = valorCarregadoRaw !== '' && valorCarregadoRaw !== null && valorCarregadoRaw !== undefined ? formatarValorDB(valorCarregadoRaw) : '';
@@ -622,21 +617,21 @@ export default function ChecklistScreen() {
 		if (dbData && (dbData.pneu_nb_id || dbData.id) && !isPendente) {
 			abrirVisualizacaoPneu(codigoPneu, dbData);
 		} else {
-			if (isSomenteLeitura) { Alert.alert('Modo Leitura', 'Checklists antigos não podem sofrer adição ou alteração de pneus.'); return; }
+			if (isSomenteLeitura) { Alert.alert('Modo Leitura', 'Diagnósticos 360º antigos não podem sofrer adição ou alteração de pneus.'); return; }
 			if (isPendente) {
-				dbData.pneu_nb_id = ''; dbData.id = ''; dbData.pneu_tx_foto = ''; dbData.tem_checklist_anterior = true; dbData.valor_editavel = false;
+				dbData.pneu_nb_id = ''; dbData.id = ''; dbData.pneu_tx_foto = ''; dbData.tem_checklist_anterior = true; dbData.valor_editavel = true;
 			}
 			abrirEdicaoPneu(codigoPneu, dbData, isPendente);
 		}
 	};
 
 	const retirarPneu = (codigoPneu: string, dbData: any) => {
-		if (isSomenteLeitura) { Alert.alert('Modo Leitura', 'Este checklist não permite retirada de pneus.'); return; }
+		if (isSomenteLeitura) { Alert.alert('Modo Leitura', 'Este diagnóstico não permite retirada de pneus.'); return; }
 
 		const indiceChecklist = historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo));
 		const checklistMaisRecente = indiceChecklist === -1 || indiceChecklist === 0;
 
-		if (!checklistMaisRecente) { Alert.alert('Atenção', 'A retirada de pneus só pode ser feita no checklist mais recente.'); return; }
+		if (!checklistMaisRecente) { Alert.alert('Atenção', 'A retirada de pneus só pode ser feita no diagnóstico mais recente.'); return; }
 
 		const dados = dbData || {};
 		const pneuId = Number(dados.pneu_nb_id || dados.id || 0);
@@ -721,12 +716,39 @@ export default function ChecklistScreen() {
 		if (!formPneu.tipo) { Alert.alert('Atenção', 'O campo Tipo é obrigatório.'); return; }
 
 		const sulcoAtualNum = parseFloat(formPneu.milimetros ? formPneu.milimetros.toString().replace(',', '.') : '0');
-		const sulcoAnteriorNum = parseFloat(formPneu.sulco_anterior ? formPneu.sulco_anterior.toString().replace(',', '.') : '0');
+		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original || formPneu.ref_mm_original).replace(',', '.'));
 
+		// REGRA: Sulco atual não pode ser maior que o original
+		if (!isNaN(sulcoOriginalNum) && sulcoOriginalNum > 0 && !isNaN(sulcoAtualNum) && sulcoAtualNum > sulcoOriginalNum) {
+			Alert.alert('Sulco Inválido', `O sulco atual (${sulcoAtualNum}mm) não pode ser maior que o sulco original do pneu (${sulcoOriginalNum}mm).`);
+			return;
+		}
+
+		const sulcoAnteriorNum = parseFloat(formPneu.sulco_anterior ? formPneu.sulco_anterior.toString().replace(',', '.') : '0');
 		if (!isNaN(sulcoAnteriorNum) && sulcoAnteriorNum > 0) {
 			if (sulcoAtualNum > sulcoAnteriorNum) { Alert.alert('Aferição Inválida', `O sulco atual não pode ser maior que o anterior!\nA última aferição registrou ${formPneu.sulco_anterior}mm.`); return; }
 		}
 
+		const precoAtualDigitado = formPneu.valor ? String(formPneu.valor).trim() : '';
+		const precoOriginalReferencia = formPneu.ref_valor ? String(formPneu.ref_valor).trim() : '';
+
+		// REGRA: Pergunta se deseja mudar como preço padrão ou apenas na aferição
+		if (valorPodeEditar && precoAtualDigitado !== '' && precoAtualDigitado !== precoOriginalReferencia) {
+			Alert.alert(
+				'Atualizar Preço Padrão',
+				'Deseja alterar este valor como preço padrão (muda no banco em tudo no geral daquele pneu) ou alterar apenas nesta aferição?',
+				[
+					{ text: 'Apenas nesta aferição', onPress: () => executarEnvioAfericao('nao') },
+					{ text: 'Sim, mudar como padrão', onPress: () => executarEnvioAfericao('sim') }
+				],
+				{ cancelable: true }
+			);
+		} else {
+			executarEnvioAfericao('nao');
+		}
+	};
+
+	const executarEnvioAfericao = async (atualizarGlobal: 'sim' | 'nao') => {
 		setIsSaving(true);
 
 		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
@@ -748,6 +770,7 @@ export default function ChecklistScreen() {
 			reformador_nome: formPneu.reformador,
 			pneu_tx_reformador: formPneu.reformador,
 			valor: valorLimpo,
+			atualizar_preco_global: atualizarGlobal,
 			veiculo_id: veiculo?.id,
 			checklist_id: idChecklistAtivo,
 			posicao: pneuSelecionado,
@@ -826,7 +849,6 @@ export default function ChecklistScreen() {
 					setResultadosBusca(veiculosFormatados);
 				} else { setResultadosBusca([]); }
 			} else {
-				// Garante o envio exato dos parâmetros que a api_busca_dinamica.php espera
 				const extras: any = {};
 
 				if (tipo === 'marca_pneu' || tipo === 'modelo_pneu' || tipo === 'banda') {
@@ -903,12 +925,14 @@ export default function ChecklistScreen() {
 		else if (tipoBusca === 'banda') {
 			const rawSulco = item.sulco ?? item.band_tx_sulco ?? '';
 			const rawValor = item.valor ?? item.band_tx_valor ?? '';
+			const novoValor = !valorPodeEditar ? formPneu.valor : (item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(rawValor) || formPneu.valor));
 			setFormPneu({
 				...formPneu,
 				banda: item.id,
 				banda_nome: item.nome || item.banda || '',
 				mm_original: item.isNewModel ? formCadastro.sulco : (rawSulco ? String(rawSulco).replace(',', '.') : formPneu.mm_original),
-				valor: !valorPodeEditar ? formPneu.valor : (item.isNewModel ? formatarValorDB(formCadastro.valor || '') : (formatarValorDB(rawValor) || formPneu.valor))
+				valor: novoValor,
+				ref_valor: novoValor
 			});
 			setModalBuscaVisible(false);
 		}
@@ -1102,7 +1126,7 @@ export default function ChecklistScreen() {
 							<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
 								<Feather name="alert-triangle" size={18} color="#856404" />
 								<Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>
-									Veículo em Outro Checklist
+									Veículo em Outro Diagnóstico
 								</Text>
 							</View>
 							{avisosVinculo.map((aviso, idx) => (
@@ -1214,7 +1238,7 @@ export default function ChecklistScreen() {
 									</View>
 
 									<Text style={styles.recusadosDescricao}>
-										Pneus retirados deste checklist por motivo de recusa. O histórico permanece salvo e o laudo pode ser emitido a qualquer momento.
+										Pneus retirados deste diagnostico por motivo de recusa. O histórico permanece salvo e o laudo pode ser emitido a qualquer momento.
 									</Text>
 
 									{pneusRecusados.map((pneu: any, index: number) => {
@@ -1251,7 +1275,7 @@ export default function ChecklistScreen() {
 			<Modal visible={modalNovoChecklist} transparent={true} animationType="fade" onRequestClose={() => setModalNovoChecklist(false)}>
 				<View style={styles.modalOverlay}>
 					<View style={styles.modalSmall}>
-						<Text style={styles.modalTitle}>Novo checklist</Text>
+						<Text style={styles.modalTitle}>Novo Diagnóstico 360º</Text>
 						<Text style={styles.label}>Nome do Motorista</Text>
 						<TextInput style={styles.inputModal} value={formNovoCheck.motorista} onChangeText={t => setFormNovoCheck({ ...formNovoCheck, motorista: t })} />
 						<Text style={[styles.label, { marginTop: 10 }]}>Odômetro Atual (Km)</Text>
@@ -1372,7 +1396,7 @@ export default function ChecklistScreen() {
 						<View style={{ width: '100%', marginBottom: 15 }}>
 							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
 								<Text style={[styles.label, { marginBottom: 0 }]}>Valor (R$)</Text>
-								{!valorPodeEditar && (<View style={{ flexDirection: 'row', alignItems: 'center' }}><Feather name="lock" size={12} color="#777" /><Text style={{ fontSize: 11, color: '#777', marginLeft: 4 }}>Já registrado</Text></View>)}
+								{!valorPodeEditar && (<View style={{ flexDirection: 'row', alignItems: 'center' }}><Feather name="lock" size={12} color="#777" /><Text style={{ fontSize: 11, color: '#777', marginLeft: 4 }}>Modo leitura</Text></View>)}
 							</View>
 							<TextInput style={[styles.inputModal, !valorPodeEditar && { backgroundColor: '#eee', color: '#666' }]} keyboardType="numeric" value={formPneu.valor} onChangeText={t => { if (valorPodeEditar) setFormPneu({ ...formPneu, valor: formatarMoeda(t) }); }} placeholder="0,00" editable={valorPodeEditar} />
 						</View>

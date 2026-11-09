@@ -285,7 +285,7 @@ export default function MarcasScreen() {
 						</View>
 					</View>
 				)}
-				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma marca encontrada.</Text> : null}
+				ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma marca encontrada.</Text> : undefined}
 			/>
 
 			<Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>

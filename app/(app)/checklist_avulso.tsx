@@ -55,7 +55,17 @@ export default function ChecklistAvulsoScreen() {
 
 	const [modalNovoVisible, setModalNovoVisible] = useState(false);
 	const [showReformadosInput, setShowReformadosInput] = useState(false);
-	const [formNovo, setFormNovo] = useState({ data: '', cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '' });
+	const [showNovosInput, setShowNovosInput] = useState(false);
+	const [formNovo, setFormNovo] = useState({
+		data: '',
+		cliente: '',
+		cliente_id: '',
+		usuario: user?.nome || '',
+		qtdReformados: '',
+		valorReformados: '',
+		qtdNovos: '',
+		valorNovos: ''
+	});
 
 	const [checklistAtivo, setChecklistAtivo] = useState<any>(null);
 	const [pneusPilha, setPneusPilha] = useState<any[]>([]);
@@ -194,7 +204,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const abrirOpcoesRelatorioConsolidado = () => {
 		if (selectedChecklists.length < 2) {
-			Alert.alert('Atenção', 'Selecione pelo menos duas análises para consolidar.');
+			Alert.alert('Atenção', 'Selecione pelo menos duas gestões para consolidar.');
 			return;
 		}
 		setModalConsolidarVisible(false);
@@ -240,8 +250,8 @@ export default function ChecklistAvulsoScreen() {
 					...paramsBase,
 					id: relatorioTargetId
 				});
-				nomeArq = `Analise_Sucata_${relatorioTargetId}`;
-				tp = 'Análise Avulsa de Sucata';
+				nomeArq = `Gestão_de_Descarte ${relatorioTargetId}`;
+				tp = 'Gestão de Descarte de Sucata';
 			} else if (relatorioTarget === 'consolidado') {
 				const idsStr = selectedChecklists.join(',');
 				urlApi = await gerarLinkRelatorio('imprimir_checklist_consolidado.php', {
@@ -249,7 +259,7 @@ export default function ChecklistAvulsoScreen() {
 					ids: idsStr
 				});
 				nomeArq = `Relatorio_Consolidado_${new Date().getTime()}`;
-				tp = `Relatório Consolidado (${selectedChecklists.length} Análises)`;
+				tp = `Relatório Consolidado (${selectedChecklists.length} Gestões)`;
 
 				setSelectedChecklists([]);
 				setTimeout(() => { carregarChecklists(); }, 1500);
@@ -441,12 +451,12 @@ export default function ChecklistAvulsoScreen() {
 				setChecklists(res.data || []);
 			} else {
 				setChecklists([]);
-				Alert.alert('Atenção', res?.message || 'Não foi possível carregar as análises.');
+				Alert.alert('Atenção', res?.message || 'Não foi possível carregar as gestões.');
 			}
 		} catch (error) {
 			if (isMounted.current) {
-				console.log("Erro ao carregar análises avulsas", error);
-				Alert.alert('Erro', 'Falha na comunicação com o servidor ao buscar análises.');
+				console.log("Erro ao carregar gestões", error);
+				Alert.alert('Erro', 'Falha na comunicação com o servidor ao buscar gestões.');
 			}
 		} finally {
 			if (isMounted.current) setIsLoading(false);
@@ -469,7 +479,8 @@ export default function ChecklistAvulsoScreen() {
 				cliente_id: formNovo.cliente_id,
 				data: dataIso,
 				user_id: user?.id,
-				qtd_reformados: 0
+				qtd_reformados: 0,
+				qtd_novos: 0
 			});
 
 			const res = response.data;
@@ -489,12 +500,12 @@ export default function ChecklistAvulsoScreen() {
 				setPneusPilha([]);
 				setModalNovoVisible(false);
 			} else {
-				Alert.alert('Erro', res?.message || 'Falha ao iniciar análise.');
+				Alert.alert('Erro', res?.message || 'Falha ao iniciar gestão.');
 			}
 		} catch (error) {
 			if (isMounted.current) {
 				console.log("Erro ao iniciar checklist avulso", error);
-				Alert.alert('Erro', 'Falha na conexão com o servidor ao iniciar a análise.');
+				Alert.alert('Erro', 'Falha na conexão com o servidor ao iniciar a gestão.');
 			}
 		} finally {
 			if (isMounted.current) setIsLoading(false);
@@ -537,15 +548,51 @@ export default function ChecklistAvulsoScreen() {
 		}
 	};
 
+	const inserirLoteNovos = async () => {
+		if (!formNovo.cliente_id) { Alert.alert('Atenção', 'Selecione um cliente primeiro.'); return; }
+		if (formNovo.data.length < 10) { Alert.alert('Atenção', 'Data inválida.'); return; }
+		if (!formNovo.qtdNovos || parseInt(formNovo.qtdNovos) <= 0) { Alert.alert('Atenção', 'Informe uma quantidade válida de pneus novos.'); return; }
+
+		setIsLoading(true);
+		try {
+			const partesData = formNovo.data.split('/');
+			const dataIso = partesData.length === 3 ? `${partesData[2]}-${partesData[1]}-${partesData[0]}` : formNovo.data;
+
+			const response = await api.post('api_checklist_avulso.php', {
+				acao: 'inserir',
+				cliente_id: formNovo.cliente_id,
+				data: dataIso,
+				user_id: user?.id,
+				qtd_novos: parseInt(formNovo.qtdNovos),
+				valor_novos: formNovo.valorNovos ? formNovo.valorNovos.replace(/\./g, '') : ''
+			});
+			const res = response.data;
+
+			if (!isMounted.current) return;
+
+			if (res && res.success) {
+				Alert.alert('Sucesso', 'Lote de pneus novos gravado com sucesso!');
+				setModalNovoVisible(false);
+				carregarChecklists();
+			} else {
+				Alert.alert('Erro', res?.message || 'Falha ao gravar lote de pneus novos.');
+			}
+		} catch (error) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão com o servidor.');
+		} finally {
+			if (isMounted.current) setIsLoading(false);
+		}
+	};
+
 	const excluirChecklist = (id: number) => {
-		Alert.alert('Atenção', 'Deseja realmente excluir esta Análise e todos os seus pneus?', [
+		Alert.alert('Atenção', 'Deseja realmente excluir esta Gestão e todos os seus pneus?', [
 			{ text: 'Cancelar', style: 'cancel' },
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
 					try {
 						await api.post('api_checklist_avulso.php', { acao: 'excluir', id: id });
 						if (isMounted.current) {
-							Alert.alert('Sucesso', 'Análise excluída.');
+							Alert.alert('Sucesso', 'Gestão excluída.');
 							carregarChecklists();
 						}
 					} catch (error) {
@@ -557,7 +604,7 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const excluirPneuItem = (id: number) => {
-		Alert.alert('Excluir Pneu', 'Tem certeza que deseja remover este pneu da análise?', [
+		Alert.alert('Excluir Pneu', 'Tem certeza que deseja remover este pneu da gestão?', [
 			{ text: 'Cancelar', style: 'cancel' },
 			{
 				text: 'Excluir', style: 'destructive', onPress: async () => {
@@ -641,14 +688,20 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const duplicarPneu = (pneuOriginal: any) => {
+		const valorFormatado = pneuOriginal.valor ? formatarValorDB(pneuOriginal.valor) : '';
 		setFormPneu((prev: any) => ({
 			...prev,
+			...pneuOriginal,
 			id: '',
 			referencia: pneuOriginal.referencia || '',
 			referencia_nome: pneuOriginal.referencia_nome || pneuOriginal.referencia || '',
 			marca: pneuOriginal.marca || '',
 			modelo: pneuOriginal.modelo || '',
 			dot: pneuOriginal.dot || '',
+			mm_original: pneuOriginal.mm_original || '',
+			ref_mm_original: pneuOriginal.mm_original || '',
+			valor: valorFormatado,
+			ref_valor: valorFormatado,
 			ferro: '',
 			serie: '',
 			milimetros: '',
@@ -663,12 +716,13 @@ export default function ChecklistAvulsoScreen() {
 
 	const salvarPneu = async () => {
 		if (!checklistAtivo || !checklistAtivo.id) {
-			Alert.alert('Erro', 'Nenhuma análise de sucata ativa selecionada. Volte à lista e abra a análise novamente.');
+			Alert.alert('Erro', 'Nenhuma gestão de sucata ativa selecionada. Volte à lista e abra a gestão novamente.');
 			return;
 		}
 
 		const referenciaId = String(formPneu.referencia || '').trim();
-		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original).replace(',', '.'));
+		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original || formPneu.ref_mm_original).replace(',', '.'));
+		const sulcoAtualNum = parseFloat(String(formPneu.milimetros).replace(',', '.'));
 
 		if (!/^\d+$/.test(referenciaId)) {
 			Alert.alert('Atenção', 'Selecione uma referência, marca e modelo válidos antes de salvar.');
@@ -690,6 +744,11 @@ export default function ChecklistAvulsoScreen() {
 			return;
 		}
 
+		if (!isNaN(sulcoAtualNum) && sulcoAtualNum > sulcoOriginalNum) {
+			Alert.alert('Sulco Inválido', `O sulco atual (${sulcoAtualNum}mm) não pode ser maior que o sulco original (${sulcoOriginalNum}mm).`);
+			return;
+		}
+
 		if (formPneu.dot && formPneu.dot !== 'S/A') {
 			if (formPneu.dot.length !== 4) {
 				Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.');
@@ -701,6 +760,27 @@ export default function ChecklistAvulsoScreen() {
 				return;
 			}
 		}
+
+		const precoAtualDigitado = formPneu.valor ? String(formPneu.valor).trim() : '';
+		const precoOriginalReferencia = formPneu.ref_valor ? String(formPneu.ref_valor).trim() : '';
+
+		if (precoAtualDigitado !== '' && precoAtualDigitado !== precoOriginalReferencia) {
+			Alert.alert(
+				'Atualizar Preço Padrão',
+				'Deseja salvar este novo valor como preço padrão no banco para este pneu ou alterar apenas nesta aferição?',
+				[
+					{ text: 'Apenas nesta aferição', onPress: () => executarSalvarPneuAvulso('nao') },
+					{ text: 'Sim, mudar como padrão', onPress: () => executarSalvarPneuAvulso('sim') }
+				],
+				{ cancelable: true }
+			);
+		} else {
+			executarSalvarPneuAvulso('nao');
+		}
+	};
+
+	const executarSalvarPneuAvulso = async (atualizarGlobal: 'sim' | 'nao') => {
+		const referenciaId = String(formPneu.referencia || '').trim();
 
 		setIsSaving(true);
 		const acaoDoBanco = formPneu.id ? 'atualizar_pneu' : 'inserir_pneu';
@@ -717,6 +797,7 @@ export default function ChecklistAvulsoScreen() {
 				referencia: referenciaId,
 				referencia_id: referenciaId,
 				valor: formPneu.valor ? formPneu.valor.replace(/\./g, '') : '',
+				atualizar_preco_global: atualizarGlobal,
 				fotos_novas: fotosNovas,
 				fotos_antigas: fotosAntigas
 			};
@@ -865,8 +946,6 @@ export default function ChecklistAvulsoScreen() {
 			const refMm = item.isNewModel ? (formCadastro.mmOriginal || '') : String(rawMm).replace(',', '.');
 			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || rawValor) : formatarValorDB(rawValor);
 
-			// api_busca_dinamica devolve referencia_id = refe_nb_id da linha REAL
-			// de Referência + Marca + Modelo. É este ID que precisa ir para pneu_tx_referencia.
 			const referenciaIdExata = String(
 				item.referencia_id ??
 				item.refe_nb_id ??
@@ -897,14 +976,16 @@ export default function ChecklistAvulsoScreen() {
 			const rawValor = item.valor ?? item.band_tx_valor ?? '';
 			const rawSulco = item.sulco ?? item.band_tx_sulco ?? '';
 
-			const valFormatado = item.isNewModel ? (formCadastro.valor || '') : formatarValorDB(rawValor);
+			const valFormatado = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(rawValor);
+			const novoValor = valFormatado || formPneu.valor;
 
 			setFormPneu({
 				...formPneu,
 				banda: item.id,
 				banda_nome: item.nome || item.banda,
 				mm_original: item.isNewModel ? formCadastro.sulco : (rawSulco ? String(rawSulco).replace(',', '.') : formPneu.mm_original),
-				valor: valFormatado || formPneu.valor
+				valor: novoValor,
+				ref_valor: novoValor
 			});
 		}
 		setModalBuscaVisible(false);
@@ -1263,7 +1344,7 @@ export default function ChecklistAvulsoScreen() {
 					contentContainerStyle={{ paddingBottom: 100 }}
 					ListHeaderComponent={
 						<View style={styles.filterSection}>
-							<Text style={styles.sectionTitle}>Análise de Sucata de Pneus</Text>
+							<Text style={styles.sectionTitle}>Gestão de Descarte</Text>
 							<View style={styles.row}>
 								<View style={{ width: '48%' }}><Text style={styles.label}>Data Inicial</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataIni} onChangeText={t => handleDataChange(t, setFiltroDataIni)} keyboardType="numeric" maxLength={10} /></View>
 								<View style={{ width: '48%' }}><Text style={styles.label}>Data Final</Text><TextInput style={styles.input} placeholder="DD/MM/AAAA" value={filtroDataFim} onChangeText={t => handleDataChange(t, setFiltroDataFim)} keyboardType="numeric" maxLength={10} /></View>
@@ -1280,8 +1361,9 @@ export default function ChecklistAvulsoScreen() {
 										<Text style={styles.btnText}>Buscar</Text>
 									</TouchableOpacity>
 									<TouchableOpacity style={[styles.btnInserir, { flex: 1, marginRight: 0 }]} onPress={() => {
-										setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '' });
+										setFormNovo({ data: getDataHojeFormatada(), cliente: '', cliente_id: '', usuario: user?.nome || '', qtdReformados: '', valorReformados: '', qtdNovos: '', valorNovos: '' });
 										setShowReformadosInput(false);
+										setShowNovosInput(false);
 										setModalNovoVisible(true);
 									}}>
 										<Feather name="plus-circle" size={18} color="#ffffff" />
@@ -1315,7 +1397,7 @@ export default function ChecklistAvulsoScreen() {
 								<View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
 									<View style={{ flex: 1 }}>
 										<View style={styles.cardHeader}>
-											<Text style={styles.cardTitle} numberOfLines={1}>Análise #{item.id}</Text>
+											<Text style={styles.cardTitle} numberOfLines={1}>Gestão #{item.id}</Text>
 											<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}><Text style={[styles.statusText, { color: '#1967d2' }]}>{formatarDataLocal(item.data)}</Text></View>
 										</View>
 										<View style={styles.cardInfoBox}>
@@ -1329,8 +1411,11 @@ export default function ChecklistAvulsoScreen() {
 													<Text style={{ fontSize: 13, color: '#E53935', fontWeight: 'bold', marginRight: 12 }}>
 														Sucata: {item.pneus_qtd}
 													</Text>
-													<Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold' }}>
+													<Text style={{ fontSize: 13, color: '#28a745', fontWeight: 'bold', marginRight: 12 }}>
 														Reformados: {item.pneus_reformados_qtd || 0}
+													</Text>
+													<Text style={{ fontSize: 13, color: '#0c6ead', fontWeight: 'bold' }}>
+														Novos: {item.pneus_novos_qtd || 0}
 													</Text>
 												</View>
 											</View>
@@ -1364,14 +1449,14 @@ export default function ChecklistAvulsoScreen() {
 							</TouchableOpacity>
 						</View>
 					)}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma análise de sucata encontrada.</Text> : null}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma gestão de descarte encontrada.</Text> : undefined}
 				/>
 			)}
 
 			{(checklistAtivo && checklistAtivo.id) && (
 				<View style={{ flex: 1 }}>
 					<View style={styles.headerAtivo}>
-						<Text style={styles.headerAtivoTitle}>Análise de Sucata #{checklistAtivo.id}</Text>
+						<Text style={styles.headerAtivoTitle}>Gestão de Descarte #{checklistAtivo.id}</Text>
 
 						<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
 							<Feather name="calendar" size={14} color="#e0e0e0" />
@@ -1415,7 +1500,7 @@ export default function ChecklistAvulsoScreen() {
 				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }}>
 					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20, paddingBottom: Platform.OS === 'android' ? 40 : 20 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 						<View style={styles.modalSmall}>
-							<Text style={styles.modalTitle}>Nova Análise / Lote</Text>
+							<Text style={styles.modalTitle}>Nova Gestão / Lote</Text>
 							<Text style={styles.label}>* Data</Text>
 							<TextInput style={styles.inputModal} value={formNovo.data} onChangeText={t => handleDataChange(t, (val) => setFormNovo({ ...formNovo, data: val }))} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
 
@@ -1433,7 +1518,7 @@ export default function ChecklistAvulsoScreen() {
 									<Text style={{ fontWeight: 'bold' }}>Cancelar</Text>
 								</TouchableOpacity>
 								<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={iniciarNovoChecklist}>
-									{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Iniciar Sucata</Text>}
+									{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Iniciar Gestão de Descarte</Text>}
 								</TouchableOpacity>
 							</View>
 
@@ -1441,7 +1526,10 @@ export default function ChecklistAvulsoScreen() {
 								{!showReformadosInput ? (
 									<TouchableOpacity
 										style={[styles.btnDefault, { backgroundColor: '#e8f4fd', borderColor: '#1967d2', borderWidth: 1 }]}
-										onPress={() => setShowReformadosInput(true)}
+										onPress={() => {
+											setShowReformadosInput(true);
+											setShowNovosInput(false);
+										}}
 									>
 										<Text style={{ color: '#1967d2', fontWeight: 'bold' }}>+ Inserir Lote de Pneus Reformados</Text>
 									</TouchableOpacity>
@@ -1485,6 +1573,59 @@ export default function ChecklistAvulsoScreen() {
 										</View>
 									</View>
 								)}
+
+								<View style={{ marginTop: 12 }}>
+									{!showNovosInput ? (
+										<TouchableOpacity
+											style={[styles.btnDefault, { backgroundColor: '#e8f5e9', borderColor: '#28a745', borderWidth: 1 }]}
+											onPress={() => {
+												setShowNovosInput(true);
+												setShowReformadosInput(false);
+											}}
+										>
+											<Text style={{ color: '#28a745', fontWeight: 'bold' }}>+ Inserir Lote de Pneus Novos</Text>
+										</TouchableOpacity>
+									) : (
+										<View style={{ marginTop: 5 }}>
+											<Text style={{ fontSize: 14, fontWeight: 'bold', color: '#28a745', marginBottom: 10 }}>Pneus Novos Entregues</Text>
+
+											<View style={styles.row}>
+												<View style={styles.inputGroupH}>
+													<Text style={styles.label}>Quantidade</Text>
+													<TextInput
+														style={styles.inputModal}
+														value={formNovo.qtdNovos}
+														onChangeText={t => setFormNovo({ ...formNovo, qtdNovos: t.replace(/\D/g, '') })}
+														placeholder="Ex: 10"
+														keyboardType="numeric"
+													/>
+												</View>
+												<View style={styles.inputGroupH}>
+													<Text style={styles.label}>Valor Total (R$)</Text>
+													<TextInput
+														style={styles.inputModal}
+														value={formNovo.valorNovos}
+														onChangeText={t => setFormNovo({ ...formNovo, valorNovos: formatarMoeda(t) })}
+														placeholder="0,00"
+														keyboardType="numeric"
+													/>
+												</View>
+											</View>
+
+											<View style={{ flexDirection: 'row', gap: 10 }}>
+												<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => {
+													setShowNovosInput(false);
+													setFormNovo({ ...formNovo, qtdNovos: '', valorNovos: '' });
+												}}>
+													<Text style={{ fontWeight: 'bold' }}>Cancelar Lote</Text>
+												</TouchableOpacity>
+												<TouchableOpacity style={[styles.btnSalvar, { flex: 1, marginTop: 0 }]} onPress={inserirLoteNovos}>
+													{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar Lote</Text>}
+												</TouchableOpacity>
+											</View>
+										</View>
+									)}
+								</View>
 							</View>
 
 						</View>
@@ -1755,12 +1896,12 @@ export default function ChecklistAvulsoScreen() {
 						<TouchableOpacity onPress={() => setModalConsolidarVisible(false)} style={{ padding: 5 }}>
 							<Feather name="arrow-left" size={24} color="#fff" />
 						</TouchableOpacity>
-						<Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Consolidar Análises</Text>
+						<Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Consolidar Gestões</Text>
 						<View style={{ width: 30 }} />
 					</View>
 
 					<View style={{ padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#ddd' }}>
-						<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Filtre o período e selecione as análises para consolidar:</Text>
+						<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Filtre o período e selecione as gestões para consolidar:</Text>
 
 						<View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
 							<View style={{ flex: 2 }}>
@@ -1843,7 +1984,7 @@ export default function ChecklistAvulsoScreen() {
 										style={{ marginRight: 15 }}
 									/>
 									<View style={{ flex: 1 }}>
-										<Text style={{ fontWeight: 'bold', fontSize: 15, color: '#333' }}>Análise #{item.id}</Text>
+										<Text style={{ fontWeight: 'bold', fontSize: 15, color: '#333' }}>Gestão #{item.id}</Text>
 										<Text style={{ fontSize: 13, color: '#666', marginTop: 2 }}>Cliente: {item.cliente}</Text>
 										<Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>Data: {formatarDataLocal(item.data)}</Text>
 									</View>
@@ -1851,7 +1992,7 @@ export default function ChecklistAvulsoScreen() {
 							);
 						}}
 						ListEmptyComponent={
-							<Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma análise disponível para consolidar.</Text>
+							<Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma gestão disponível para consolidar.</Text>
 						}
 					/>
 
@@ -1888,7 +2029,7 @@ export default function ChecklistAvulsoScreen() {
 
 					<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
 						<Text style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>
-							Escolha o tipo de comparação e os dois períodos. O relatório consulta diretamente todas as análises cadastradas no banco dentro de cada período.
+							Escolha o tipo de comparação e os dois períodos. O relatório consulta diretamente todas as gestões cadastradas no banco dentro de cada período.
 						</Text>
 
 						<Text style={styles.label}>Tipo de Comparativo</Text>
@@ -1976,7 +2117,7 @@ export default function ChecklistAvulsoScreen() {
 							<Text style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>Selecione os indicadores que deseja incluir no PDF:</Text>
 
 							<View>
-								{renderOptionToggle('resumo', 'Resumo da Análise')}
+								{renderOptionToggle('resumo', 'Resumo da Gestão')}
 								{renderOptionToggle('medidas', 'MEDIDAS: Detalhamento por Medidas')}
 								{renderOptionToggle('marcas', 'MARCAS: Detalhamento por Marcas')}
 								{renderOptionToggle('condicao', 'CONDIÇÃO: Novo vs Reformado')}

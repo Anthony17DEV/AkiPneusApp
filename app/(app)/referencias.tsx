@@ -195,7 +195,7 @@ export default function ReferenciasScreen() {
 							</View>
 						</View>
 					)}
-					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma referência encontrada.</Text> : null}
+					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhuma referência encontrada.</Text> : undefined}
 				/>
 			)}
 

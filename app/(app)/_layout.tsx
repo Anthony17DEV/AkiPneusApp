@@ -1,4 +1,4 @@
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Drawer, DrawerContentComponentProps, DrawerContentScrollView, DrawerItem } from 'expo-router/drawer';
 import { Alert, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -141,7 +141,7 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="clientes"
 				options={{
-					drawerLabel: 'Checklist',
+					drawerLabel: 'Diagnóstico 360º',
 					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => (
 						<Feather name="check-square" size={size} color={color} />
@@ -177,7 +177,7 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="checklist_avulso"
 				options={{
-					drawerLabel: 'Análise Sucata',
+					drawerLabel: 'Gestão de Descarte',
 					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />,
 				}}
@@ -186,7 +186,7 @@ export default function AppLayout() {
 			<Drawer.Screen
 				name="referencias"
 				options={{
-					drawerLabel: 'Referencias Pneus',
+					drawerLabel: 'Referências Pneus',
 					headerTitle: HeaderLogo,
 					drawerIcon: ({ color, size }) => <Feather name="tag" size={size} color={color} />,
 				}}
