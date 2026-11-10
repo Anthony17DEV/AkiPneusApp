@@ -734,6 +734,11 @@ export default function ChecklistAvulsoScreen() {
 			return;
 		}
 
+		if (formPneu.tipo === 'Reformado' && !String(formPneu.banda || '').trim()) {
+			Alert.alert('Atenção', 'O campo Banda de Rodagem é obrigatório para pneus reformados.');
+			return;
+		}
+
 		if (!formPneu.mm_original || isNaN(sulcoOriginalNum) || sulcoOriginalNum <= 0) {
 			Alert.alert('Atenção', 'O Sulco Original é obrigatório! Caso não tenha carregado automaticamente, preencha manualmente.');
 			return;
@@ -759,6 +764,11 @@ export default function ChecklistAvulsoScreen() {
 				Alert.alert('Atenção', 'As duas primeiras posições do DOT representam a semana de fabricação e devem estar entre 01 e 53.');
 				return;
 			}
+		}
+
+		if (!String(formPneu.motivo_recusa || '').trim()) {
+			Alert.alert('Atenção', 'O campo Dano (Motivo da Recusa) é obrigatório.');
+			return;
 		}
 
 		const precoAtualDigitado = formPneu.valor ? String(formPneu.valor).trim() : '';
@@ -1702,7 +1712,7 @@ export default function ChecklistAvulsoScreen() {
 										<RNPickerSelect placeholder={{ label: '...', value: '', color: '#666' }} value={formPneu.grau} onValueChange={v => setFormPneu({ ...formPneu, grau: v })} items={[{ label: '1', value: '1', color: '#000' }, { label: '2', value: '2', color: '#000' }, { label: '3', value: '3', color: '#000' }, { label: '4', value: '4', color: '#000' }, { label: '5', value: '5', color: '#000' }]} style={{ ...pickerStyles, inputIOS: { ...pickerStyles.inputIOS, backgroundColor: '#fff' }, inputAndroid: { ...pickerStyles.inputAndroid, backgroundColor: '#fff' } }} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
 									</View>
 									<View style={styles.inputGroupH}>
-										<Text style={styles.label}>Banda</Text>
+										<Text style={styles.label}>* Banda de Rodagem</Text>
 										<TouchableOpacity style={[styles.fakeInput, { backgroundColor: '#fff', borderColor: '#ccc' }]} onPress={() => abrirBuscaDinamica('banda')}>
 											<Text style={{ color: formPneu.banda_nome ? '#000' : '#999', fontSize: 12 }} numberOfLines={1}>{formPneu.banda_nome || 'Buscar...'}</Text>
 										</TouchableOpacity>
@@ -1799,9 +1809,9 @@ export default function ChecklistAvulsoScreen() {
 								</View>
 							</View>
 
-							<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
+							<Text style={styles.groupTitle}>Dano / Recusa</Text>
 							<View style={{ width: '100%', marginBottom: 15 }}>
-								<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
+								<Text style={styles.label}>* Dano (Motivo da Recusa)</Text>
 								<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('motivo_laudo')}>
 									<Text style={{ color: formPneu.motivo_recusa ? '#000' : '#999' }}>{formPneu.motivo_recusa || 'Selecionar Motivo...'}</Text>
 									{formPneu.motivo_recusa ? (

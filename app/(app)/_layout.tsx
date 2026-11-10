@@ -242,6 +242,17 @@ export default function AppLayout() {
 			/>
 
 			<Drawer.Screen
+				name="dano_categorias"
+				options={{
+					drawerLabel: 'Categorias de Danos',
+					headerTitle: HeaderLogo,
+					drawerIcon: ({ color, size }) => (
+						<MaterialCommunityIcons name="folder-outline" size={size} color={color} />
+					),
+				}}
+			/>
+
+			<Drawer.Screen
 				name="usuarios"
 				options={{
 					drawerLabel: 'Gerenciar Usuário',
