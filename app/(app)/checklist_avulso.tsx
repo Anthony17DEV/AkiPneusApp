@@ -1528,7 +1528,7 @@ export default function ChecklistAvulsoScreen() {
 									<Text style={{ fontWeight: 'bold' }}>Cancelar</Text>
 								</TouchableOpacity>
 								<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={iniciarNovoChecklist}>
-									{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Iniciar Gestão de Descarte</Text>}
+									{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Iniciar</Text>}
 								</TouchableOpacity>
 							</View>
 
