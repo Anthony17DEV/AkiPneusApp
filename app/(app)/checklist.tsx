@@ -563,7 +563,6 @@ export default function ChecklistScreen() {
 		const jaExistePneuNaPosicao = Boolean(bloquearValorPorHistorico || dbData?.pneu_nb_id || dbData?.id || dbData?.pneu_id_origem || dbData?.pneu_tx_serie || dbData?.pneu_tx_modelo);
 		setPneuPodeSerRetirado(jaExistePneuNaPosicao);
 
-		// Permite editar o valor sempre que não estiver em modo somente leitura, perguntando ao salvar se deseja atualizar como padrão ou só na aferição
 		setValorPodeEditar(!isSomenteLeitura);
 
 		const valorCarregadoRaw = dbData?.valor_carregado ?? dbData?.pneu_tx_valor ?? '';
@@ -718,7 +717,6 @@ export default function ChecklistScreen() {
 		const sulcoAtualNum = parseFloat(formPneu.milimetros ? formPneu.milimetros.toString().replace(',', '.') : '0');
 		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original || formPneu.ref_mm_original).replace(',', '.'));
 
-		// REGRA: Sulco atual não pode ser maior que o original
 		if (!isNaN(sulcoOriginalNum) && sulcoOriginalNum > 0 && !isNaN(sulcoAtualNum) && sulcoAtualNum > sulcoOriginalNum) {
 			Alert.alert('Sulco Inválido', `O sulco atual (${sulcoAtualNum}mm) não pode ser maior que o sulco original do pneu (${sulcoOriginalNum}mm).`);
 			return;
@@ -732,7 +730,6 @@ export default function ChecklistScreen() {
 		const precoAtualDigitado = formPneu.valor ? String(formPneu.valor).trim() : '';
 		const precoOriginalReferencia = formPneu.ref_valor ? String(formPneu.ref_valor).trim() : '';
 
-		// REGRA: Pergunta se deseja mudar como preço padrão ou apenas na aferição
 		if (valorPodeEditar && precoAtualDigitado !== '' && precoAtualDigitado !== precoOriginalReferencia) {
 			Alert.alert(
 				'Atualizar Preço Padrão',
@@ -875,10 +872,19 @@ export default function ChecklistScreen() {
 
 	const selecionarItemBusca = (item: any) => {
 		if (tipoBusca === 'implemento') {
-			if (!implementos.find(i => i.id === item.id) && item.id !== veiculo?.id) { setImplementos([...implementos, item]); }
+			if (!implementos.find(i => i.id === item.id) && item.id !== veiculo?.id) {
+				setImplementos([...implementos, item]);
+			}
+			setModalBuscaVisible(false);
 		}
-		else if (tipoBusca === 'motivo_laudo') { setFormPneu({ ...formPneu, motivo_recusa: item.nome }); }
-		else if (tipoBusca === 'reformador') { setFormPneu({ ...formPneu, reformador: item.nome, reformador_id: item.id }); }
+		else if (tipoBusca === 'motivo_laudo') {
+			setFormPneu({ ...formPneu, motivo_recusa: item.nome });
+			setModalBuscaVisible(false);
+		}
+		else if (tipoBusca === 'reformador') {
+			setFormPneu({ ...formPneu, reformador: item.nome, reformador_id: item.id });
+			setModalBuscaVisible(false);
+		}
 		else if (tipoBusca === 'referencia_pneu') {
 			setFormPneu({
 				...formPneu,
@@ -911,8 +917,8 @@ export default function ChecklistScreen() {
 			const refVal = item.isNewModel ? formatarValorDB(formCadastro.valor || '') : formatarValorDB(rawValor);
 			setFormPneu({
 				...formPneu,
-				referencia: item.isNewModel ? item.id : formPneu.referencia,
-				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : formPneu.referencia_nome,
+				referencia: item.isNewModel ? item.id : (item.referencia_id || item.refe_nb_id || formPneu.referencia),
+				referencia_nome: item.isNewModel ? (formCadastro.nome || formPneu.referencia_nome) : (item.referencia || item.refe_tx_nome || formPneu.referencia_nome),
 				marca: item.isNewModel ? (formCadastro.marca || formPneu.marca) : (item.refe_tx_marca || item.marca || formPneu.marca),
 				modelo: item.nome || item.refe_tx_modelo || item.modelo || '',
 				ref_mm_original: refMm,
