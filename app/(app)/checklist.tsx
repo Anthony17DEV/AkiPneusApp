@@ -105,7 +105,8 @@ export default function ChecklistScreen() {
 
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
-	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '' });
+	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', categoria_id: '' });
+	const [categoriasDano, setCategoriasDano] = useState<any[]>([]);
 
 	const [isSomenteLeitura, setIsSomenteLeitura] = useState(false);
 	const [valorPodeEditar, setValorPodeEditar] = useState(true);
@@ -944,13 +945,27 @@ export default function ChecklistScreen() {
 		}
 	};
 
+	const carregarCategoriasDano = async () => {
+		try {
+			const res = await apiService.buscarDinamica('dano_categoria', '');
+			if (isMounted.current && res && res.success) {
+				setCategoriasDano(res.data || []);
+			}
+		} catch (e) {
+			if (isMounted.current) setCategoriasDano([]);
+		}
+	};
+
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
 			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (formPneu.referencia_nome || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
-			mmOriginal: '', valor: '', sulco: ''
+			mmOriginal: '', valor: '', sulco: '', categoria_id: ''
 		});
+		if (tipoBusca === 'motivo_laudo') {
+			carregarCategoriasDano();
+		}
 		setModalBuscaVisible(false);
 		setModalCadastroVisible(true);
 	};
@@ -976,7 +991,10 @@ export default function ChecklistScreen() {
 	};
 
 	const salvarCadastroDinamico = async () => {
-		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
+		if (tipoBusca === 'motivo_laudo') {
+			if (!formCadastro.categoria_id) { Alert.alert("Atenção", "Selecione a categoria do dano."); return; }
+			if (!formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo/dano."); return; }
+		}
 		if (tipoBusca === 'reformador' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do reformador."); return; }
 		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
 		if (tipoBusca === 'marca_pneu' && (!formCadastro.nome || !formCadastro.marca)) { Alert.alert("Atenção", "Preencha a Referência e a Nova Marca."); return; }
@@ -1490,18 +1508,60 @@ export default function ChecklistScreen() {
 						onSelect={selecionarItemBusca}
 						isLoading={isSearching}
 						onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
+						permiteInserir={['referencia_pneu', 'marca_pneu', 'modelo_pneu', 'banda', 'motivo_laudo', 'reformador'].includes(tipoBusca)}
+						onAddPress={(t) => abrirModalCadastro(t)}
 					/>
 
 					<ModalFormularioSimples
-						visible={modalCadastroVisible}
+						visible={modalCadastroVisible && tipoBusca !== 'motivo_laudo'}
 						onClose={() => setModalCadastroVisible(false)}
 						onSave={salvarCadastroDinamico}
-						titulo={`Cadastrar ${tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}`}
+						titulo={`Cadastrar ${tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'reformador' ? 'Reformador' : 'Modelo'}`}
 						campos={getCamposCadastroDinamico()}
 						valores={formCadastro}
 						onChangeValor={(chave, valor) => setFormCadastro({ ...formCadastro, [chave]: valor })}
 						isLoading={isCadastrando}
 					/>
+
+					<Modal visible={modalCadastroVisible && tipoBusca === 'motivo_laudo'} transparent={true} animationType="fade" onRequestClose={() => setModalCadastroVisible(false)}>
+						<View style={styles.modalOverlay}>
+							<View style={styles.modalSmall}>
+								<Text style={styles.modalTitle}>Cadastrar Dano / Motivo</Text>
+
+								<Text style={styles.label}>* Categoria do Dano</Text>
+								<RNPickerSelect
+									placeholder={{ label: 'Selecione a categoria...', value: '', color: '#999' }}
+									value={formCadastro.categoria_id}
+									onValueChange={(v) => setFormCadastro({ ...formCadastro, categoria_id: v })}
+									items={categoriasDano.map((c: any) => ({
+										label: c.nome,
+										value: String(c.id),
+										color: '#000'
+									}))}
+									style={pickerStyles}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
+
+								<Text style={styles.label}>* Nome do Dano / Motivo</Text>
+								<TextInput
+									style={styles.inputModal}
+									value={formCadastro.nome}
+									onChangeText={(t) => setFormCadastro({ ...formCadastro, nome: t })}
+									placeholder="Ex: Impacto por objeto cortante..."
+								/>
+
+								<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
+									<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalCadastroVisible(false)}>
+										<Text style={{ fontWeight: 'bold' }}>Cancelar</Text>
+									</TouchableOpacity>
+									<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={salvarCadastroDinamico} disabled={isCadastrando}>
+										{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
+									</TouchableOpacity>
+								</View>
+							</View>
+						</View>
+					</Modal>
 
 				</KeyboardAvoidingView>
 			</Modal>

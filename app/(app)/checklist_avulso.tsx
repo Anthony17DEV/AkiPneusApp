@@ -347,8 +347,9 @@ export default function ChecklistAvulsoScreen() {
 
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
-	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '' });
+	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '', categoria_id: '' });
 	const [cidadesResultados, setCidadesResultados] = useState<any[]>([]);
+	const [categoriasDano, setCategoriasDano] = useState<any[]>([]);
 
 	const buscarCidadeDinamica = async (termo: string) => {
 		setFormCadastro({ ...formCadastro, cidade: termo });
@@ -1001,19 +1002,36 @@ export default function ChecklistAvulsoScreen() {
 		setModalBuscaVisible(false);
 	};
 
+	const carregarCategoriasDano = async () => {
+		try {
+			const res = await api.post('api_busca_dinamica.php', { tipo: 'dano_categoria', busca: '' });
+			if (isMounted.current && res.data && res.data.success) {
+				setCategoriasDano(res.data.data || []);
+			}
+		} catch (e) {
+			if (isMounted.current) setCategoriasDano([]);
+		}
+	};
+
 	const abrirModalCadastro = (termoDigitado = '') => {
 		setFormCadastro({
 			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' || tipoBusca === 'veiculo' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (formPneu.referencia_nome || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
-			mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: ''
+			mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '', categoria_id: ''
 		});
+		if (tipoBusca === 'motivo_laudo') {
+			carregarCategoriasDano();
+		}
 		setModalBuscaVisible(false);
 		setModalCadastroVisible(true);
 	};
 
 	const salvarCadastroDinamico = async () => {
-		if (tipoBusca === 'motivo_laudo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo."); return; }
+		if (tipoBusca === 'motivo_laudo') {
+			if (!formCadastro.categoria_id) { Alert.alert("Atenção", "Selecione a categoria do dano."); return; }
+			if (!formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo/dano."); return; }
+		}
 		if (tipoBusca === 'reformador' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome da empresa reformadora."); return; }
 		if (tipoBusca === 'veiculo' && !formCadastro.nome) { Alert.alert("Atenção", "Preencha a Placa ou Código."); return; }
 		if (tipoBusca === 'referencia_pneu' && (!formCadastro.nome || !formCadastro.marca || !formCadastro.modelo || !formCadastro.mmOriginal)) { Alert.alert("Atenção", "Preencha todos os campos com asterisco."); return; }
@@ -1099,25 +1117,81 @@ export default function ChecklistAvulsoScreen() {
 				</View>
 				<View style={styles.inputBuscaContainer}>
 					<Feather name="search" size={20} color="#999" style={{ marginLeft: 10 }} />
-					<TextInput style={styles.inputBuscaInterno} placeholder={`Buscar...`} value={termoComboBusca} onChangeText={(t) => { setTermoComboBusca(t); buscarDinamicaNoBanco(tipoBusca, t); }} autoFocus={true} />
+					<TextInput
+						style={styles.inputBuscaInterno}
+						placeholder="Buscar..."
+						value={termoComboBusca}
+						onChangeText={(t) => {
+							setTermoComboBusca(t);
+							buscarDinamicaNoBanco(tipoBusca, t);
+						}}
+						autoFocus={true}
+					/>
 				</View>
-				{isSearching ? <ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" /> : (
+				{isSearching ? (
+					<ActivityIndicator style={{ marginTop: 20 }} color="#0c6ead" />
+				) : (
 					<FlatList
 						data={resultadosBusca}
 						keyExtractor={(item, index) => String(item?.id || index)}
-
-						initialNumToRender={10}
-						maxToRenderPerBatch={10}
-						windowSize={5}
-						removeClippedSubviews={true}
+						initialNumToRender={20}
+						maxToRenderPerBatch={25}
+						windowSize={7}
 						keyboardShouldPersistTaps="handled"
+						renderItem={({ item, index }) => {
+							const temCategoria = Boolean(item?.categoria);
+							const categoriaAnterior = index > 0 ? resultadosBusca[index - 1]?.categoria : null;
+							const mostrarHeaderCategoria = temCategoria && item.categoria !== categoriaAnterior;
 
-						renderItem={({ item }) => (
-							<TouchableOpacity style={styles.itemBuscaDinamica} onPress={() => selecionarItemBusca(item)}>
-								<Text style={styles.itemBuscaNome}>{item.nome || item.placa}</Text>
-								{item.documento && <Text style={styles.itemBuscaDoc}>{item.documento}</Text>}
-							</TouchableOpacity>
-						)}
+							return (
+								<View>
+									{mostrarHeaderCategoria && (
+										<View
+											style={{
+												backgroundColor: '#e8f0fe',
+												borderLeftWidth: 4,
+												borderLeftColor: '#0c6ead',
+												paddingVertical: 8,
+												paddingHorizontal: 12,
+												marginTop: 12,
+												marginBottom: 2,
+												borderRadius: 6
+											}}
+										>
+											<Text
+												style={{
+													fontSize: 14,
+													fontWeight: 'bold',
+													color: '#0c6ead',
+													textTransform: 'uppercase'
+												}}
+											>
+												- {item.categoria}
+											</Text>
+										</View>
+									)}
+									<TouchableOpacity
+										style={[
+											styles.itemBuscaDinamica,
+											temCategoria && { paddingLeft: 22, paddingVertical: 12 }
+										]}
+										onPress={() => selecionarItemBusca(item)}
+									>
+										<Text
+											style={[
+												styles.itemBuscaNome,
+												temCategoria && { fontSize: 14, fontWeight: '500', color: '#444' }
+											]}
+										>
+											{temCategoria
+												? `- ${item.nome || item.placa}`
+												: (item.nome || item.placa)}
+										</Text>
+										{item.documento && <Text style={styles.itemBuscaDoc}>{item.documento}</Text>}
+									</TouchableOpacity>
+								</View>
+							);
+						}}
 						ListEmptyComponent={<Text style={styles.emptyText}>Nenhum resultado.</Text>}
 					/>
 				)}
@@ -1131,17 +1205,43 @@ export default function ChecklistAvulsoScreen() {
 				<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40, paddingBottom: Platform.OS === 'android' ? 60 : 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 					<View style={styles.modalSmall}>
 						<Text style={styles.modalTitle}>
-							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Motivo' : tipoBusca === 'reformador' ? 'Reformador' : tipoBusca === 'veiculo' ? 'Veículo' : 'Modelo'}
+							Cadastrar {tipoBusca === 'banda' ? 'Banda' : tipoBusca === 'referencia_pneu' ? 'Referência' : tipoBusca === 'marca_pneu' ? 'Marca' : tipoBusca === 'motivo_laudo' ? 'Dano / Motivo' : tipoBusca === 'reformador' ? 'Reformador' : tipoBusca === 'veiculo' ? 'Veículo' : 'Modelo'}
 						</Text>
 
-						{(tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' || tipoBusca === 'veiculo') && (
+						{tipoBusca === 'motivo_laudo' && (
+							<>
+								<Text style={styles.label}>* Categoria do Dano</Text>
+								<RNPickerSelect
+									placeholder={{ label: 'Selecione a categoria...', value: '', color: '#999' }}
+									value={formCadastro.categoria_id}
+									onValueChange={(v) => setFormCadastro({ ...formCadastro, categoria_id: v })}
+									items={categoriasDano.map((c: any) => ({
+										label: c.nome,
+										value: String(c.id),
+										color: '#000'
+									}))}
+									style={pickerStyles}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
+								<Text style={styles.label}>* Nome do Dano / Motivo</Text>
+								<TextInput
+									style={styles.inputModal}
+									value={formCadastro.nome}
+									onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })}
+									placeholder="Ex: Impacto por objeto cortante..."
+								/>
+							</>
+						)}
+
+						{(tipoBusca === 'reformador' || tipoBusca === 'veiculo') && (
 							<>
 								<Text style={styles.label}>* {tipoBusca === 'veiculo' ? 'Placa ou Código' : 'Nome'}</Text>
 								<TextInput
 									style={styles.inputModal}
 									value={formCadastro.nome}
 									onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })}
-									placeholder={tipoBusca === 'motivo_laudo' ? "Ex: Furo na lateral..." : tipoBusca === 'veiculo' ? "Ex: ABC-1234 ou 102030" : "Ex: Reformadora Silva..."}
+									placeholder={tipoBusca === 'veiculo' ? "Ex: ABC-1234 ou 102030" : "Ex: Reformadora Silva..."}
 								/>
 							</>
 						)}
