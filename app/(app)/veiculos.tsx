@@ -174,21 +174,72 @@ export default function VeiculosScreen() {
 
 	const getRodadoOptions = () => {
 		const t = form.tipo?.toUpperCase();
-		if (t === 'CAMINHÃO') return [{ label: '3/4 (2 Eixos)', value: '3/4', color: '#000' }, { label: 'Toco (2 Eixos)', value: 'TOCO', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'TRUCK', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'BI-TRUCK', color: '#000' }];
-		if (t === 'CAVALO') return [{ label: 'Toco (2 Eixos)', value: 'TOCO', color: '#000' }, { label: 'Truck (3 Eixos)', value: 'TRUCK', color: '#000' }, { label: 'Bi-truck (4 Eixos)', value: 'BI-TRUCK', color: '#000' }];
-		if (t === 'CARRETA') return [{ label: '2 Eixos', value: '2 EIXOS', color: '#000' }, { label: '3 Eixos', value: '3 EIXOS', color: '#000' }, { label: '4 Eixos', value: '4 EIXOS', color: '#000' }];
-		if (t === 'DOLLY') return [{ label: '2 Eixos', value: '2 EIXOS', color: '#000' }];
+		// layout: 'S' = Eixo Simples (2 pneus), 'D' = Eixo Duplo (4 pneus)
+		if (t === 'CAMINHÃO') {
+			return [
+				{ label: '3/4', sub: '2 Eixos • 6 Pneus', value: '3/4', layout: ['S', 'D'] },
+				{ label: 'Toco', sub: '2 Eixos • 6 Pneus', value: 'TOCO', layout: ['S', 'D'] },
+				{ label: 'Truck', sub: '3 Eixos • 10 Pneus', value: 'TRUCK', layout: ['S', 'D', 'D'] },
+				{ label: 'Bi-Truck', sub: '4 Eixos • 12 Pneus', value: 'BI-TRUCK', layout: ['S', 'S', 'D', 'D'] }
+			];
+		}
+		if (t === 'CAVALO') {
+			return [
+				{ label: 'Toco', sub: '2 Eixos • 6 Pneus', value: 'TOCO', layout: ['S', 'D'] },
+				{ label: 'Truck', sub: '3 Eixos • 10 Pneus', value: 'TRUCK', layout: ['S', 'D', 'D'] },
+				{ label: 'Bi-Truck', sub: '4 Eixos • 12 Pneus', value: 'BI-TRUCK', layout: ['S', 'S', 'D', 'D'] }
+			];
+		}
+		if (t === 'CARRETA') {
+			return [
+				{ label: '2 Eixos', sub: '8 Pneus', value: '2 EIXOS', layout: ['D', 'D'] },
+				{ label: '3 Eixos', sub: '12 Pneus', value: '3 EIXOS', layout: ['D', 'D', 'D'] },
+				{ label: '4 Eixos', sub: '16 Pneus', value: '4 EIXOS', layout: ['D', 'D', 'D', 'D'] }
+			];
+		}
+		if (t === 'DOLLY') {
+			return [
+				{ label: '2 Eixos', sub: '8 Pneus', value: '2 EIXOS', layout: ['D', 'D'] }
+			];
+		}
 
 		return [
-			{ label: '3/4', value: '3/4', color: '#000' },
-			{ label: 'Toco', value: 'TOCO', color: '#000' },
-			{ label: 'Truck', value: 'TRUCK', color: '#000' },
-			{ label: 'Bi-truck', value: 'BI-TRUCK', color: '#000' },
-			{ label: '2 Eixos', value: '2 EIXOS', color: '#000' },
-			{ label: '3 Eixos', value: '3 EIXOS', color: '#000' },
-			{ label: '4 Eixos', value: '4 EIXOS', color: '#000' },
-			{ label: 'Outro / Sem Rodado', value: 'N/A', color: '#000' }
+			{ label: '3/4', sub: '2 Eixos • 6 Pneus', value: '3/4', layout: ['S', 'D'] },
+			{ label: 'Toco', sub: '2 Eixos • 6 Pneus', value: 'TOCO', layout: ['S', 'D'] },
+			{ label: 'Truck', sub: '3 Eixos • 10 Pneus', value: 'TRUCK', layout: ['S', 'D', 'D'] },
+			{ label: 'Bi-Truck', sub: '4 Eixos • 12 Pneus', value: 'BI-TRUCK', layout: ['S', 'S', 'D', 'D'] },
+			{ label: '2 Eixos (Imp.)', sub: '8 Pneus', value: '2 EIXOS', layout: ['D', 'D'] },
+			{ label: '3 Eixos (Imp.)', sub: '12 Pneus', value: '3 EIXOS', layout: ['D', 'D', 'D'] },
+			{ label: '4 Eixos (Imp.)', sub: '16 Pneus', value: '4 EIXOS', layout: ['D', 'D', 'D', 'D'] }
 		];
+	};
+
+	const renderMiniChassi = (layout: string[], selecionado: boolean) => {
+		const corPneu = selecionado ? '#0c6ead' : '#444';
+		const corEixo = selecionado ? '#64b5f6' : '#bbb';
+
+		return (
+			<View style={styles.miniChassiBox}>
+				<View style={[styles.miniLongarina, { backgroundColor: corEixo }]} />
+				{layout.map((tipoEixo, idx) => (
+					<View key={idx} style={styles.miniAxleRow}>
+						{/* Lado Esquerdo: alinha encostado na barra do eixo (flex-end) */}
+						<View style={[styles.miniWheelSide, { justifyContent: 'flex-end' }]}>
+							{tipoEixo === 'D' && <View style={[styles.miniTire, { backgroundColor: corPneu, marginRight: 2 }]} />}
+							<View style={[styles.miniTire, { backgroundColor: corPneu }]} />
+						</View>
+
+						<View style={[styles.miniAxleBar, { backgroundColor: corEixo }]} />
+
+						{/* Lado Direito: alinha encostado na barra do eixo (flex-start) */}
+						<View style={[styles.miniWheelSide, { justifyContent: 'flex-start' }]}>
+							<View style={[styles.miniTire, { backgroundColor: corPneu }]} />
+							{tipoEixo === 'D' && <View style={[styles.miniTire, { backgroundColor: corPneu, marginLeft: 2 }]} />}
+						</View>
+					</View>
+				))}
+			</View>
+		);
 	};
 
 	const formatarData = (dataDb: string) => {
@@ -749,31 +800,79 @@ export default function VeiculosScreen() {
 
 							<View style={styles.inputGroupFull}>
 								<Text style={styles.label}>* Tipo Veículo</Text>
-
-								<RNPickerSelect
-									placeholder={{
-										label: 'Selecione...',
-										value: '',
-										color: '#666'
-									}}
-									value={form.tipo}
-									onValueChange={v =>
-										setForm({
-											...form,
-											tipo: v,
-											tipoRodado: ''
-										})
-									}
-									items={TIPOS_VEICULOS}
-									style={pickerStyles}
-									useNativeAndroidPickerStyle={false}
-									Icon={PickerIcon}
-								/>
+								<View style={styles.tipoVeiculoGrid}>
+									{[
+										{ label: 'Caminhão', value: 'CAMINHÃO', icon: 'truck' },
+										{ label: 'Cavalo', value: 'CAVALO', icon: 'truck-fast' },
+										{ label: 'Carreta', value: 'CARRETA', icon: 'truck-trailer' },
+										{ label: 'Dolly', value: 'DOLLY', icon: 'link-variant' },
+										{ label: 'Outros', value: 'OUTROS', icon: 'truck-Cargo-container' }
+									].map((item) => {
+										const ativo = form.tipo?.toUpperCase() === item.value;
+										return (
+											<TouchableOpacity
+												key={item.value}
+												style={[styles.btnTipoVeiculo, ativo && styles.btnTipoVeiculoAtivo]}
+												onPress={() => {
+													const opcoesPadrao = item.value === 'DOLLY' ? '2 EIXOS' : '';
+													setForm({
+														...form,
+														tipo: item.value,
+														tipoRodado: opcoesPadrao
+													});
+												}}
+												activeOpacity={0.75}
+											>
+												<MaterialCommunityIcons
+													name={item.icon === 'truck-Cargo-container' ? 'truck-cargo-container' : (item.icon as any)}
+													size={22}
+													color={ativo ? '#fff' : '#0c6ead'}
+												/>
+												<Text style={[styles.btnTipoVeiculoText, ativo && styles.btnTipoVeiculoTextAtivo]}>
+													{item.label}
+												</Text>
+											</TouchableOpacity>
+										);
+									})}
+								</View>
 							</View>
 
-							<View style={styles.inputGroupFull}>
-								<Text style={styles.label}>* Tipo Rodado</Text>
-								<RNPickerSelect placeholder={{ label: 'Selecione...', value: '', color: '#666' }} value={form.tipoRodado} onValueChange={v => setForm({ ...form, tipoRodado: v })} items={getRodadoOptions()} style={pickerStyles} useNativeAndroidPickerStyle={false} Icon={PickerIcon} />
+							<View style={[styles.inputGroupFull, { marginTop: 10 }]}>
+								<Text style={styles.label}>* Modelo de Rodado (Toque para selecionar)</Text>
+								{!form.tipo ? (
+									<View style={styles.avisoSelecioneTipo}>
+										<Feather name="info" size={16} color="#0c6ead" />
+										<Text style={styles.avisoSelecioneTipoText}>
+											Selecione primeiro o Tipo de Veículo acima para ver os modelos de rodado.
+										</Text>
+									</View>
+								) : (
+									<View style={styles.rodadoGrid}>
+										{getRodadoOptions().map((op: any) => {
+											const selecionado = form.tipoRodado?.toUpperCase() === op.value;
+											return (
+												<TouchableOpacity
+													key={op.value}
+													style={[styles.cardRodado, selecionado && styles.cardRodadoAtivo]}
+													onPress={() => setForm({ ...form, tipoRodado: op.value })}
+													activeOpacity={0.75}
+												>
+													<View style={styles.cardRodadoHeader}>
+														<Text style={[styles.cardRodadoTitulo, selecionado && { color: '#0c6ead' }]}>
+															{op.label}
+														</Text>
+														{selecionado && (
+															<Feather name="check-circle" size={16} color="#0c6ead" />
+														)}
+													</View>
+													<Text style={styles.cardRodadoSub}>{op.sub}</Text>
+
+													{renderMiniChassi(op.layout, selecionado)}
+												</TouchableOpacity>
+											);
+										})}
+									</View>
+								)}
 							</View>
 
 							<Text style={[styles.groupTitle, { zIndex: -1, elevation: -1 }]}>3. Fotos do Veículo</Text>
@@ -854,7 +953,7 @@ export default function VeiculosScreen() {
 							onSelect={selecionarItemBusca}
 							isLoading={isSearching}
 							onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
-							placeholderBusca={`Digite o nome da ${tipoBusca}...`}
+							placeholder={`Digite o nome da ${tipoBusca}...`}
 						/>
 
 						{modalCadastroVisible && (
@@ -876,7 +975,7 @@ export default function VeiculosScreen() {
 					onSelect={selecionarItemBusca}
 					isLoading={isSearching}
 					onSearchChange={(t) => buscarDinamicaNoBanco(tipoBusca, t)}
-					placeholderBusca={`Digite o nome da ${tipoBusca}...`}
+					placeholder={`Digite o nome da ${tipoBusca}...`}
 				/>
 			)}
 
@@ -906,6 +1005,127 @@ const styles = StyleSheet.create({
 	inputGroupH: { width: '48%' },
 	inputGroup31: { width: '31%' },
 	inputGroupFull: { width: '100%', marginBottom: 5 },
+
+	tipoVeiculoGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+		marginBottom: 10
+	},
+	btnTipoVeiculo: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#f0f4f8',
+		borderWidth: 1,
+		borderColor: '#d0d7de',
+		borderRadius: 10,
+		paddingVertical: 10,
+		paddingHorizontal: 14,
+		minWidth: '30%',
+		justifyContent: 'center'
+	},
+	btnTipoVeiculoAtivo: {
+		backgroundColor: '#0c6ead',
+		borderColor: '#0c6ead'
+	},
+	btnTipoVeiculoText: {
+		fontSize: 13,
+		fontWeight: 'bold',
+		color: '#333',
+		marginLeft: 6
+	},
+	btnTipoVeiculoTextAtivo: {
+		color: '#fff'
+	},
+	avisoSelecioneTipo: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#e8f0fe',
+		padding: 12,
+		borderRadius: 8,
+		marginBottom: 15
+	},
+	avisoSelecioneTipoText: {
+		fontSize: 13,
+		color: '#0c6ead',
+		marginLeft: 8,
+		flex: 1
+	},
+	rodadoGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		justifyContent: 'space-between',
+		marginBottom: 15
+	},
+	cardRodado: {
+		width: '48%',
+		backgroundColor: '#f9fbfd',
+		borderWidth: 1.5,
+		borderColor: '#dce3eb',
+		borderRadius: 12,
+		padding: 12,
+		marginBottom: 12,
+		alignItems: 'center'
+	},
+	cardRodadoAtivo: {
+		backgroundColor: '#e8f4fd',
+		borderColor: '#0c6ead',
+		elevation: 2
+	},
+	cardRodadoHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 6
+	},
+	cardRodadoTitulo: {
+		fontSize: 15,
+		fontWeight: 'bold',
+		color: '#222'
+	},
+	cardRodadoSub: {
+		fontSize: 11,
+		color: '#666',
+		marginTop: 2,
+		marginBottom: 10,
+		fontWeight: '600'
+	},
+	miniChassiBox: {
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 6,
+		position: 'relative',
+		minHeight: 75
+	},
+	miniLongarina: {
+		position: 'absolute',
+		width: 4,
+		top: 8,
+		bottom: 8,
+		borderRadius: 2
+	},
+	miniAxleRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginVertical: 4,
+		zIndex: 2
+	},
+	miniWheelSide: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		width: 18,
+		justifyContent: 'flex-end'
+	},
+	miniAxleBar: {
+		width: 28,
+		height: 3,
+		marginHorizontal: 2
+	},
+	miniTire: {
+		width: 6,
+		height: 14,
+		borderRadius: 2
+	},
 
 	inputWithIcon: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
 	inputFlex: { flex: 1, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderTopLeftRadius: 8, borderBottomLeftRadius: 8, paddingHorizontal: 15, height: 48, fontSize: 14, color: '#000' },

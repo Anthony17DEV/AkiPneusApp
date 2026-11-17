@@ -69,6 +69,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const [checklistAtivo, setChecklistAtivo] = useState<any>(null);
 	const [pneusPilha, setPneusPilha] = useState<any[]>([]);
+	const [modoNovaRegiao, setModoNovaRegiao] = useState(false);
 
 	const [modalConsolidarVisible, setModalConsolidarVisible] = useState(false);
 	const [selectedChecklists, setSelectedChecklists] = useState<number[]>([]);
@@ -347,7 +348,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
-	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '', categoria_id: '' });
+	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '', categoria_id: '', regiao: '' });
 	const [cidadesResultados, setCidadesResultados] = useState<any[]>([]);
 	const [categoriasDano, setCategoriasDano] = useState<any[]>([]);
 
@@ -1014,11 +1015,12 @@ export default function ChecklistAvulsoScreen() {
 	};
 
 	const abrirModalCadastro = (termoDigitado = '') => {
+		setModoNovaRegiao(false);
 		setFormCadastro({
 			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' || tipoBusca === 'veiculo' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (formPneu.referencia_nome || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
-			mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '', categoria_id: ''
+			mmOriginal: '', valor: '', sulco: '', cidade: '', cidade_id: '', categoria_id: '', regiao: ''
 		});
 		if (tipoBusca === 'motivo_laudo') {
 			carregarCategoriasDano();
@@ -1029,6 +1031,7 @@ export default function ChecklistAvulsoScreen() {
 
 	const salvarCadastroDinamico = async () => {
 		if (tipoBusca === 'motivo_laudo') {
+			if (!formCadastro.regiao) { Alert.alert("Atenção", "Selecione ou digite a região do pneu."); return; }
 			if (!formCadastro.categoria_id) { Alert.alert("Atenção", "Selecione a categoria do dano."); return; }
 			if (!formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo/dano."); return; }
 		}
@@ -1134,18 +1137,19 @@ export default function ChecklistAvulsoScreen() {
 					<FlatList
 						data={resultadosBusca}
 						keyExtractor={(item, index) => String(item?.id || index)}
-						initialNumToRender={20}
+						initialNumToRender={25}
 						maxToRenderPerBatch={25}
 						windowSize={7}
 						keyboardShouldPersistTaps="handled"
 						renderItem={({ item, index }) => {
-							const temCategoria = Boolean(item?.categoria);
-							const categoriaAnterior = index > 0 ? resultadosBusca[index - 1]?.categoria : null;
-							const mostrarHeaderCategoria = temCategoria && item.categoria !== categoriaAnterior;
+							const grupo = item?.regiao || item?.categoria || '';
+							const grupoAnterior = index > 0 ? (resultadosBusca[index - 1]?.regiao || resultadosBusca[index - 1]?.categoria || '') : '';
+							const temGrupo = Boolean(grupo);
+							const mostrarHeaderGrupo = temGrupo && grupo !== grupoAnterior;
 
 							return (
 								<View>
-									{mostrarHeaderCategoria && (
+									{mostrarHeaderGrupo && (
 										<View
 											style={{
 												backgroundColor: '#e8f0fe',
@@ -1166,28 +1170,32 @@ export default function ChecklistAvulsoScreen() {
 													textTransform: 'uppercase'
 												}}
 											>
-												- {item.categoria}
+												{grupo}
 											</Text>
 										</View>
 									)}
 									<TouchableOpacity
 										style={[
 											styles.itemBuscaDinamica,
-											temCategoria && { paddingLeft: 22, paddingVertical: 12 }
+											temGrupo && { paddingLeft: 18, paddingVertical: 11 }
 										]}
 										onPress={() => selecionarItemBusca(item)}
 									>
 										<Text
 											style={[
 												styles.itemBuscaNome,
-												temCategoria && { fontSize: 14, fontWeight: '500', color: '#444' }
+												temGrupo && { fontSize: 14, fontWeight: '600', color: '#222' }
 											]}
 										>
-											{temCategoria
+											{temGrupo
 												? `- ${item.nome || item.placa}`
 												: (item.nome || item.placa)}
 										</Text>
-										{item.documento && <Text style={styles.itemBuscaDoc}>{item.documento}</Text>}
+										{item.documento ? (
+											<Text style={[styles.itemBuscaDoc, temGrupo && { paddingLeft: 12 }]}>
+												{item.documento}
+											</Text>
+										) : null}
 									</TouchableOpacity>
 								</View>
 							);
@@ -1210,6 +1218,45 @@ export default function ChecklistAvulsoScreen() {
 
 						{tipoBusca === 'motivo_laudo' && (
 							<>
+								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+									<Text style={[styles.label, { marginBottom: 0 }]}>* Região do Pneu</Text>
+									<TouchableOpacity
+										onPress={() => {
+											setModoNovaRegiao(!modoNovaRegiao);
+											setFormCadastro({ ...formCadastro, regiao: '' });
+										}}
+									>
+										<Text style={{ fontSize: 12, fontWeight: 'bold', color: '#0c6ead' }}>
+											{modoNovaRegiao ? 'Selecionar da lista' : '+ Digitar nova região'}
+										</Text>
+									</TouchableOpacity>
+								</View>
+
+								{modoNovaRegiao ? (
+									<TextInput
+										style={styles.inputModal}
+										value={formCadastro.regiao}
+										onChangeText={t => setFormCadastro({ ...formCadastro, regiao: t })}
+										placeholder="Digite a região (Ex: BANDA DE RODAGEM...)"
+										autoCapitalize="characters"
+									/>
+								) : (
+									<RNPickerSelect
+										placeholder={{ label: 'Selecione a região...', value: '', color: '#999' }}
+										value={formCadastro.regiao}
+										onValueChange={(v) => setFormCadastro({ ...formCadastro, regiao: v || '' })}
+										items={[
+											{ label: 'BANDA DE RODAGEM', value: 'BANDA DE RODAGEM', color: '#000' },
+											{ label: 'FLANCO / LATERAL', value: 'FLANCO / LATERAL', color: '#000' },
+											{ label: 'TALÃO', value: 'TALÃO', color: '#000' },
+											{ label: 'CARCAÇA', value: 'CARCAÇA', color: '#000' }
+										]}
+										style={pickerStyles}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								)}
+
 								<Text style={styles.label}>* Categoria do Dano</Text>
 								<RNPickerSelect
 									placeholder={{ label: 'Selecione a categoria...', value: '', color: '#999' }}
@@ -1224,7 +1271,7 @@ export default function ChecklistAvulsoScreen() {
 									useNativeAndroidPickerStyle={false}
 									Icon={PickerIcon}
 								/>
-								<Text style={styles.label}>* Nome do Dano / Motivo</Text>
+								<Text style={styles.label}>* Tipo de Dano / Ocorrência</Text>
 								<TextInput
 									style={styles.inputModal}
 									value={formCadastro.nome}

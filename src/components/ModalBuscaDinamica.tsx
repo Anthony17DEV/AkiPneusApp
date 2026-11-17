@@ -92,42 +92,45 @@ export function ModalBuscaDinamica({
 							data={dados}
 							keyExtractor={(item, index) => String(item?.id || index)}
 							keyboardShouldPersistTaps="handled"
-							initialNumToRender={20}
+							initialNumToRender={25}
 							maxToRenderPerBatch={25}
 							windowSize={7}
 							renderItem={({ item, index }) => {
-								const temCategoria = Boolean(item?.categoria);
-								const categoriaAnterior = index > 0 ? dados[index - 1]?.categoria : null;
-								const mostrarHeaderCategoria = temCategoria && item.categoria !== categoriaAnterior;
+								const grupo = item?.regiao || item?.categoria || '';
+								const grupoAnterior = index > 0 ? (dados[index - 1]?.regiao || dados[index - 1]?.categoria || '') : '';
+								const temGrupo = Boolean(grupo);
+								const mostrarHeaderGrupo = temGrupo && grupo !== grupoAnterior;
 
 								return (
 									<View>
-										{mostrarHeaderCategoria && (
-											<View style={styles.categoriaHeader}>
-												<Text style={styles.categoriaHeaderText}>
-													- {item.categoria}
+										{mostrarHeaderGrupo && (
+											<View style={styles.grupoHeader}>
+												<Text style={styles.grupoHeaderText}>
+													{grupo}
 												</Text>
 											</View>
 										)}
 										<TouchableOpacity
 											style={[
 												styles.itemRow,
-												temCategoria && styles.itemRowIndentado
+												temGrupo && styles.itemRowIndentado
 											]}
 											onPress={() => onSelect(item)}
 										>
 											<Text
 												style={[
 													styles.itemNome,
-													temCategoria && styles.itemNomeIndentado
+													temGrupo && styles.itemNomeIndentado
 												]}
 											>
-												{temCategoria
+												{temGrupo
 													? `- ${item.nome || item.placa}`
 													: (item.nome || item.placa)}
 											</Text>
 											{item.documento ? (
-												<Text style={styles.itemDoc}>{item.documento}</Text>
+												<Text style={[styles.itemDoc, temGrupo && { paddingLeft: 12 }]}>
+													{item.documento}
+												</Text>
 											) : null}
 										</TouchableOpacity>
 									</View>
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		width: '90%',
-		height: '75%',
+		height: '78%',
 		backgroundColor: '#fff',
 		borderRadius: 12,
 		padding: 20,
@@ -189,7 +192,7 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		color: '#333'
 	},
-	categoriaHeader: {
+	grupoHeader: {
 		backgroundColor: '#e8f0fe',
 		borderLeftWidth: 4,
 		borderLeftColor: '#0c6ead',
@@ -199,7 +202,7 @@ const styles = StyleSheet.create({
 		marginBottom: 2,
 		borderRadius: 6
 	},
-	categoriaHeaderText: {
+	grupoHeaderText: {
 		fontSize: 14,
 		fontWeight: 'bold',
 		color: '#0c6ead',
@@ -211,8 +214,8 @@ const styles = StyleSheet.create({
 		paddingVertical: 14
 	},
 	itemRowIndentado: {
-		paddingLeft: 22,
-		paddingVertical: 12
+		paddingLeft: 18,
+		paddingVertical: 11
 	},
 	itemNome: {
 		fontSize: 15,
@@ -221,12 +224,12 @@ const styles = StyleSheet.create({
 	},
 	itemNomeIndentado: {
 		fontSize: 14,
-		fontWeight: '500',
-		color: '#444'
+		fontWeight: '600',
+		color: '#222'
 	},
 	itemDoc: {
-		fontSize: 12,
-		color: '#888',
+		fontSize: 11,
+		color: '#777',
 		marginTop: 2
 	},
 	emptyText: {

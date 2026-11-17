@@ -76,6 +76,7 @@ export default function ChecklistScreen() {
 	const [pneusPendentes, setPneusPendentes] = useState<string[]>([]);
 	const [posicoesRetiradas, setPosicoesRetiradas] = useState<string[]>([]);
 	const [pneusRecusados, setPneusRecusados] = useState<any[]>([]);
+	const [modoNovaRegiao, setModoNovaRegiao] = useState(false);
 
 	const [avisosVinculo, setAvisosVinculo] = useState<{ msg: string, checklist_id?: number, cavalo_id?: number, cavalo_placa?: string }[]>([]);
 	const [isModoIsolado, setIsModoIsolado] = useState(false);
@@ -105,7 +106,7 @@ export default function ChecklistScreen() {
 
 	const [modalCadastroVisible, setModalCadastroVisible] = useState(false);
 	const [isCadastrando, setIsCadastrando] = useState(false);
-	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', categoria_id: '' });
+	const [formCadastro, setFormCadastro] = useState({ nome: '', marca: '', modelo: '', mmOriginal: '', valor: '', sulco: '', categoria_id: '', regiao: '' });
 	const [categoriasDano, setCategoriasDano] = useState<any[]>([]);
 
 	const [isSomenteLeitura, setIsSomenteLeitura] = useState(false);
@@ -957,11 +958,12 @@ export default function ChecklistScreen() {
 	};
 
 	const abrirModalCadastro = (termoDigitado = '') => {
+		setModoNovaRegiao(false);
 		setFormCadastro({
 			nome: tipoBusca === 'referencia_pneu' ? termoDigitado.trim() : (tipoBusca === 'banda' ? '' : (tipoBusca === 'motivo_laudo' || tipoBusca === 'reformador' ? termoDigitado.trim() : (formPneu.referencia_nome || ''))),
 			marca: tipoBusca === 'marca_pneu' ? termoDigitado.trim() : (tipoBusca === 'modelo_pneu' ? (formPneu.marca || '') : ''),
 			modelo: (tipoBusca === 'modelo_pneu' || tipoBusca === 'banda') ? termoDigitado.trim() : '',
-			mmOriginal: '', valor: '', sulco: '', categoria_id: ''
+			mmOriginal: '', valor: '', sulco: '', categoria_id: '', regiao: ''
 		});
 		if (tipoBusca === 'motivo_laudo') {
 			carregarCategoriasDano();
@@ -992,6 +994,7 @@ export default function ChecklistScreen() {
 
 	const salvarCadastroDinamico = async () => {
 		if (tipoBusca === 'motivo_laudo') {
+			if (!formCadastro.regiao) { Alert.alert("Atenção", "Selecione ou digite a região do pneu."); return; }
 			if (!formCadastro.categoria_id) { Alert.alert("Atenção", "Selecione a categoria do dano."); return; }
 			if (!formCadastro.nome) { Alert.alert("Atenção", "Preencha o nome do motivo/dano."); return; }
 		}
@@ -1007,6 +1010,7 @@ export default function ChecklistScreen() {
 				tipo: tipoBusca,
 				...formCadastro,
 				nome: formCadastro.nome.toUpperCase(),
+				regiao: (formCadastro.regiao || '').toUpperCase(),
 				marca: formCadastro.marca.toUpperCase(),
 				modelo: formCadastro.modelo.toUpperCase(),
 				valor: formCadastro.valor ? formCadastro.valor.replace(/\./g, '') : ''
@@ -1528,6 +1532,45 @@ export default function ChecklistScreen() {
 							<View style={styles.modalSmall}>
 								<Text style={styles.modalTitle}>Cadastrar Dano / Motivo</Text>
 
+								<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+									<Text style={[styles.label, { marginBottom: 0 }]}>* Região do Pneu</Text>
+									<TouchableOpacity
+										onPress={() => {
+											setModoNovaRegiao(!modoNovaRegiao);
+											setFormCadastro({ ...formCadastro, regiao: '' });
+										}}
+									>
+										<Text style={{ fontSize: 12, fontWeight: 'bold', color: '#0c6ead' }}>
+											{modoNovaRegiao ? 'Selecionar da lista' : '+ Digitar nova região'}
+										</Text>
+									</TouchableOpacity>
+								</View>
+
+								{modoNovaRegiao ? (
+									<TextInput
+										style={styles.inputModal}
+										value={formCadastro.regiao}
+										onChangeText={(t) => setFormCadastro({ ...formCadastro, regiao: t })}
+										placeholder="Digite a região (Ex: BANDA DE RODAGEM...)"
+										autoCapitalize="characters"
+									/>
+								) : (
+									<RNPickerSelect
+										placeholder={{ label: 'Selecione a região...', value: '', color: '#999' }}
+										value={formCadastro.regiao}
+										onValueChange={(v) => setFormCadastro({ ...formCadastro, regiao: v || '' })}
+										items={[
+											{ label: 'BANDA DE RODAGEM', value: 'BANDA DE RODAGEM', color: '#000' },
+											{ label: 'FLANCO / LATERAL', value: 'FLANCO / LATERAL', color: '#000' },
+											{ label: 'TALÃO', value: 'TALÃO', color: '#000' },
+											{ label: 'CARCAÇA', value: 'CARCAÇA', color: '#000' }
+										]}
+										style={pickerStyles}
+										useNativeAndroidPickerStyle={false}
+										Icon={PickerIcon}
+									/>
+								)}
+
 								<Text style={styles.label}>* Categoria do Dano</Text>
 								<RNPickerSelect
 									placeholder={{ label: 'Selecione a categoria...', value: '', color: '#999' }}
@@ -1543,7 +1586,7 @@ export default function ChecklistScreen() {
 									Icon={PickerIcon}
 								/>
 
-								<Text style={styles.label}>* Nome do Dano / Motivo</Text>
+								<Text style={styles.label}>* Tipo de Dano / Ocorrência</Text>
 								<TextInput
 									style={styles.inputModal}
 									value={formCadastro.nome}
