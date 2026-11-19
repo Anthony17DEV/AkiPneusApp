@@ -54,7 +54,8 @@
 			"expo-sqlite",
 			"expo-image",
 			"expo-localization",
-			"expo-sharing"
+			"expo-sharing",
+			"./withOptionalHardware.js"
 		],
 		"experiments": {
 			"typedRoutes": true
