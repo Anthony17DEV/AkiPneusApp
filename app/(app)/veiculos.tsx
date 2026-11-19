@@ -804,8 +804,8 @@ export default function VeiculosScreen() {
 									{[
 										{ label: 'Caminhão', value: 'CAMINHÃO', icon: 'truck' },
 										{ label: 'Cavalo', value: 'CAVALO', icon: 'truck-fast' },
-										{ label: 'Carreta', value: 'CARRETA', icon: 'truck-trailer' },
 										{ label: 'Dolly', value: 'DOLLY', icon: 'link-variant' },
+										{ label: 'Semi-Reboque', value: 'CARRETA', icon: 'truck-trailer' },
 										{ label: 'Outros', value: 'OUTROS', icon: 'truck-Cargo-container' }
 									].map((item) => {
 										const ativo = form.tipo?.toUpperCase() === item.value;
