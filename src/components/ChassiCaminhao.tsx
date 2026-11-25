@@ -17,6 +17,10 @@ interface VeiculoComposicao {
 	veic_tx_tipo?: string;
 	eixos?: string | number;
 	veic_tx_eixos?: string | number;
+	eixos_config?: string;
+	veic_tx_eixosConfig?: string;
+	sulco_retirada?: string | number;
+	veic_tx_sulcoRetirada?: string | number;
 	rodado?: string;
 	veic_tx_tipoRodado?: string;
 	estepe?: string | number;
@@ -54,6 +58,23 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 	const getTextColor = (hex: string) => {
 		const escuros = ['#222222', '#e53935', '#1976d2', '#388e3c', '#795548', '#f57c00'];
 		return escuros.includes(hex) ? '#ffffff' : '#111111';
+	};
+
+	const extrairLayoutCustomizado = (v: VeiculoComposicao): ('S' | 'D')[] | null => {
+		const configBruta = String(v.eixos_config || v.veic_tx_eixosConfig || '').trim().toUpperCase();
+		if (configBruta) {
+			const arr = configBruta.split(/[\s,;\-]+/).filter(x => x === 'S' || x === 'D') as ('S' | 'D')[];
+			if (arr.length > 0) return arr;
+		}
+
+		const rodado = String(v.rodado || v.veic_tx_tipoRodado || '').trim().toUpperCase();
+		const matchParen = rodado.match(/\(([SD\-]+)\)/);
+		if (matchParen && matchParen[1]) {
+			const arr = matchParen[1].split('-').filter(x => x === 'S' || x === 'D') as ('S' | 'D')[];
+			if (arr.length > 0) return arr;
+		}
+
+		return null;
 	};
 
 	const renderPneu = (posicao: string, estiloPneu: any, textoCustomizado?: string) => {
@@ -140,15 +161,20 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 				veiculos.map((v, vIndex) => {
 					const tipoTratado = String(v.tipo || v.veic_tx_tipo || '').toUpperCase().trim();
 					const rodadoTratado = String(v.rodado || v.veic_tx_tipoRodado || '').toUpperCase().trim();
+					const layoutCustom = extrairLayoutCustomizado(v);
 
-					let numeroEixos = parseInt(v.eixos as string) || parseInt(qtdEixos as any) || 2;
+					let numeroEixos = layoutCustom
+						? layoutCustom.length
+						: (parseInt(v.eixos as string) || parseInt(qtdEixos as any) || 2);
 
-					if (['3/4', 'TOCO', '2 EIXOS'].includes(rodadoTratado)) {
-						numeroEixos = 2;
-					} else if (['TRUCK', '3 EIXOS'].includes(rodadoTratado)) {
-						numeroEixos = 3;
-					} else if (['BI-TRUCK', 'BITRUCK', '4 EIXOS'].includes(rodadoTratado)) {
-						numeroEixos = 4;
+					if (!layoutCustom) {
+						if (['3/4', 'TOCO', '2 EIXOS'].includes(rodadoTratado)) {
+							numeroEixos = 2;
+						} else if (['TRUCK', '3 EIXOS'].includes(rodadoTratado)) {
+							numeroEixos = 3;
+						} else if (['BI-TRUCK', 'BITRUCK', '4 EIXOS'].includes(rodadoTratado)) {
+							numeroEixos = 4;
+						}
 					}
 
 					const numeroEstepes = parseInt(v.estepe as string) || 0;
@@ -165,9 +191,14 @@ export function ChassiCaminhao({ veiculos, qtdEixos, qtdEstepes = 0, dadosPneus 
 					for (let i = 0; i < numeroEixos; i++) {
 						const numeroDoEixo = indiceGlobalEixo++;
 						let eixoSimples = false;
-						if (!eCarreta && !eDolly) { eixoSimples = (i === 0 || (i === 1 && eBitruck)); }
 
-						const ePrimeiroEixoCarreta = (eCarreta && !eDolly && i === 0);
+						if (layoutCustom) {
+							eixoSimples = layoutCustom[i] === 'S';
+						} else if (!eCarreta && !eDolly) {
+							eixoSimples = (i === 0 || (i === 1 && eBitruck));
+						}
+
+						const ePrimeiroEixoCarreta = (eCarreta && !eDolly && !layoutCustom && i === 0 && vIndex > 0);
 
 						eixosDoVeiculo.push(renderAxle(numeroDoEixo, eixoSimples, eDolly, eCarreta, ePrimeiroEixoCarreta));
 					}

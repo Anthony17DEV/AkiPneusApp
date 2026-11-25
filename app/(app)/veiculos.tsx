@@ -7,11 +7,12 @@ import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal,
 import RNPickerSelect from 'react-native-picker-select';
 import LogoSolutires from '../../assets/images/smart_pneus.png';
 import { useAuth } from '../../contexts/AuthContext';
-import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica'; // Componente genérico importado
+import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica';
 import { apiService } from '../../src/services/apiService';
 
 interface Veiculo {
-	id: number; placa: string; codigo: string; eixos: string; rodado: string; calibragem_padrao: string;
+	id: number; placa: string; codigo: string; eixos: string; eixos_config?: string; rodado: string; calibragem_padrao: string;
+	sulco_retirada?: string; veic_tx_sulcoRetirada?: string; veic_tx_eixosConfig?: string;
 	especie: string; tipo: string; uf: string; renavam: string; ano: string; anoModelo: string; cor: string;
 	combustivel: string; tanque: string; qtde_passageiros: string; estepe: string; tipoCarroceria: string;
 	taraKg: string; capacidadeKg: string; capacidadeM3: string; tipoProprietario: string; rntrc: string; proprietarioUf: string;
@@ -57,7 +58,6 @@ export default function VeiculosScreen() {
 	const [modalVisible, setModalVisible] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 
-	// Estados do Modal de Busca Genérico
 	const [modalBuscaVisible, setModalBuscaVisible] = useState(false);
 	const [tipoBusca, setTipoBusca] = useState<'marca' | 'modelo' | 'entidade'>('marca');
 	const [resultadosBusca, setResultadosBusca] = useState<any[]>([]);
@@ -74,10 +74,15 @@ export default function VeiculosScreen() {
 	const [fotosAntigas, setFotosAntigas] = useState<string[]>([]);
 	const [fotoAmpliada, setFotoAmpliada] = useState<string | null>(null);
 
+	// Montador personalizado de eixos (quando tipo === 'OUTROS')
+	const [eixosCustom, setEixosCustom] = useState<('S' | 'D')[]>(['S']);
+	const [montagemConfirmada, setMontagemConfirmada] = useState(false);
+
 	const [form, setForm] = useState({
 		id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '',
 		marca: '', marca_id: '', modelo: '', modelo_id: '', ano: '', anoModelo: '', cor: '',
 		combustivel: '', tanque: '', qtde_passageiros: '', estepe: '', calibragem_original: '',
+		sulco_retirada: '', eixos_config: '',
 		tipoCarroceria: '', tipoRodado: '', eixos: '', taraKg: '', capacidadeKg: '', capacidadeM3: '',
 		proprietario: '', proprietario_id: '', tipoProprietario: '', rntrc: '', proprietarioUf: '',
 		vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
@@ -161,7 +166,75 @@ export default function VeiculosScreen() {
 		return p;
 	};
 
+	const formatarDecimal = (text: string) => {
+		let limpo = text.replace(',', '.').replace(/[^0-9.]/g, '');
+		const partes = limpo.split('.');
+		if (partes.length > 2) {
+			limpo = partes[0] + '.' + partes.slice(1).join('');
+		}
+		return limpo;
+	};
+
+	const parseEixosConfig = (configRaw?: string, rodadoRaw?: string, qtdEixosRaw?: string | number): ('S' | 'D')[] => {
+		const cfg = String(configRaw || '').trim().toUpperCase();
+		if (cfg) {
+			const arr = cfg.split(/[,;-]/).map(x => x.trim()).filter(x => x === 'S' || x === 'D') as ('S' | 'D')[];
+			if (arr.length > 0) return arr;
+		}
+
+		const rod = String(rodadoRaw || '').trim().toUpperCase();
+		const matchParen = rod.match(/\(([SD\-]+)\)/);
+		if (matchParen && matchParen[1]) {
+			const arr = matchParen[1].split('-').filter(x => x === 'S' || x === 'D') as ('S' | 'D')[];
+			if (arr.length > 0) return arr;
+		}
+
+		const qtd = Math.max(1, parseInt(String(qtdEixosRaw || '1'), 10) || 1);
+		return Array.from({ length: qtd }, (_, idx) => (idx === 0 ? 'S' : 'D'));
+	};
+
+	const contarPneusLayout = (layout: ('S' | 'D')[]) => {
+		return layout.reduce((acc, item) => acc + (item === 'D' ? 4 : 2), 0);
+	};
+
+	const alterarTipoEixoCustom = (index: number, tipoEixo: 'S' | 'D') => {
+		const novo = [...eixosCustom];
+		novo[index] = tipoEixo;
+		setEixosCustom(novo);
+		setMontagemConfirmada(false);
+	};
+
+	const adicionarEixoCustom = () => {
+		setEixosCustom(prev => [...prev, 'D']);
+		setMontagemConfirmada(false);
+	};
+
+	const removerEixoCustom = (index: number) => {
+		if (eixosCustom.length <= 1) return;
+		setEixosCustom(prev => prev.filter((_, i) => i !== index));
+		setMontagemConfirmada(false);
+	};
+
+	const confirmarMontagemOutros = () => {
+		if (eixosCustom.length === 0) {
+			Alert.alert('Atenção', 'Adicione pelo menos 1 eixo para montar o veículo.');
+			return;
+		}
+		const qtd = eixosCustom.length;
+		const configCsv = eixosCustom.join(',');
+		const resumoRodado = `${qtd} ${qtd === 1 ? 'EIXO' : 'EIXOS'} (${eixosCustom.join('-')})`;
+
+		setForm(prev => ({
+			...prev,
+			eixos: String(qtd),
+			eixos_config: configCsv,
+			tipoRodado: resumoRodado
+		}));
+		setMontagemConfirmada(true);
+	};
+
 	useEffect(() => {
+		if (form.tipo?.toUpperCase() === 'OUTROS') return;
 		const r = form.tipoRodado?.toUpperCase();
 		if (['3/4', 'TOCO', '2 EIXOS'].includes(r)) {
 			setForm(f => ({ ...f, eixos: '2' }));
@@ -170,11 +243,10 @@ export default function VeiculosScreen() {
 		} else if (['BI-TRUCK', '4 EIXOS'].includes(r)) {
 			setForm(f => ({ ...f, eixos: '4' }));
 		}
-	}, [form.tipoRodado]);
+	}, [form.tipoRodado, form.tipo]);
 
 	const getRodadoOptions = () => {
 		const t = form.tipo?.toUpperCase();
-		// layout: 'S' = Eixo Simples (2 pneus), 'D' = Eixo Duplo (4 pneus)
 		if (t === 'CAMINHÃO') {
 			return [
 				{ label: '3/4', sub: '2 Eixos • 6 Pneus', value: '3/4', layout: ['S', 'D'] },
@@ -203,18 +275,10 @@ export default function VeiculosScreen() {
 			];
 		}
 
-		return [
-			{ label: '3/4', sub: '2 Eixos • 6 Pneus', value: '3/4', layout: ['S', 'D'] },
-			{ label: 'Toco', sub: '2 Eixos • 6 Pneus', value: 'TOCO', layout: ['S', 'D'] },
-			{ label: 'Truck', sub: '3 Eixos • 10 Pneus', value: 'TRUCK', layout: ['S', 'D', 'D'] },
-			{ label: 'Bi-Truck', sub: '4 Eixos • 12 Pneus', value: 'BI-TRUCK', layout: ['S', 'S', 'D', 'D'] },
-			{ label: '2 Eixos (Imp.)', sub: '8 Pneus', value: '2 EIXOS', layout: ['D', 'D'] },
-			{ label: '3 Eixos (Imp.)', sub: '12 Pneus', value: '3 EIXOS', layout: ['D', 'D', 'D'] },
-			{ label: '4 Eixos (Imp.)', sub: '16 Pneus', value: '4 EIXOS', layout: ['D', 'D', 'D', 'D'] }
-		];
+		return [];
 	};
 
-	const renderMiniChassi = (layout: string[], selecionado: boolean) => {
+	const renderMiniChassi = (layout: string[], selecionado: boolean, mostrarNumeroEixo = false) => {
 		const corPneu = selecionado ? '#0c6ead' : '#444';
 		const corEixo = selecionado ? '#64b5f6' : '#bbb';
 
@@ -223,7 +287,9 @@ export default function VeiculosScreen() {
 				<View style={[styles.miniLongarina, { backgroundColor: corEixo }]} />
 				{layout.map((tipoEixo, idx) => (
 					<View key={idx} style={styles.miniAxleRow}>
-						{/* Lado Esquerdo: alinha encostado na barra do eixo (flex-end) */}
+						{mostrarNumeroEixo && (
+							<Text style={styles.miniAxleIndex}>E{idx + 1}</Text>
+						)}
 						<View style={[styles.miniWheelSide, { justifyContent: 'flex-end' }]}>
 							{tipoEixo === 'D' && <View style={[styles.miniTire, { backgroundColor: corPneu, marginRight: 2 }]} />}
 							<View style={[styles.miniTire, { backgroundColor: corPneu }]} />
@@ -231,11 +297,13 @@ export default function VeiculosScreen() {
 
 						<View style={[styles.miniAxleBar, { backgroundColor: corEixo }]} />
 
-						{/* Lado Direito: alinha encostado na barra do eixo (flex-start) */}
 						<View style={[styles.miniWheelSide, { justifyContent: 'flex-start' }]}>
 							<View style={[styles.miniTire, { backgroundColor: corPneu }]} />
 							{tipoEixo === 'D' && <View style={[styles.miniTire, { backgroundColor: corPneu, marginLeft: 2 }]} />}
 						</View>
+						{mostrarNumeroEixo && (
+							<Text style={styles.miniAxleType}>{tipoEixo === 'D' ? 'Duplo' : 'Simples'}</Text>
+						)}
 					</View>
 				))}
 			</View>
@@ -254,10 +322,14 @@ export default function VeiculosScreen() {
 		const preId = (params.cliente_id as string) || filtroClienteId || '';
 
 		setForm({
-			id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '', marca: '', marca_id: '', modelo: '', modelo_id: '', ano: '', anoModelo: '', cor: '', combustivel: '', tanque: '', qtde_passageiros: '', estepe: '', calibragem_original: '', tipoCarroceria: '', tipoRodado: '', eixos: '', taraKg: '', capacidadeKg: '', capacidadeM3: '',
+			id: '', codigo: '', placa: '', especie: '', tipo: '', uf: '', renavam: '', marca: '', marca_id: '', modelo: '', modelo_id: '', ano: '', anoModelo: '', cor: '', combustivel: '', tanque: '', qtde_passageiros: '', estepe: '', calibragem_original: '',
+			sulco_retirada: '', eixos_config: '',
+			tipoCarroceria: '', tipoRodado: '', eixos: '', taraKg: '', capacidadeKg: '', capacidadeM3: '',
 			proprietario: preNome, proprietario_id: preId,
 			tipoProprietario: '', rntrc: '', proprietarioUf: '', vencimento_crlv: '', vencimento_civ: '', vencimento_cipp: ''
 		});
+		setEixosCustom(['S']);
+		setMontagemConfirmada(false);
 		setFotosNovas([]);
 		setFotosAntigas([]);
 		setIsEditing(false);
@@ -265,6 +337,19 @@ export default function VeiculosScreen() {
 	};
 
 	const handleEditar = (v: any) => {
+		const tipoUpper = String(v.tipo || '').toUpperCase();
+		const configSalva = v.eixos_config || v.veic_tx_eixosConfig || '';
+		const sulcoSalvo = v.sulco_retirada || v.veic_tx_sulcoRetirada || '';
+
+		if (tipoUpper === 'OUTROS') {
+			const layoutCarregado = parseEixosConfig(configSalva, v.rodado, v.eixos);
+			setEixosCustom(layoutCarregado);
+			setMontagemConfirmada(true);
+		} else {
+			setEixosCustom(['S']);
+			setMontagemConfirmada(false);
+		}
+
 		setForm({
 			id: v.id ? v.id.toString() : '', codigo: v.codigo || '', placa: v.placa || '',
 			especie: v.especie || '', tipo: v.tipo || '', uf: v.uf || '', renavam: v.renavam || '',
@@ -273,6 +358,8 @@ export default function VeiculosScreen() {
 			ano: v.ano || '', anoModelo: v.anoModelo || '', cor: v.cor || '',
 			combustivel: v.combustivel || '', tanque: v.tanque || '', qtde_passageiros: v.qtde_passageiros || '',
 			estepe: v.estepe ? v.estepe.toString() : '', calibragem_original: v.calibragem_padrao || '',
+			sulco_retirada: sulcoSalvo ? String(sulcoSalvo) : '',
+			eixos_config: tipoUpper === 'OUTROS' ? (configSalva || parseEixosConfig(configSalva, v.rodado, v.eixos).join(',')) : '',
 			tipoCarroceria: v.tipoCarroceria || '', tipoRodado: v.rodado || '', eixos: v.eixos ? v.eixos.toString() : '',
 			taraKg: v.taraKg || '', capacidadeKg: v.capacidadeKg || '', capacidadeM3: v.capacidadeM3 || '',
 			proprietario: v.proprietario || '', proprietario_id: v.proprietario_id || '',
@@ -353,16 +440,26 @@ export default function VeiculosScreen() {
 	const removerFotoNova = (index: number) => { setFotosNovas(fotosNovas.filter((_, i) => i !== index)); };
 
 	const salvarVeiculo = async () => {
-		if (
-			!form.proprietario_id ||
-			!form.tipo ||
-			!form.tipoRodado ||
-			!form.estepe
-		) {
+		const ehOutros = form.tipo?.toUpperCase() === 'OUTROS';
+
+		if (!form.proprietario_id || !form.tipo || !form.estepe) {
 			Alert.alert(
 				'Atenção',
-				'Preencha os campos obrigatórios: Cliente, Tipo Veículo, Tipo Rodado e Estepe.'
+				'Preencha os campos obrigatórios: Cliente, Tipo Veículo e Estepe.'
 			);
+			return;
+		}
+
+		if (ehOutros) {
+			if (!montagemConfirmada || eixosCustom.length === 0) {
+				Alert.alert(
+					'Atenção',
+					'Monte os eixos (Simples ou Duplo) e toque em "Confirmar e Montar" antes de gravar.'
+				);
+				return;
+			}
+		} else if (!form.tipoRodado) {
+			Alert.alert('Atenção', 'Selecione o Modelo de Rodado do veículo.');
 			return;
 		}
 
@@ -375,12 +472,22 @@ export default function VeiculosScreen() {
 			? form.codigo.trim().toUpperCase()
 			: `C-${timestampAleatorio}`;
 
+		const eixosFinal = ehOutros ? String(eixosCustom.length) : form.eixos;
+		const eixosConfigFinal = ehOutros ? eixosCustom.join(',') : '';
+		const tipoRodadoFinal = ehOutros
+			? `${eixosCustom.length} ${eixosCustom.length === 1 ? 'EIXO' : 'EIXOS'} (${eixosCustom.join('-')})`
+			: form.tipoRodado;
+
 		setIsSaving(true);
 		try {
 			const payload = {
 				...form,
 				placa: placaLimpa,
 				codigo: codigoLimpo,
+				eixos: eixosFinal,
+				eixos_config: eixosConfigFinal,
+				tipoRodado: tipoRodadoFinal,
+				sulco_retirada: form.sulco_retirada ? form.sulco_retirada.replace(',', '.').trim() : '',
 				marca_id: form.marca_id ? String(form.marca_id) : null,
 				modelo_id: form.modelo_id ? String(form.modelo_id) : null,
 				fotosAntigas_mantidas: fotosAntigas,
@@ -388,7 +495,6 @@ export default function VeiculosScreen() {
 			};
 
 			const res = await apiService.salvarVeiculoGeral(payload);
-			console.log("RETORNO DO SALVAR VEICULO:", JSON.stringify(res));
 			if (!isMounted.current) return;
 
 			const deuCerto = (res && res.success === true) || (res && res.id) || (res && String(res).includes('sucesso'));
@@ -505,12 +611,7 @@ export default function VeiculosScreen() {
 				<TextInput
 					style={styles.input}
 					value={formCadastro.nome}
-					onChangeText={t =>
-						setFormCadastro({
-							...formCadastro,
-							nome: t
-						})
-					}
+					onChangeText={t => setFormCadastro({ ...formCadastro, nome: t })}
 					placeholder={
 						tipoBusca === 'entidade'
 							? 'Nome do Cliente...'
@@ -530,6 +631,8 @@ export default function VeiculosScreen() {
 	);
 
 	const PickerIcon = () => <Feather name="chevron-down" size={20} color="#666" style={{ marginTop: 14, marginRight: 12 }} />;
+
+	const ehTipoOutros = form.tipo?.toUpperCase() === 'OUTROS';
 
 	return (
 		<View style={styles.container}>
@@ -616,78 +719,81 @@ export default function VeiculosScreen() {
 				<FlatList
 					data={veiculos}
 					keyExtractor={(item, index) => String(item?.id || index)}
-
 					initialNumToRender={10}
 					maxToRenderPerBatch={10}
 					windowSize={5}
 					removeClippedSubviews={true}
-
 					contentContainerStyle={{ paddingBottom: 40 }}
 					showsVerticalScrollIndicator={false}
-					renderItem={({ item }) => (
-						<View style={styles.card}>
-							<View style={styles.cardHeader}>
-								<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo || item.id} - {item.placa}</Text>
-								<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}>
-									<Text style={[styles.statusText, { color: '#1967d2' }]}>{item.tipo || 'VEÍCULO'}</Text>
+					renderItem={({ item }) => {
+						const sulcoRet = item.sulco_retirada || item.veic_tx_sulcoRetirada;
+						return (
+							<View style={styles.card}>
+								<View style={styles.cardHeader}>
+									<Text style={styles.cardClient} numberOfLines={1}>#{item.codigo || item.id} - {item.placa}</Text>
+									<View style={[styles.statusBadge, { backgroundColor: '#e8f0fe' }]}>
+										<Text style={[styles.statusText, { color: '#1967d2' }]}>{item.tipo || 'VEÍCULO'}</Text>
+									</View>
+								</View>
+
+								<View style={styles.cardInfoBox}>
+									<View style={styles.cardInfoRow}>
+										<MaterialCommunityIcons name="truck-outline" size={16} color="#666" style={{ marginRight: 8 }} />
+										<Text style={styles.cardInfoText}>Marca: #{item.marca_id || '--'} {item.marca} - {item.modelo}</Text>
+									</View>
+									<View style={styles.cardInfoRow}>
+										<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
+										<Text style={styles.cardInfoText}>
+											Rodado: {item.rodado} • {item.eixos} Eixos{sulcoRet ? ` • Retirada: ${sulcoRet}mm` : ''}
+										</Text>
+									</View>
+									<View style={styles.cardInfoRow}>
+										<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
+										<Text style={styles.cardInfoText}>Cliente: {item.proprietario || 'N/A'}</Text>
+									</View>
+								</View>
+
+								<View style={styles.cardActions}>
+									<View style={styles.actionButtonsRow}>
+										<TouchableOpacity
+											style={styles.btnActionSecondary}
+											onPress={() => router.push({
+												pathname: '/checklist',
+												params: {
+													veiculo_id: item.id,
+													placa: item.placa,
+													eixos: item.eixos,
+													rodado: item.rodado,
+													cliente_id: item.proprietario_id || params?.cliente_id || '',
+													cliente_nome: item.proprietario || params?.cliente_nome || ''
+												}
+											})}
+										>
+											<Feather name="clipboard" size={14} color="#333" />
+											<Text style={styles.btnActionTextSecondary}>Diagnóstico 360º</Text>
+										</TouchableOpacity>
+
+										<TouchableOpacity
+											style={styles.btnEditarCard}
+											onPress={() => handleEditar(item)}
+										>
+											<Feather name="edit-2" size={14} color="#ffffff" />
+											<Text style={styles.btnEditarCardText}>Editar</Text>
+										</TouchableOpacity>
+
+										<TouchableOpacity
+											style={styles.btnExcluirCard}
+											onPress={() => excluirVeiculo(item.id)}
+										>
+											<Feather name="trash-2" size={14} color="#ffffff" />
+											<Text style={styles.btnExcluirCardText}>Excluir</Text>
+										</TouchableOpacity>
+
+									</View>
 								</View>
 							</View>
-
-							<View style={styles.cardInfoBox}>
-								<View style={styles.cardInfoRow}>
-									<MaterialCommunityIcons name="truck-outline" size={16} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}>Marca: #{item.marca_id || '--'} {item.marca} - {item.modelo}</Text>
-								</View>
-								<View style={styles.cardInfoRow}>
-									<Feather name="info" size={14} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}>Rodado: {item.rodado} • {item.eixos} Eixos</Text>
-								</View>
-								<View style={styles.cardInfoRow}>
-									<Feather name="user" size={14} color="#666" style={{ marginRight: 8 }} />
-									<Text style={styles.cardInfoText}>Cliente: {item.proprietario || 'N/A'}</Text>
-								</View>
-							</View>
-
-							<View style={styles.cardActions}>
-								<View style={styles.actionButtonsRow}>
-									<TouchableOpacity
-										style={styles.btnActionSecondary}
-										onPress={() => router.push({
-											pathname: '/checklist',
-											params: {
-												veiculo_id: item.id,
-												placa: item.placa,
-												eixos: item.eixos,
-												rodado: item.rodado,
-												cliente_id: item.proprietario_id || params?.cliente_id || '',
-												cliente_nome: item.proprietario || params?.cliente_nome || ''
-											}
-										})}
-									>
-										<Feather name="clipboard" size={14} color="#333" />
-										<Text style={styles.btnActionTextSecondary}>Diagnóstico 360º</Text>
-									</TouchableOpacity>
-
-									<TouchableOpacity
-										style={styles.btnEditarCard}
-										onPress={() => handleEditar(item)}
-									>
-										<Feather name="edit-2" size={14} color="#ffffff" />
-										<Text style={styles.btnEditarCardText}>Editar</Text>
-									</TouchableOpacity>
-
-									<TouchableOpacity
-										style={styles.btnExcluirCard}
-										onPress={() => excluirVeiculo(item.id)}
-									>
-										<Feather name="trash-2" size={14} color="#ffffff" />
-										<Text style={styles.btnExcluirCardText}>Excluir</Text>
-									</TouchableOpacity>
-
-								</View>
-							</View>
-						</View>
-					)}
+						);
+					}}
 					ListEmptyComponent={!isLoading ? <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>Nenhum veículo encontrado.</Text> : undefined}
 				/>
 			)}
@@ -716,7 +822,7 @@ export default function VeiculosScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
+						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
 							<Text style={styles.groupTitle}>1. Informações do Veículo</Text>
 
 							<View style={styles.inputGroupFull}>
@@ -796,6 +902,17 @@ export default function VeiculosScreen() {
 								</View>
 							</View>
 
+							<View style={styles.inputGroupFull}>
+								<Text style={styles.label}>Sulco de Retirada (mm)</Text>
+								<TextInput
+									style={styles.input}
+									value={form.sulco_retirada}
+									onChangeText={t => setForm({ ...form, sulco_retirada: formatarDecimal(t) })}
+									keyboardType="decimal-pad"
+									placeholder="Ex: 3.0 (Limite mínimo para retirada do pneu)"
+								/>
+							</View>
+
 							<Text style={styles.groupTitle}>2. Configurações do Veículo</Text>
 
 							<View style={styles.inputGroupFull}>
@@ -806,7 +923,7 @@ export default function VeiculosScreen() {
 										{ label: 'Cavalo', value: 'CAVALO', icon: 'truck-fast' },
 										{ label: 'Dolly', value: 'DOLLY', icon: 'link-variant' },
 										{ label: 'Semi-Reboque', value: 'CARRETA', icon: 'truck-trailer' },
-										{ label: 'Outros', value: 'OUTROS', icon: 'truck-Cargo-container' }
+										{ label: 'Outros', value: 'OUTROS', icon: 'truck-cargo-container' }
 									].map((item) => {
 										const ativo = form.tipo?.toUpperCase() === item.value;
 										return (
@@ -814,17 +931,31 @@ export default function VeiculosScreen() {
 												key={item.value}
 												style={[styles.btnTipoVeiculo, ativo && styles.btnTipoVeiculoAtivo]}
 												onPress={() => {
-													const opcoesPadrao = item.value === 'DOLLY' ? '2 EIXOS' : '';
-													setForm({
-														...form,
-														tipo: item.value,
-														tipoRodado: opcoesPadrao
-													});
+													if (item.value === 'OUTROS') {
+														setEixosCustom(['S']);
+														setMontagemConfirmada(false);
+														setForm({
+															...form,
+															tipo: item.value,
+															tipoRodado: '',
+															eixos: '',
+															eixos_config: ''
+														});
+													} else {
+														const opcoesPadrao = item.value === 'DOLLY' ? '2 EIXOS' : '';
+														setMontagemConfirmada(false);
+														setForm({
+															...form,
+															tipo: item.value,
+															tipoRodado: opcoesPadrao,
+															eixos_config: ''
+														});
+													}
 												}}
 												activeOpacity={0.75}
 											>
 												<MaterialCommunityIcons
-													name={item.icon === 'truck-Cargo-container' ? 'truck-cargo-container' : (item.icon as any)}
+													name={item.icon as any}
 													size={22}
 													color={ativo ? '#fff' : '#0c6ead'}
 												/>
@@ -838,13 +969,83 @@ export default function VeiculosScreen() {
 							</View>
 
 							<View style={[styles.inputGroupFull, { marginTop: 10 }]}>
-								<Text style={styles.label}>* Modelo de Rodado (Toque para selecionar)</Text>
+								<Text style={styles.label}>
+									{ehTipoOutros ? '* Montagem de Eixos (Simples / Duplo)' : '* Modelo de Rodado (Toque para selecionar)'}
+								</Text>
+
 								{!form.tipo ? (
 									<View style={styles.avisoSelecioneTipo}>
 										<Feather name="info" size={16} color="#0c6ead" />
 										<Text style={styles.avisoSelecioneTipoText}>
-											Selecione primeiro o Tipo de Veículo acima para ver os modelos de rodado.
+											Selecione primeiro o Tipo de Veículo acima para configurar os eixos.
 										</Text>
+									</View>
+								) : ehTipoOutros ? (
+									<View style={styles.builderContainer}>
+										{eixosCustom.map((tipoEixo, idx) => (
+											<View key={`eixo_custom_${idx}`} style={styles.builderAxleRow}>
+												<View style={styles.builderAxleBadge}>
+													<Text style={styles.builderAxleBadgeText}>Eixo {idx + 1}</Text>
+												</View>
+
+												<View style={styles.builderToggleGroup}>
+													<TouchableOpacity
+														style={[styles.builderToggleBtn, tipoEixo === 'S' && styles.builderToggleBtnAtivo]}
+														onPress={() => alterarTipoEixoCustom(idx, 'S')}
+													>
+														<Text style={[styles.builderToggleText, tipoEixo === 'S' && styles.builderToggleTextAtivo]}>
+															Simples (2)
+														</Text>
+													</TouchableOpacity>
+
+													<TouchableOpacity
+														style={[styles.builderToggleBtn, tipoEixo === 'D' && styles.builderToggleBtnAtivo]}
+														onPress={() => alterarTipoEixoCustom(idx, 'D')}
+													>
+														<Text style={[styles.builderToggleText, tipoEixo === 'D' && styles.builderToggleTextAtivo]}>
+															Duplo (4)
+														</Text>
+													</TouchableOpacity>
+												</View>
+
+												{eixosCustom.length > 1 && (
+													<TouchableOpacity
+														style={styles.builderRemoveBtn}
+														onPress={() => removerEixoCustom(idx)}
+													>
+														<Feather name="trash-2" size={16} color="#E53935" />
+													</TouchableOpacity>
+												)}
+											</View>
+										))}
+
+										<TouchableOpacity style={styles.btnAddEixo} onPress={adicionarEixoCustom}>
+											<Feather name="plus-circle" size={18} color="#0c6ead" />
+											<Text style={styles.btnAddEixoText}>Adicionar Eixo</Text>
+										</TouchableOpacity>
+
+										<TouchableOpacity
+											style={[styles.btnConfirmarEixos, montagemConfirmada && styles.btnConfirmarEixosConfirmado]}
+											onPress={confirmarMontagemOutros}
+										>
+											<Feather name={montagemConfirmada ? 'check-circle' : 'layers'} size={18} color="#fff" />
+											<Text style={styles.btnConfirmarEixosText}>
+												{montagemConfirmada ? 'Montagem Confirmada' : 'Confirmar e Montar Chassi'}
+											</Text>
+										</TouchableOpacity>
+
+										{montagemConfirmada && (
+											<View style={styles.previewCustomCard}>
+												<View style={styles.cardRodadoHeader}>
+													<Feather name="check-circle" size={16} color="#2e7d32" />
+													<Text style={[styles.cardRodadoTitulo, { color: '#2e7d32' }]}>
+														Chassi Montado ({eixosCustom.length} {eixosCustom.length === 1 ? 'Eixo' : 'Eixos'} • {contarPneusLayout(eixosCustom)} Pneus)
+													</Text>
+												</View>
+												<Text style={styles.cardRodadoSub}>Configuração: {eixosCustom.join(' - ')}</Text>
+												{renderMiniChassi(eixosCustom, true, true)}
+											</View>
+										)}
 									</View>
 								) : (
 									<View style={styles.rodadoGrid}>
@@ -944,7 +1145,6 @@ export default function VeiculosScreen() {
 							</View>
 						)}
 
-						{/* Componente Genérico Substituindo a Busca Manual Antiga */}
 						<ModalBuscaDinamica
 							visible={modalBuscaVisible}
 							onClose={() => setModalBuscaVisible(false)}
@@ -1110,6 +1310,21 @@ const styles = StyleSheet.create({
 		marginVertical: 4,
 		zIndex: 2
 	},
+	miniAxleIndex: {
+		fontSize: 10,
+		fontWeight: 'bold',
+		color: '#555',
+		width: 24,
+		textAlign: 'right',
+		marginRight: 6
+	},
+	miniAxleType: {
+		fontSize: 10,
+		fontWeight: '600',
+		color: '#555',
+		width: 42,
+		marginLeft: 6
+	},
 	miniWheelSide: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -1125,6 +1340,115 @@ const styles = StyleSheet.create({
 		width: 6,
 		height: 14,
 		borderRadius: 2
+	},
+
+	builderContainer: {
+		backgroundColor: '#f8fafc',
+		borderWidth: 1,
+		borderColor: '#dce3eb',
+		borderRadius: 12,
+		padding: 12,
+		marginBottom: 15
+	},
+	builderAxleRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#fff',
+		borderWidth: 1,
+		borderColor: '#e2e8f0',
+		borderRadius: 8,
+		padding: 8,
+		marginBottom: 8,
+		gap: 8
+	},
+	builderAxleBadge: {
+		backgroundColor: '#e8f0fe',
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 6,
+		minWidth: 58,
+		alignItems: 'center'
+	},
+	builderAxleBadgeText: {
+		fontSize: 12,
+		fontWeight: 'bold',
+		color: '#0c6ead'
+	},
+	builderToggleGroup: {
+		flex: 1,
+		flexDirection: 'row',
+		gap: 6
+	},
+	builderToggleBtn: {
+		flex: 1,
+		paddingVertical: 8,
+		borderRadius: 6,
+		borderWidth: 1,
+		borderColor: '#d0d7de',
+		backgroundColor: '#f4f6f8',
+		alignItems: 'center'
+	},
+	builderToggleBtnAtivo: {
+		backgroundColor: '#0c6ead',
+		borderColor: '#0c6ead'
+	},
+	builderToggleText: {
+		fontSize: 12,
+		fontWeight: 'bold',
+		color: '#555'
+	},
+	builderToggleTextAtivo: {
+		color: '#fff'
+	},
+	builderRemoveBtn: {
+		padding: 6,
+		borderRadius: 6,
+		backgroundColor: '#ffebee'
+	},
+	btnAddEixo: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: 1.5,
+		borderStyle: 'dashed',
+		borderColor: '#0c6ead',
+		backgroundColor: '#f0f7ff',
+		borderRadius: 8,
+		paddingVertical: 11,
+		marginTop: 4,
+		marginBottom: 10
+	},
+	btnAddEixoText: {
+		fontSize: 14,
+		fontWeight: 'bold',
+		color: '#0c6ead',
+		marginLeft: 8
+	},
+	btnConfirmarEixos: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: '#0c6ead',
+		borderRadius: 8,
+		paddingVertical: 12
+	},
+	btnConfirmarEixosConfirmado: {
+		backgroundColor: '#2e7d32'
+	},
+	btnConfirmarEixosText: {
+		fontSize: 14,
+		fontWeight: 'bold',
+		color: '#fff',
+		marginLeft: 8
+	},
+	previewCustomCard: {
+		marginTop: 12,
+		backgroundColor: '#f1f8e9',
+		borderWidth: 1.5,
+		borderColor: '#81c784',
+		borderRadius: 10,
+		padding: 12,
+		alignItems: 'center'
 	},
 
 	inputWithIcon: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },

@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ChassiCaminhao } from '../../src/components/ChassiCaminhao';
 import { ModalBuscaDinamica } from '../../src/components/ModalBuscaDinamica';
 import { ModalFormularioSimples } from '../../src/components/ModalFormularioSimples';
-import { apiService } from '../../src/services/apiService';
+import { api, apiService } from '../../src/services/apiService';
 
 interface Veiculo {
 	id: number;
@@ -111,8 +111,16 @@ export default function ChecklistScreen() {
 
 	const [isSomenteLeitura, setIsSomenteLeitura] = useState(false);
 	const [valorPodeEditar, setValorPodeEditar] = useState(true);
-	const [pneuPodeSerRetirado, setPneuPodeSerRetirado] = useState(false);
 	const [isRetirandoPneu, setIsRetirandoPneu] = useState(false);
+
+	const [modalRetirarVisible, setModalRetirarVisible] = useState(false);
+	const [dadosRetirada, setDadosRetirada] = useState<{ codigoPneu: string; dbData: any; cadastroERetirada?: boolean } | null>(null);
+	const [motivoRetirada, setMotivoRetirada] = useState('');
+	const [buscaMotivoVisible, setBuscaMotivoVisible] = useState(false);
+	const [termoBuscaMotivo, setTermoBuscaMotivo] = useState('');
+	const [resultadosMotivo, setResultadosMotivo] = useState<any[]>([]);
+	const [isBuscandoMotivo, setIsBuscandoMotivo] = useState(false);
+	const [cadastroMotivoVisible, setCadastroMotivoVisible] = useState(false);
 
 	const [formPneu, setFormPneu] = useState({
 		id: '', referencia: '', referencia_nome: '', marca: '', modelo: '',
@@ -121,6 +129,11 @@ export default function ChecklistScreen() {
 		grau: '', banda: '', banda_nome: '', reformador: '', reformador_id: '', observacao: '', motivo_recusa: '',
 		ref_mm_original: '', ref_valor: '', sulco_anterior: ''
 	});
+
+	const isAdminUsuario = ['ADMINISTRADOR', 'DIRETORIA'].includes(String(user?.nivel || '').toUpperCase());
+	const indiceChecklistAtivo = historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo));
+	const isChecklistMaisRecente = indiceChecklistAtivo <= 0;
+	const podeRetirarNoChecklistAtual = !isSomenteLeitura && (isChecklistMaisRecente || isAdminUsuario);
 
 	const abrirModalPreview = async (url: string, nomeDoArquivo: string, tipoDoc: string, subtituloDoc: string) => {
 		setPreviewData({ url, nome: nomeDoArquivo, tipo: tipoDoc, subtitulo: subtituloDoc });
@@ -191,6 +204,7 @@ export default function ChecklistScreen() {
 				setImplementos([]);
 				setHistorico([]);
 				setIdChecklistAtivo(null);
+				setIsSomenteLeitura(false);
 				setDadosPneus({});
 				setPneusPendentes([]);
 				setPosicoesRetiradas([]);
@@ -450,6 +464,7 @@ export default function ChecklistScreen() {
 		setIsLoading(false);
 		if (res && res.success) {
 			setModalNovoChecklist(false);
+			setIsSomenteLeitura(false);
 			setIdChecklistAtivo(res.checklist_id);
 			setFormNovoCheck({ motorista: '', odometro: '' });
 			setPosicoesRetiradas([]);
@@ -505,6 +520,7 @@ export default function ChecklistScreen() {
 		}
 
 		setIdChecklistAtivo(null);
+		setIsSomenteLeitura(false);
 		setImplementos([]);
 		setPosicoesRetiradas([]);
 		setPneusRecusados([]);
@@ -560,11 +576,8 @@ export default function ChecklistScreen() {
 		);
 	};
 
-	const abrirEdicaoPneu = (codigoPneu: string, dbData: any, bloquearValorPorHistorico = false) => {
+	const abrirEdicaoPneu = (codigoPneu: string, dbData: any) => {
 		setPneuSelecionado(codigoPneu);
-		const jaExistePneuNaPosicao = Boolean(bloquearValorPorHistorico || dbData?.pneu_nb_id || dbData?.id || dbData?.pneu_id_origem || dbData?.pneu_tx_serie || dbData?.pneu_tx_modelo);
-		setPneuPodeSerRetirado(jaExistePneuNaPosicao);
-
 		setValorPodeEditar(!isSomenteLeitura);
 
 		const valorCarregadoRaw = dbData?.valor_carregado ?? dbData?.pneu_tx_valor ?? '';
@@ -622,65 +635,465 @@ export default function ChecklistScreen() {
 			if (isPendente) {
 				dbData.pneu_nb_id = ''; dbData.id = ''; dbData.pneu_tx_foto = ''; dbData.tem_checklist_anterior = true; dbData.valor_editavel = true;
 			}
-			abrirEdicaoPneu(codigoPneu, dbData, isPendente);
+			abrirEdicaoPneu(codigoPneu, dbData);
 		}
 	};
 
-	const retirarPneu = (codigoPneu: string, dbData: any) => {
-		if (isSomenteLeitura) { Alert.alert('Modo Leitura', 'Este diagnóstico não permite retirada de pneus.'); return; }
+	const validarCamposFormularioPneu = () => {
+		if (!formPneu.milimetros || !formPneu.pressao) { Alert.alert('Atenção', 'Sulco e Calibração são obrigatórios.'); return false; }
+		if (!formPneu.referencia) { Alert.alert('Atenção', 'A Referência do pneu é obrigatória.'); return false; }
+		if (!formPneu.marca || !formPneu.modelo) { Alert.alert('Atenção', 'A Marca e o Modelo são obrigatórios.'); return false; }
 
-		const indiceChecklist = historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo));
-		const checklistMaisRecente = indiceChecklist === -1 || indiceChecklist === 0;
+		if (formPneu.dot && formPneu.dot !== 'S/A') {
+			if (formPneu.dot.length !== 4) { Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.'); return false; }
+			const semana = parseInt(formPneu.dot.substring(0, 2));
+			if (semana < 1 || semana > 53) { Alert.alert('Atenção', 'As duas primeiras posições do DOT representam a semana de fabricação e devem estar entre 01 e 53.'); return false; }
+		}
+		if (!formPneu.tipo) { Alert.alert('Atenção', 'O campo Tipo é obrigatório.'); return false; }
 
-		if (!checklistMaisRecente) { Alert.alert('Atenção', 'A retirada de pneus só pode ser feita no diagnóstico mais recente.'); return; }
+		const sulcoAtualNum = parseFloat(formPneu.milimetros ? formPneu.milimetros.toString().replace(',', '.') : '0');
+		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original || formPneu.ref_mm_original).replace(',', '.'));
+
+		if (!isNaN(sulcoOriginalNum) && sulcoOriginalNum > 0 && !isNaN(sulcoAtualNum) && sulcoAtualNum > sulcoOriginalNum) {
+			Alert.alert('Sulco Inválido', `O sulco atual (${sulcoAtualNum}mm) não pode ser maior que o sulco original do pneu (${sulcoOriginalNum}mm).`);
+			return false;
+		}
+
+		const sulcoAnteriorNum = parseFloat(formPneu.sulco_anterior ? formPneu.sulco_anterior.toString().replace(',', '.') : '0');
+		if (!isNaN(sulcoAnteriorNum) && sulcoAnteriorNum > 0) {
+			if (sulcoAtualNum > sulcoAnteriorNum) { Alert.alert('Aferição Inválida', `O sulco atual não pode ser maior que o anterior!\nA última aferição registrou ${formPneu.sulco_anterior}mm.`); return false; }
+		}
+
+		return true;
+	};
+
+	const montarPayloadSalvarPneu = (atualizarGlobal: 'sim' | 'nao') => {
+		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
+		const fotosAntigasLimpas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.substring(f.lastIndexOf('/') + 1));
+		const stringFotosAntigas = fotosAntigasLimpas.join(',');
+		const valorLimpo = formPneu.valor ? formPneu.valor.toString().replace(/\./g, '').replace(',', '.') : '0';
+
+		return {
+			...formPneu,
+			referencia: formPneu.referencia,
+			referencia_id: formPneu.referencia,
+			marca: formPneu.marca,
+			modelo: formPneu.modelo,
+			mm_original: formPneu.mm_original || formPneu.ref_mm_original,
+			motivo_recusa: '',
+			laud_tx_motivo: '',
+			reformador_id: formPneu.reformador_id,
+			reformador_nome: formPneu.reformador,
+			pneu_tx_reformador: formPneu.reformador,
+			valor: valorLimpo,
+			atualizar_preco_global: atualizarGlobal,
+			veiculo_id: veiculo?.id,
+			checklist_id: idChecklistAtivo,
+			posicao: pneuSelecionado,
+			user_id: user?.id,
+			fotos_novas: fotosNovas,
+			fotos: fotosNovas,
+			fotos_antigas: fotosAntigasLimpas,
+			fotosAntigas: fotosAntigasLimpas,
+			fotosAntigas_mantidas: fotosAntigasLimpas,
+			pneu_tx_foto_antiga: stringFotosAntigas,
+			foto_antiga: stringFotosAntigas
+		};
+	};
+
+	const buscarMotivosRetirada = async (termo = '') => {
+		setIsBuscandoMotivo(true);
+		try {
+			const res = await apiService.buscarDinamica('motivo_laudo', termo);
+			if (isMounted.current) {
+				setResultadosMotivo(res && res.success && Array.isArray(res.data) ? res.data : []);
+			}
+		} catch (e) {
+			if (isMounted.current) setResultadosMotivo([]);
+		} finally {
+			if (isMounted.current) setIsBuscandoMotivo(false);
+		}
+	};
+
+	const abrirBuscaMotivoRetirada = () => {
+		setTermoBuscaMotivo('');
+		setResultadosMotivo([]);
+		setBuscaMotivoVisible(true);
+		buscarMotivosRetirada('');
+	};
+
+	const abrirCadastroMotivoRetirada = (termoDigitado = '') => {
+		setModoNovaRegiao(false);
+		setFormCadastro({
+			nome: termoDigitado.trim(),
+			marca: '',
+			modelo: '',
+			mmOriginal: '',
+			valor: '',
+			sulco: '',
+			categoria_id: '',
+			regiao: ''
+		});
+		carregarCategoriasDano();
+		setBuscaMotivoVisible(false);
+		setCadastroMotivoVisible(true);
+	};
+
+	const salvarNovoMotivoRetirada = async () => {
+		if (!formCadastro.regiao) { Alert.alert('Atenção', 'Selecione ou digite a região do pneu.'); return; }
+		if (!formCadastro.categoria_id) { Alert.alert('Atenção', 'Selecione a categoria do dano.'); return; }
+		if (!formCadastro.nome.trim()) { Alert.alert('Atenção', 'Preencha o nome do motivo/dano.'); return; }
+
+		setIsCadastrando(true);
+		try {
+			const response = await api.post('api_pneu_cadastro_rapido.php', {
+				tipo: 'motivo_laudo',
+				nome: formCadastro.nome.trim().toUpperCase(),
+				regiao: formCadastro.regiao.trim().toUpperCase(),
+				categoria_id: formCadastro.categoria_id
+			});
+			const res = response.data;
+			if (!isMounted.current) return;
+
+			if (res && res.success) {
+				setMotivoRetirada(res.nome || formCadastro.nome.trim().toUpperCase());
+				setCadastroMotivoVisible(false);
+			} else {
+				Alert.alert('Erro', res?.message || 'Falha ao cadastrar o motivo.');
+			}
+		} catch (e) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão ao cadastrar motivo.');
+		} finally {
+			if (isMounted.current) setIsCadastrando(false);
+		}
+	};
+
+	const retirarPneu = (codigoPneu: string, dbData: any, vindoDaEdicao = false) => {
+		if (!podeRetirarNoChecklistAtual) {
+			Alert.alert('Atenção', 'A retirada de pneus só é permitida no diagnóstico mais recente ou por Administradores.');
+			return;
+		}
 
 		const dados = dbData || {};
 		const pneuId = Number(dados.pneu_nb_id || dados.id || 0);
-		const ehPneuPendente = pneusPendentes.includes(codigoPneu) || pneuId <= 0;
+		const pneuIdOrigem = Number(dados.pneu_id_origem || 0);
+		const cadastroERetirada = vindoDaEdicao && pneuId <= 0 && pneuIdOrigem <= 0;
 
-		Alert.alert(
-			'Retirar Pneu',
-			`Deseja realmente retirar o pneu da posição ${codigoPneu}?\nA posição ficará livre para cadastrar um novo pneu.`,
-			[
-				{ text: 'Cancelar', style: 'cancel' },
-				{
-					text: 'Retirar',
-					style: 'destructive',
-					onPress: async () => {
-						if (ehPneuPendente) {
-							setPosicoesRetiradas(prev => Array.from(new Set([...prev, codigoPneu])));
-							setDadosPneus(prev => { const novo = { ...prev }; delete novo[codigoPneu]; return novo; });
-							setPneusPendentes(prev => prev.filter(p => p !== codigoPneu));
-							setModalPneuVisible(false);
-							setModalViewPneuVisible(false);
-							Alert.alert('Posição Liberada', 'O pneu anterior foi retirado desta posição. Toque na posição novamente para cadastrar o novo pneu.');
-							return;
-						}
+		if (cadastroERetirada) {
+			if (!validarCamposFormularioPneu()) return;
+		}
 
-						setIsRetirandoPneu(true);
-						try {
-							const response = await fetch('https://sistemascactus.com.br/apicactus/akipneus/api_pneu_retirar.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pneu_id: pneuId, checklist_id: dados.pneu_nb_checklist || idChecklistAtivo, veiculo_id: dados.pneu_nb_veiculo || veiculo?.id }) });
-							const res = await response.json();
-							if (!isMounted.current) return;
+		setDadosRetirada({ codigoPneu, dbData: dados, cadastroERetirada });
+		setMotivoRetirada('');
+		setBuscaMotivoVisible(false);
+		setCadastroMotivoVisible(false);
+		setModalRetirarVisible(true);
+	};
 
-							if (!res?.success) { Alert.alert('Erro', res?.message || 'Não foi possível retirar o pneu.'); return; }
+	const confirmarRetiradaPneu = async () => {
+		if (!dadosRetirada) return;
+		const { codigoPneu, dbData, cadastroERetirada } = dadosRetirada;
+		const dados = dbData || {};
+		let pneuId = Number(dados.pneu_nb_id || dados.id || 0);
+		const pneuIdOrigem = Number(dados.pneu_id_origem || 0);
+		const motivoLimpo = motivoRetirada.trim();
 
-							setPosicoesRetiradas(prev => Array.from(new Set([...prev, codigoPneu])));
-							setDadosPneus(prev => { const novo = { ...prev }; delete novo[codigoPneu]; return novo; });
-							setPneusPendentes(prev => prev.filter(p => p !== codigoPneu));
-							setModalPneuVisible(false);
-							setModalViewPneuVisible(false);
+		setIsRetirandoPneu(true);
+		try {
+			// Se o técnico preencheu um pneu novo na hora e já clicou em Retirar Pneu, grava o pneu antes de retirar
+			if (cadastroERetirada && pneuId <= 0 && pneuIdOrigem <= 0) {
+				const payloadNovo = montarPayloadSalvarPneu('nao');
+				const resSave = await apiService.salvarInspecaoPneu(payloadNovo);
+				if (!isMounted.current) return;
 
-							if (idChecklistAtivo) { await carregarCoresPneus(idChecklistAtivo, [codigoPneu]); }
-							Alert.alert('Sucesso', res.message || 'Pneu retirado do veículo com sucesso.');
-						} catch (error) {
-							if (isMounted.current) { Alert.alert('Erro', 'Falha na conexão ao retirar o pneu.'); }
-						} finally {
-							if (isMounted.current) setIsRetirandoPneu(false);
-						}
-					}
+				if (!resSave || !resSave.success || !resSave.pneu_id) {
+					Alert.alert('Erro', resSave?.message || 'Não foi possível cadastrar o pneu antes de retirar.');
+					return;
 				}
-			]
+				pneuId = Number(resSave.pneu_id);
+			}
+
+			if (pneuId <= 0 && pneuIdOrigem <= 0) {
+				setPosicoesRetiradas(prev => Array.from(new Set([...prev, codigoPneu])));
+				setDadosPneus(prev => { const novo = { ...prev }; delete novo[codigoPneu]; return novo; });
+				setPneusPendentes(prev => prev.filter(p => p !== codigoPneu));
+				setModalRetirarVisible(false);
+				setModalPneuVisible(false);
+				setModalViewPneuVisible(false);
+				Alert.alert('Posição Liberada', 'O pneu foi retirado desta posição.');
+				return;
+			}
+
+			const response = await api.post('api_pneu_retirar.php', {
+				pneu_id: pneuId,
+				pneu_id_origem: pneuIdOrigem,
+				checklist_id: idChecklistAtivo || dados.pneu_nb_checklist,
+				veiculo_id: dados.pneu_nb_veiculo || veiculo?.id,
+				posicao: codigoPneu,
+				motivo_retirada: motivoLimpo,
+				user_id: user?.id
+			});
+			const res = response.data;
+			if (!isMounted.current) return;
+
+			if (!res?.success) {
+				Alert.alert('Erro', res?.message || 'Não foi possível retirar o pneu.');
+				return;
+			}
+
+			setPosicoesRetiradas(prev => Array.from(new Set([...prev, codigoPneu])));
+			setDadosPneus(prev => { const novo = { ...prev }; delete novo[codigoPneu]; return novo; });
+			setPneusPendentes(prev => prev.filter(p => p !== codigoPneu));
+			setModalRetirarVisible(false);
+			setModalPneuVisible(false);
+			setModalViewPneuVisible(false);
+
+			if (idChecklistAtivo) {
+				await carregarCoresPneus(idChecklistAtivo, [codigoPneu]);
+			}
+
+			const pneuIdLaudo = res.pneu_id || pneuId;
+			const gerouLaudo = res.gerou_laudo === true || res.gerou_laudo === 1 || res.gerou_laudo === '1';
+
+			if (gerouLaudo && pneuIdLaudo) {
+				Alert.alert(
+					'Pneu Retirado',
+					res.message || 'Pneu retirado e laudo gerado com sucesso!',
+					[
+						{ text: 'OK' },
+						{
+							text: 'Visualizar Laudo',
+							onPress: async () => {
+								try {
+									const url = await gerarLinkRelatorio('imprimir_pneu.php', { id: pneuIdLaudo, _ts: Date.now() });
+									abrirModalPreview(url, `Laudo_Pneu_${pneuIdLaudo}`, 'Laudo Técnico de Pneu', `Pneu Referência #${pneuIdLaudo}`);
+								} catch (e: any) {
+									if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
+								}
+							}
+						}
+					]
+				);
+			} else {
+				Alert.alert('Sucesso', res.message || 'Pneu retirado do veículo com sucesso.');
+			}
+		} catch (error) {
+			if (isMounted.current) Alert.alert('Erro', 'Falha na conexão ao retirar o pneu.');
+		} finally {
+			if (isMounted.current) setIsRetirandoPneu(false);
+		}
+	};
+
+	const renderModalRetirar = () => {
+		const db = dadosRetirada?.dbData || {};
+		const marcaModelo = [db.pneu_tx_marca || db.marca, db.pneu_tx_modelo || db.modelo].filter(Boolean).join(' / ');
+		const serieExibir = db.pneu_tx_serie || db.serie || 'S/A';
+
+		return (
+			<View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center', zIndex: 99998, elevation: 99998 }]}>
+				{buscaMotivoVisible ? (
+					<View style={styles.retiradaBuscaContainer}>
+						<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+							<Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>Motivo da Retirada</Text>
+							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+								<TouchableOpacity
+									style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, marginRight: 12, flexDirection: 'row', alignItems: 'center' }}
+									onPress={() => abrirCadastroMotivoRetirada(termoBuscaMotivo)}
+								>
+									<Feather name="plus-circle" size={14} color="#28a745" />
+									<Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13, marginLeft: 5 }}>Inserir</Text>
+								</TouchableOpacity>
+								<TouchableOpacity onPress={() => setBuscaMotivoVisible(false)} style={{ padding: 4 }}>
+									<Feather name="x" size={22} color="#333" />
+								</TouchableOpacity>
+							</View>
+						</View>
+
+						<View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 8, height: 44, marginBottom: 10 }}>
+							<Feather name="search" size={18} color="#999" style={{ marginLeft: 10 }} />
+							<TextInput
+								style={{ flex: 1, paddingHorizontal: 10, fontSize: 14, color: '#333' }}
+								placeholder="Buscar por região ou motivo..."
+								placeholderTextColor="#999"
+								value={termoBuscaMotivo}
+								onChangeText={(t) => {
+									setTermoBuscaMotivo(t);
+									buscarMotivosRetirada(t);
+								}}
+								autoFocus={true}
+							/>
+						</View>
+
+						{isBuscandoMotivo ? (
+							<ActivityIndicator size="large" color="#0c6ead" style={{ marginTop: 30 }} />
+						) : (
+							<ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+								{resultadosMotivo.length === 0 ? (
+									<Text style={{ textAlign: 'center', color: '#999', marginTop: 25 }}>Nenhum motivo encontrado.</Text>
+								) : (
+									resultadosMotivo.map((item, index) => {
+										const grupo = item?.regiao || item?.categoria || '';
+										const grupoAnt = index > 0 ? (resultadosMotivo[index - 1]?.regiao || resultadosMotivo[index - 1]?.categoria || '') : '';
+										const temGrupo = Boolean(grupo);
+										const mostrarHeader = temGrupo && grupo !== grupoAnt;
+
+										return (
+											<View key={`mot_ret_${item?.id || index}`}>
+												{mostrarHeader && (
+													<View style={{ backgroundColor: '#e8f0fe', borderLeftWidth: 4, borderLeftColor: '#0c6ead', paddingVertical: 8, paddingHorizontal: 12, marginTop: 10, marginBottom: 2, borderRadius: 6 }}>
+														<Text style={{ fontSize: 13, fontWeight: 'bold', color: '#0c6ead', textTransform: 'uppercase' }}>{grupo}</Text>
+													</View>
+												)}
+												<TouchableOpacity
+													style={{ borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 11, paddingLeft: temGrupo ? 16 : 4 }}
+													onPress={() => {
+														setMotivoRetirada(item.nome);
+														setBuscaMotivoVisible(false);
+													}}
+												>
+													<Text style={{ fontSize: 14, fontWeight: '600', color: '#222' }}>
+														{temGrupo ? `- ${item.nome}` : item.nome}
+													</Text>
+													{item.documento ? (
+														<Text style={{ fontSize: 11, color: '#777', marginTop: 2, paddingLeft: temGrupo ? 12 : 0 }}>{item.documento}</Text>
+													) : null}
+												</TouchableOpacity>
+											</View>
+										);
+									})
+								)}
+							</ScrollView>
+						)}
+					</View>
+				) : cadastroMotivoVisible ? (
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', alignItems: 'center' }}>
+						<View style={styles.modalSmall}>
+							<Text style={styles.modalTitle}>Cadastrar Dano / Motivo</Text>
+
+							<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+								<Text style={[styles.label, { marginBottom: 0 }]}>* Região do Pneu</Text>
+								<TouchableOpacity
+									onPress={() => {
+										setModoNovaRegiao(!modoNovaRegiao);
+										setFormCadastro({ ...formCadastro, regiao: '' });
+									}}
+								>
+									<Text style={{ fontSize: 12, fontWeight: 'bold', color: '#0c6ead' }}>
+										{modoNovaRegiao ? 'Selecionar da lista' : '+ Digitar nova região'}
+									</Text>
+								</TouchableOpacity>
+							</View>
+
+							{modoNovaRegiao ? (
+								<TextInput
+									style={styles.inputModal}
+									value={formCadastro.regiao}
+									onChangeText={(t) => setFormCadastro({ ...formCadastro, regiao: t })}
+									placeholder="Digite a região (Ex: BANDA DE RODAGEM...)"
+									autoCapitalize="characters"
+								/>
+							) : (
+								<RNPickerSelect
+									placeholder={{ label: 'Selecione a região...', value: '', color: '#999' }}
+									value={formCadastro.regiao}
+									onValueChange={(v) => setFormCadastro({ ...formCadastro, regiao: v || '' })}
+									items={[
+										{ label: 'BANDA DE RODAGEM', value: 'BANDA DE RODAGEM', color: '#000' },
+										{ label: 'FLANCO / LATERAL', value: 'FLANCO / LATERAL', color: '#000' },
+										{ label: 'TALÃO', value: 'TALÃO', color: '#000' },
+										{ label: 'CARCAÇA', value: 'CARCAÇA', color: '#000' }
+									]}
+									style={pickerStyles}
+									useNativeAndroidPickerStyle={false}
+									Icon={PickerIcon}
+								/>
+							)}
+
+							<Text style={styles.label}>* Categoria do Dano</Text>
+							<RNPickerSelect
+								placeholder={{ label: 'Selecione a categoria...', value: '', color: '#999' }}
+								value={formCadastro.categoria_id}
+								onValueChange={(v) => setFormCadastro({ ...formCadastro, categoria_id: v || '' })}
+								items={categoriasDano.map((c: any) => ({
+									label: c.nome,
+									value: String(c.id),
+									color: '#000'
+								}))}
+								style={pickerStyles}
+								useNativeAndroidPickerStyle={false}
+								Icon={PickerIcon}
+							/>
+
+							<Text style={styles.label}>* Tipo de Dano / Ocorrência</Text>
+							<TextInput
+								style={styles.inputModal}
+								value={formCadastro.nome}
+								onChangeText={(t) => setFormCadastro({ ...formCadastro, nome: t })}
+								placeholder="Ex: Impacto por objeto cortante..."
+								autoCapitalize="characters"
+							/>
+
+							<View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
+								<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setCadastroMotivoVisible(false)}>
+									<Text style={{ fontWeight: 'bold', color: '#333' }}>Voltar</Text>
+								</TouchableOpacity>
+								<TouchableOpacity style={[styles.btnIniciar, { flex: 1 }]} onPress={salvarNovoMotivoRetirada} disabled={isCadastrando}>
+									{isCadastrando ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gravar</Text>}
+								</TouchableOpacity>
+							</View>
+						</View>
+					</KeyboardAvoidingView>
+				) : (
+					<View style={styles.modalSmall}>
+						<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+								<Feather name="log-out" size={20} color="#E53935" />
+								<Text style={[styles.modalTitle, { marginBottom: 0, marginLeft: 8, color: '#C62828' }]}>Retirar Pneu</Text>
+							</View>
+							<TouchableOpacity onPress={() => setModalRetirarVisible(false)} style={{ padding: 4 }}>
+								<Feather name="x" size={22} color="#333" />
+							</TouchableOpacity>
+						</View>
+
+						<View style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#e9ecef', marginBottom: 15 }}>
+							<Text style={{ fontWeight: 'bold', fontSize: 14, color: '#333' }}>Posição {dadosRetirada?.codigoPneu}</Text>
+							<Text style={{ fontSize: 12, color: '#666', marginTop: 3 }}>Série: {serieExibir}</Text>
+							{!!marcaModelo && <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{marcaModelo}</Text>}
+						</View>
+
+						<Text style={styles.label}>Motivo da Retirada (Opcional)</Text>
+						<TouchableOpacity style={styles.fakeInput} onPress={abrirBuscaMotivoRetirada}>
+							<Text style={{ color: motivoRetirada ? '#000' : '#999', flex: 1, marginRight: 8 }} numberOfLines={2}>
+								{motivoRetirada || 'Selecionar motivo / dano...'}
+							</Text>
+							{motivoRetirada ? (
+								<TouchableOpacity onPress={() => setMotivoRetirada('')} style={{ padding: 4 }}>
+									<Feather name="x-circle" size={18} color="#E53935" />
+								</TouchableOpacity>
+							) : (
+								<Feather name="search" size={16} color="#999" />
+							)}
+						</TouchableOpacity>
+
+						<Text style={{ fontSize: 12, color: '#777', marginTop: -8, marginBottom: 16, lineHeight: 17 }}>
+							Se informar um motivo, será gerado um laudo de recusa. Se deixar em branco, o pneu será listado como retirado sem motivo e a posição ficará livre.
+						</Text>
+
+						<View style={{ flexDirection: 'row', gap: 10 }}>
+							<TouchableOpacity style={[styles.btnDefault, { flex: 1 }]} onPress={() => setModalRetirarVisible(false)} disabled={isRetirandoPneu}>
+								<Text style={{ fontWeight: 'bold', color: '#333' }}>Cancelar</Text>
+							</TouchableOpacity>
+							<TouchableOpacity style={[styles.btnRetirarPneu, { flex: 1.3 }]} onPress={confirmarRetiradaPneu} disabled={isRetirandoPneu}>
+								{isRetirandoPneu ? (
+									<ActivityIndicator color="#fff" />
+								) : (
+									<Text style={[styles.btnRetirarPneuText, { marginLeft: 0 }]}>Confirmar Retirada</Text>
+								)}
+							</TouchableOpacity>
+						</View>
+					</View>
+				)}
+			</View>
 		);
 	};
 
@@ -705,29 +1118,7 @@ export default function ChecklistScreen() {
 	const removerFoto = (index: number) => { setFotosPneu(fotosPneu.filter((_, i) => i !== index)); };
 
 	const salvarAfericaoPneu = async () => {
-		if (!formPneu.milimetros || !formPneu.pressao) { Alert.alert('Atenção', 'Sulco e Calibração são obrigatórios.'); return; }
-		if (!formPneu.referencia) { Alert.alert('Atenção', 'A Referência do pneu é obrigatória.'); return; }
-		if (!formPneu.marca || !formPneu.modelo) { Alert.alert('Atenção', 'A Marca e o Modelo são obrigatórios.'); return; }
-
-		if (formPneu.dot && formPneu.dot !== 'S/A') {
-			if (formPneu.dot.length !== 4) { Alert.alert('Atenção', 'O DOT deve conter exatamente 4 dígitos numéricos.'); return; }
-			const semana = parseInt(formPneu.dot.substring(0, 2));
-			if (semana < 1 || semana > 53) { Alert.alert('Atenção', 'As duas primeiras posições do DOT representam a semana de fabricação e devem estar entre 01 e 53.'); return; }
-		}
-		if (!formPneu.tipo) { Alert.alert('Atenção', 'O campo Tipo é obrigatório.'); return; }
-
-		const sulcoAtualNum = parseFloat(formPneu.milimetros ? formPneu.milimetros.toString().replace(',', '.') : '0');
-		const sulcoOriginalNum = parseFloat(String(formPneu.mm_original || formPneu.ref_mm_original).replace(',', '.'));
-
-		if (!isNaN(sulcoOriginalNum) && sulcoOriginalNum > 0 && !isNaN(sulcoAtualNum) && sulcoAtualNum > sulcoOriginalNum) {
-			Alert.alert('Sulco Inválido', `O sulco atual (${sulcoAtualNum}mm) não pode ser maior que o sulco original do pneu (${sulcoOriginalNum}mm).`);
-			return;
-		}
-
-		const sulcoAnteriorNum = parseFloat(formPneu.sulco_anterior ? formPneu.sulco_anterior.toString().replace(',', '.') : '0');
-		if (!isNaN(sulcoAnteriorNum) && sulcoAnteriorNum > 0) {
-			if (sulcoAtualNum > sulcoAnteriorNum) { Alert.alert('Aferição Inválida', `O sulco atual não pode ser maior que o anterior!\nA última aferição registrou ${formPneu.sulco_anterior}mm.`); return; }
-		}
+		if (!validarCamposFormularioPneu()) return;
 
 		const precoAtualDigitado = formPneu.valor ? String(formPneu.valor).trim() : '';
 		const precoOriginalReferencia = formPneu.ref_valor ? String(formPneu.ref_valor).trim() : '';
@@ -750,38 +1141,7 @@ export default function ChecklistScreen() {
 	const executarEnvioAfericao = async (atualizarGlobal: 'sim' | 'nao') => {
 		setIsSaving(true);
 
-		const fotosNovas = fotosPneu.filter(f => f.startsWith('data:image'));
-		const fotosAntigasLimpas = fotosPneu.filter(f => f.startsWith('http')).map(f => f.substring(f.lastIndexOf('/') + 1));
-		const stringFotosAntigas = fotosAntigasLimpas.join(',');
-
-		const valorLimpo = formPneu.valor ? formPneu.valor.toString().replace(/\./g, '').replace(',', '.') : '0';
-
-		const dadosParaSalvar = {
-			...formPneu,
-			referencia: formPneu.referencia,
-			referencia_id: formPneu.referencia,
-			marca: formPneu.marca,
-			modelo: formPneu.modelo,
-			mm_original: formPneu.mm_original || formPneu.ref_mm_original,
-			motivo_recusa: formPneu.motivo_recusa,
-			laud_tx_motivo: formPneu.motivo_recusa,
-			reformador_id: formPneu.reformador_id,
-			reformador_nome: formPneu.reformador,
-			pneu_tx_reformador: formPneu.reformador,
-			valor: valorLimpo,
-			atualizar_preco_global: atualizarGlobal,
-			veiculo_id: veiculo?.id,
-			checklist_id: idChecklistAtivo,
-			posicao: pneuSelecionado,
-			user_id: user?.id,
-			fotos_novas: fotosNovas,
-			fotos: fotosNovas,
-			fotos_antigas: fotosAntigasLimpas,
-			fotosAntigas: fotosAntigasLimpas,
-			fotosAntigas_mantidas: fotosAntigasLimpas,
-			pneu_tx_foto_antiga: stringFotosAntigas,
-			foto_antiga: stringFotosAntigas
-		};
+		const dadosParaSalvar = montarPayloadSalvarPneu(atualizarGlobal);
 
 		const res = await apiService.salvarInspecaoPneu(dadosParaSalvar);
 		if (!isMounted.current) return;
@@ -790,39 +1150,12 @@ export default function ChecklistScreen() {
 		if (res && res.success) {
 			setModalPneuVisible(false);
 			setPneusPendentes(prev => prev.filter(p => p !== pneuSelecionado));
-
-			const pneuFoiRetirado = res.pneu_retirado === true || res.pneu_retirado === 1 || res.pneu_retirado === '1';
-
-			if (pneuFoiRetirado) {
-				setPosicoesRetiradas(prev => Array.from(new Set([...prev, pneuSelecionado])));
-				setDadosPneus(prev => { const novo = { ...prev }; delete novo[pneuSelecionado]; return novo; });
-				if (idChecklistAtivo) { await carregarCoresPneus(idChecklistAtivo, [pneuSelecionado]); }
-
-				const pneuIdLaudo = res.pneu_id || formPneu.id;
-				const gerouLaudo = res.gerou_laudo === true || res.gerou_laudo === 1 || res.gerou_laudo === '1';
-
-				const botoes: any[] = [{ text: 'OK' }];
-				if (gerouLaudo && pneuIdLaudo) {
-					botoes.push({
-						text: 'Visualizar Laudo',
-						onPress: async () => {
-							try {
-								const url = await gerarLinkRelatorio('imprimir_pneu.php', { id: pneuIdLaudo, _ts: Date.now() });
-								abrirModalPreview(url, `Laudo_Pneu_${pneuIdLaudo}`, 'Laudo Técnico de Pneu', `Pneu Referência #${pneuIdLaudo}`);
-							} catch (e: any) {
-								if (isMounted.current) Alert.alert('Erro', e?.message || 'Não foi possível gerar o link temporário do relatório.');
-							}
-						}
-					});
-				}
-				Alert.alert('Pneu Recusado', res.message || 'Laudo gerado e pneu retirado do veículo. A posição está livre para um novo pneu.', botoes);
-			} else {
-				setPosicoesRetiradas(prev => prev.filter(p => p !== pneuSelecionado));
-				if (idChecklistAtivo) await carregarCoresPneus(idChecklistAtivo);
-				Alert.alert('Sucesso', res.message);
-			}
+			setPosicoesRetiradas(prev => prev.filter(p => p !== pneuSelecionado));
+			if (idChecklistAtivo) await carregarCoresPneus(idChecklistAtivo);
+			Alert.alert('Sucesso', res.message);
+		} else {
+			Alert.alert('Erro', res?.message || 'Falha ao salvar pneu.');
 		}
-		else { Alert.alert('Erro', res?.message || 'Falha ao salvar pneu.'); }
 	};
 
 	const abrirBuscaDinamica = (tipo: any) => { setTipoBusca(tipo); setResultadosBusca([]); setModalBuscaVisible(true); buscarDinamicaNoBanco(tipo, ''); };
@@ -1046,7 +1379,7 @@ export default function ChecklistScreen() {
 
 	const imprimirLaudoPneuRecusado = async (pneu: any) => {
 		const pneuId = pneu?.pneu_nb_id || pneu?.id;
-		if (!pneuId) { Alert.alert('Atenção', 'Não foi possível identificar o pneu recusado para gerar o laudo.'); return; }
+		if (!pneuId) { Alert.alert('Atenção', 'Não foi possível identificar o pneu para gerar o laudo.'); return; }
 		const posicao = pneu?.laud_tx_posicao || pneu?.pneu_tx_posicao || '';
 		const serie = pneu?.pneu_tx_serie || 'S/A';
 		try {
@@ -1190,8 +1523,7 @@ export default function ChecklistScreen() {
 							</View>
 							{historico.map((h, index) => {
 								const isUltimoChecklist = index === 0;
-								const isAdmin = user?.nivel === 'ADMINISTRADOR' || user?.nivel === 'DIRETORIA';
-								const podeEditar = isUltimoChecklist || isAdmin;
+								const podeEditar = isUltimoChecklist || isAdminUsuario;
 
 								return (
 									<View key={`historico_${index}`} style={[styles.itemHistorico, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 15 }]}>
@@ -1219,7 +1551,7 @@ export default function ChecklistScreen() {
 												<Feather name={podeEditar ? "edit-2" : "eye"} size={14} color="#fff" />
 												<Text style={styles.btnModificarHistoricoText} numberOfLines={1}>{podeEditar ? 'Editar' : 'Visualizar'}</Text>
 											</TouchableOpacity>
-											{isAdmin && (
+											{isAdminUsuario && (
 												<TouchableOpacity style={[styles.btnExcluirHistorico, { flex: 1, paddingVertical: 10 }]} onPress={() => excluirChecklistAntigo(h.chec_nb_id)}>
 													<Feather name="trash-2" size={14} color="#fff" />
 													<Text style={styles.btnExcluirHistoricoText} numberOfLines={1}>Excluir</Text>
@@ -1258,7 +1590,7 @@ export default function ChecklistScreen() {
 									<View style={styles.recusadosHeader}>
 										<View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
 											<Feather name="alert-triangle" size={20} color="#C62828" />
-											<Text style={styles.recusadosTitle}>Pneus Recusados</Text>
+											<Text style={styles.recusadosTitle}>Pneus Retirados</Text>
 										</View>
 										<View style={styles.recusadosBadge}>
 											<Text style={styles.recusadosBadgeText}>{pneusRecusados.length}</Text>
@@ -1266,29 +1598,41 @@ export default function ChecklistScreen() {
 									</View>
 
 									<Text style={styles.recusadosDescricao}>
-										Pneus retirados deste diagnostico por motivo de recusa. O histórico permanece salvo e o laudo pode ser emitido a qualquer momento.
+										Pneus retirados deste diagnóstico. O histórico permanece salvo e, quando houver motivo de recusa, o laudo pode ser emitido a qualquer momento.
 									</Text>
 
 									{pneusRecusados.map((pneu: any, index: number) => {
 										const posicao = pneu.laud_tx_posicao || pneu.pneu_tx_posicao || '--';
 										const serie = pneu.pneu_tx_serie || 'S/A';
 										const marcaModelo = [pneu.pneu_tx_marca, pneu.pneu_tx_modelo].filter(Boolean).join(' / ');
+										const motivoLaudo = String(pneu.laud_tx_motivo || '').trim();
+										const situacaoTexto = String(pneu.pneu_tx_situacao || '').trim();
+										const temMotivoLaudo = Boolean(motivoLaudo) || (Boolean(situacaoTexto) && situacaoTexto.toUpperCase() !== 'RETIRADO');
+										const textoMotivo = motivoLaudo || (temMotivoLaudo ? situacaoTexto : '');
 
 										return (
-											<View key={`recusado_${pneu.laud_nb_id || pneu.pneu_nb_id || index}`} style={styles.recusadoCard}>
+											<View key={`retirado_${pneu.laud_nb_id || pneu.pneu_nb_id || index}`} style={styles.recusadoCard}>
 												<View style={{ flex: 1, paddingRight: 10 }}>
 													<Text style={styles.recusadoPosicao}>Posição {posicao}</Text>
 													<Text style={styles.recusadoInfo}>Série: {serie}</Text>
 													{!!marcaModelo && <Text style={styles.recusadoInfo}>{marcaModelo}</Text>}
-													<Text style={styles.recusadoMotivo} numberOfLines={3}>
-														Motivo: {pneu.laud_tx_motivo || pneu.pneu_tx_situacao || 'Não informado'}
-													</Text>
+													{temMotivoLaudo ? (
+														<Text style={styles.recusadoMotivo} numberOfLines={3}>
+															Motivo: {textoMotivo}
+														</Text>
+													) : (
+														<Text style={[styles.recusadoInfo, { fontStyle: 'italic', marginTop: 5, color: '#777' }]}>
+															Retirado sem motivo informado
+														</Text>
+													)}
 												</View>
 
-												<TouchableOpacity style={styles.btnLaudoRecusado} onPress={() => imprimirLaudoPneuRecusado(pneu)}>
-													<Feather name="printer" size={16} color="#fff" />
-													<Text style={styles.btnLaudoRecusadoText}>Laudo</Text>
-												</TouchableOpacity>
+												{temMotivoLaudo && (
+													<TouchableOpacity style={styles.btnLaudoRecusado} onPress={() => imprimirLaudoPneuRecusado(pneu)}>
+														<Feather name="printer" size={16} color="#fff" />
+														<Text style={styles.btnLaudoRecusadoText}>Laudo</Text>
+													</TouchableOpacity>
+												)}
 											</View>
 										);
 									})}
@@ -1447,15 +1791,6 @@ export default function ChecklistScreen() {
 							</View>
 						</View>
 
-						<Text style={styles.groupTitle}>Recusa (Opcional)</Text>
-						<View style={{ width: '100%', marginBottom: 15 }}>
-							<Text style={styles.label}>Motivo da Recusa (Se houver)</Text>
-							<TouchableOpacity style={styles.fakeInput} onPress={() => abrirBuscaDinamica('motivo_laudo')}>
-								<Text style={{ color: formPneu.motivo_recusa ? '#000' : '#999' }}>{formPneu.motivo_recusa || 'Selecionar...'}</Text>
-								{formPneu.motivo_recusa ? (<TouchableOpacity onPress={() => setFormPneu({ ...formPneu, motivo_recusa: '' })}><Feather name="x-circle" size={18} color="#E53935" /></TouchableOpacity>) : (<Feather name="search" size={16} color="#999" />)}
-							</TouchableOpacity>
-						</View>
-
 						<Text style={styles.label}>Observações (Opcional)</Text>
 						<TextInput style={[styles.inputModal, { height: 80, textAlignVertical: 'top' }]} multiline={true} value={formPneu.observacao} onChangeText={t => setFormPneu({ ...formPneu, observacao: t })} placeholder="Alguma nota sobre este pneu..." />
 
@@ -1475,8 +1810,12 @@ export default function ChecklistScreen() {
 							</ScrollView>
 						)}
 
-						{pneuPodeSerRetirado && !isSomenteLeitura && !formPneu.motivo_recusa && (historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo)) <= 0) && (
-							<TouchableOpacity style={[styles.btnRetirarPneu, { marginTop: 20 }]} disabled={isRetirandoPneu} onPress={() => retirarPneu(pneuSelecionado, dadosPneus[pneuSelecionado]?.dados_completos || formPneu)}>
+						{podeRetirarNoChecklistAtual && (
+							<TouchableOpacity
+								style={[styles.btnRetirarPneu, { marginTop: 20 }]}
+								disabled={isRetirandoPneu}
+								onPress={() => retirarPneu(pneuSelecionado, dadosPneus[pneuSelecionado]?.dados_completos || formPneu, true)}
+							>
 								{isRetirandoPneu ? <ActivityIndicator color="#fff" /> : <><Feather name="log-out" size={18} color="#fff" /><Text style={styles.btnRetirarPneuText}>Retirar Pneu</Text></>}
 							</TouchableOpacity>
 						)}
@@ -1606,6 +1945,7 @@ export default function ChecklistScreen() {
 						</View>
 					</Modal>
 
+					{modalRetirarVisible && renderModalRetirar()}
 				</KeyboardAvoidingView>
 			</Modal>
 
@@ -1662,14 +2002,14 @@ export default function ChecklistScreen() {
 										</View>
 									)}
 
-									{!isSomenteLeitura && (historico.findIndex(h => Number(h.chec_nb_id) === Number(idChecklistAtivo)) <= 0) && (
+									{podeRetirarNoChecklistAtual && (
 										<View style={{ marginTop: 20, gap: 10 }}>
 											<TouchableOpacity style={styles.btnSalvar} onPress={() => { setModalViewPneuVisible(false); abrirEdicaoPneu(viewData.codigoPneu, viewData.dbData); }}>
 												<Feather name="edit-2" size={18} color="#fff" style={{ marginRight: 8 }} />
 												<Text style={styles.btnSalvarText}>Editar</Text>
 											</TouchableOpacity>
 											{!isSucata && (
-												<TouchableOpacity style={styles.btnRetirarPneu} disabled={isRetirandoPneu} onPress={() => retirarPneu(viewData.codigoPneu, viewData.dbData)}>
+												<TouchableOpacity style={styles.btnRetirarPneu} disabled={isRetirandoPneu} onPress={() => retirarPneu(viewData.codigoPneu, viewData.dbData, false)}>
 													{isRetirandoPneu ? <ActivityIndicator color="#fff" /> : <><Feather name="log-out" size={18} color="#fff" /><Text style={styles.btnRetirarPneuText}>Retirar Pneu</Text></>}
 												</TouchableOpacity>
 											)}
@@ -1679,6 +2019,8 @@ export default function ChecklistScreen() {
 							);
 						})()}
 					</ScrollView>
+
+					{modalRetirarVisible && renderModalRetirar()}
 				</View>
 			</Modal>
 
@@ -1759,4 +2101,5 @@ const styles = StyleSheet.create({
 	reportRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderColor: '#f0f0f0' },
 	reportLabel: { fontSize: 14, color: '#666' },
 	reportValue: { fontSize: 15, fontWeight: 'bold', color: '#333' },
+	retiradaBuscaContainer: { width: '90%', height: '75%', backgroundColor: '#fff', borderRadius: 12, padding: 18, elevation: 10 },
 });
